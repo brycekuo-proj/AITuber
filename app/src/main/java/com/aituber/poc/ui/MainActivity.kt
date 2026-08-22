@@ -2,6 +2,7 @@ package com.aituber.poc.ui
 
 import android.Manifest
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -19,8 +20,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
+import com.aituber.poc.poc.AccessibilityProbeState
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
+import com.aituber.poc.poc.ChatGptAccessibilityProbeService
 import com.aituber.poc.poc.ChatGptTarget
 import com.aituber.poc.poc.DetectionMethod
 import com.aituber.poc.state.UniversalAiState
@@ -64,6 +67,20 @@ class MainActivity : Activity() {
     private lateinit var observedContentTypeValue: TextView
     private lateinit var observedPlayerStateValue: TextView
     private lateinit var playbackAttributionValue: TextView
+    private lateinit var accessibilityServiceValue: TextView
+    private lateinit var chatGptWindowDetectedValue: TextView
+    private lateinit var accessibilityLastEventTypeValue: TextView
+    private lateinit var accessibilityLastEventTimestampValue: TextView
+    private lateinit var rootNodeAvailableValue: TextView
+    private lateinit var voiceUiCandidateDetectedValue: TextView
+    private lateinit var candidateStateValue: TextView
+    private lateinit var candidateSignalSummaryValue: TextView
+    private lateinit var accessibilityEventCountValue: TextView
+    private lateinit var windowChangeCountValue: TextView
+    private lateinit var nodeTreeChangeCountValue: TextView
+    private lateinit var distinctViewIdsObservedValue: TextView
+    private lateinit var distinctContentDescriptionStatePatternsValue: TextView
+    private lateinit var lastAccessibilityEventSummariesValue: TextView
     private lateinit var levelBar: ProgressBar
 
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
@@ -81,6 +98,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        AccessibilityProbeState.setServiceEnabled(isAccessibilityProbeEnabled())
         CaptureSessionState.subscribe(stateListener)
         playbackProbe?.start()
     }
@@ -171,6 +189,20 @@ class MainActivity : Activity() {
         observedContentTypeValue = addField(root, "Observed Content Type")
         observedPlayerStateValue = addField(root, "Observed Player State")
         playbackAttributionValue = addField(root, "Playback Attribution")
+        accessibilityServiceValue = addField(root, "Accessibility Service")
+        chatGptWindowDetectedValue = addField(root, "ChatGPT Window Detected")
+        accessibilityLastEventTypeValue = addField(root, "Last Event Type")
+        accessibilityLastEventTimestampValue = addField(root, "Last Event Timestamp")
+        rootNodeAvailableValue = addField(root, "Root Node Available")
+        voiceUiCandidateDetectedValue = addField(root, "Voice UI Candidate Detected")
+        candidateStateValue = addField(root, "Candidate State")
+        candidateSignalSummaryValue = addField(root, "Candidate Signal Summary")
+        accessibilityEventCountValue = addField(root, "Event Count")
+        windowChangeCountValue = addField(root, "Window Change Count")
+        nodeTreeChangeCountValue = addField(root, "Node Tree Change Count")
+        distinctViewIdsObservedValue = addField(root, "Distinct View IDs observed")
+        distinctContentDescriptionStatePatternsValue = addField(root, "Distinct content-description-presence/state patterns")
+        lastAccessibilityEventSummariesValue = addField(root, "Last 20 safe event summaries")
 
         levelBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -196,6 +228,13 @@ class MainActivity : Activity() {
             text = "Open Overlay Permission"
             setOnClickListener {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+            }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "Open Accessibility Settings"
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             }
         }, buttonLayoutParams())
 
@@ -303,6 +342,15 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun isAccessibilityProbeEnabled(): Boolean {
+        val expected = ComponentName(this, ChatGptAccessibilityProbeService::class.java).flattenToString()
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.split(':').any { service -> service.equals(expected, ignoreCase = true) }
+    }
+
     private fun renderSnapshot(snapshot: UniversalStateSnapshot) {
         runOnUiThread {
             targetAppValue.text = snapshot.targetApp
@@ -341,6 +389,24 @@ class MainActivity : Activity() {
             observedContentTypeValue.text = snapshot.playbackProbe.observedContentType
             observedPlayerStateValue.text = snapshot.playbackProbe.observedPlayerState
             playbackAttributionValue.text = snapshot.playbackProbe.attribution
+            accessibilityServiceValue.text = snapshot.accessibilityProbe.serviceStatus
+            chatGptWindowDetectedValue.text = snapshot.accessibilityProbe.chatGptWindowDetected
+            accessibilityLastEventTypeValue.text = snapshot.accessibilityProbe.lastEventType
+            accessibilityLastEventTimestampValue.text = snapshot.accessibilityProbe.lastEventElapsedMs?.let { "$it ms" } ?: "n/a"
+            rootNodeAvailableValue.text = snapshot.accessibilityProbe.rootNodeAvailable
+            voiceUiCandidateDetectedValue.text = snapshot.accessibilityProbe.voiceUiCandidateDetected
+            candidateStateValue.text = snapshot.accessibilityProbe.candidateState
+            candidateSignalSummaryValue.text = snapshot.accessibilityProbe.candidateSignalSummary
+            accessibilityEventCountValue.text = snapshot.accessibilityProbe.eventCount.toString()
+            windowChangeCountValue.text = snapshot.accessibilityProbe.windowChangeCount.toString()
+            nodeTreeChangeCountValue.text = snapshot.accessibilityProbe.nodeTreeChangeCount.toString()
+            distinctViewIdsObservedValue.text = snapshot.accessibilityProbe.distinctViewIdsObserved.joinToString("\n").ifBlank { "n/a" }
+            distinctContentDescriptionStatePatternsValue.text =
+                snapshot.accessibilityProbe.distinctContentDescriptionStatePatterns.joinToString("\n").ifBlank { "n/a" }
+            lastAccessibilityEventSummariesValue.text =
+                snapshot.accessibilityProbe.lastEventSummaries.joinToString("\n") { event ->
+                    "${event.elapsedTimestampMs} ms | ${event.eventType} | root=${event.rootNodeAvailable} | candidate=${event.voiceUiCandidateDetected} | ${event.signalSummary}"
+                }.ifBlank { "n/a" }
             levelBar.progress = ((snapshot.diagnostics.currentAudioLevel ?: 0f) * 100).toInt().coerceIn(0, 100)
         }
     }
