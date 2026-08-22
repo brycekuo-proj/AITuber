@@ -29,6 +29,8 @@ import com.aituber.poc.state.FineGrainedVoiceEvent
 import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
+import com.aituber.poc.state.VisualMotionMetrics
+import com.aituber.poc.state.VisualMotionPhaseSummary
 
 class MainActivity : Activity() {
     private val projectionRequestCode = 1001
@@ -121,6 +123,7 @@ class MainActivity : Activity() {
     private lateinit var peakMotionValue: TextView
     private lateinit var validFramesValue: TextView
     private lateinit var skippedFramesValue: TextView
+    private lateinit var processingMsValue: TextView
     private lateinit var visualCurrentPhaseValue: TextView
     private lateinit var quietMotionAverageValue: TextView
     private lateinit var userMotionAverageValue: TextView
@@ -394,15 +397,16 @@ class MainActivity : Activity() {
         peakMotionValue = addDiagnosticField(root, "Peak Motion")
         validFramesValue = addDiagnosticField(root, "Valid Frames")
         skippedFramesValue = addDiagnosticField(root, "Dropped/Skipped Frames")
+        processingMsValue = addDiagnosticField(root, "Average Processing")
         visualCurrentPhaseValue = addDiagnosticField(root, "Current Test Phase")
-        quietMotionAverageValue = addDiagnosticField(root, "QUIET Average")
-        userMotionAverageValue = addDiagnosticField(root, "USER Average")
-        aiMotionAverageValue = addDiagnosticField(root, "AI Average")
+        quietMotionAverageValue = addDiagnosticField(root, "QUIET Summary")
+        userMotionAverageValue = addDiagnosticField(root, "USER Summary")
+        aiMotionAverageValue = addDiagnosticField(root, "AI Summary")
         quietMotionPeakValue = addDiagnosticField(root, "QUIET Peak")
         userMotionPeakValue = addDiagnosticField(root, "USER Peak")
         aiMotionPeakValue = addDiagnosticField(root, "AI Peak")
-        aiQuietRatioValue = addDiagnosticField(root, "AI / QUIET Ratio")
-        aiUserRatioValue = addDiagnosticField(root, "AI / USER Ratio")
+        aiQuietRatioValue = addDiagnosticField(root, "AI / QUIET Ratios")
+        aiUserRatioValue = addDiagnosticField(root, "AI / USER Ratios")
         visualMotionHistoryValue = addLogField(root, "Visual Motion History")
         centerHistoryValue = addLogField(root, "Center History")
         topDynamicCandidateNodesValue = addLogField(root, "Top 10 Dynamic Candidate Nodes")
@@ -656,24 +660,37 @@ class MainActivity : Activity() {
             visualProbeActiveValue.text = snapshot.visualMotion.active
             visualRoiBoundsValue.text = snapshot.visualMotion.roiBounds
             visualMotionAlgorithmValue.text = snapshot.visualMotion.motionAlgorithm
-            currentMotionValue.text = "%.3f".format(snapshot.visualMotion.currentMotionScore)
-            motionAvg1sValue.text = "%.3f".format(snapshot.visualMotion.average1s)
-            motionAvg3sValue.text = "%.3f".format(snapshot.visualMotion.average3s)
-            peakMotionValue.text = "%.3f".format(snapshot.visualMotion.peakMotionScore)
+            currentMotionValue.text = compactMetrics(snapshot.visualMotion.currentMetrics)
+            motionAvg1sValue.text = compactMetrics(snapshot.visualMotion.average1s)
+            motionAvg3sValue.text = compactMetrics(snapshot.visualMotion.average3s)
+            peakMotionValue.text =
+                "filtered=${"%.3f".format(snapshot.visualMotion.filteredPeakMotionScore)} raw=${"%.3f".format(snapshot.visualMotion.rawPeakMotionScore)}"
             validFramesValue.text = snapshot.visualMotion.validFrameCount.toString()
             skippedFramesValue.text = snapshot.visualMotion.skippedFrameCount.toString()
+            processingMsValue.text = "%.1f ms/frame".format(snapshot.visualMotion.averageProcessingMs)
             visualCurrentPhaseValue.text = snapshot.visualMotion.currentTestPhase
-            quietMotionAverageValue.text = "%.3f".format(snapshot.visualMotion.quietAverageMotion)
-            userMotionAverageValue.text = "%.3f".format(snapshot.visualMotion.userAverageMotion)
-            aiMotionAverageValue.text = "%.3f".format(snapshot.visualMotion.aiAverageMotion)
-            quietMotionPeakValue.text = "%.3f".format(snapshot.visualMotion.quietPeakMotion)
-            userMotionPeakValue.text = "%.3f".format(snapshot.visualMotion.userPeakMotion)
-            aiMotionPeakValue.text = "%.3f".format(snapshot.visualMotion.aiPeakMotion)
-            aiQuietRatioValue.text = "%.2f".format(snapshot.visualMotion.aiQuietRatio)
-            aiUserRatioValue.text = "%.2f".format(snapshot.visualMotion.aiUserRatio)
+            quietMotionAverageValue.text = compactSummary(snapshot.visualMotion.quietSummary)
+            userMotionAverageValue.text = compactSummary(snapshot.visualMotion.userSummary)
+            aiMotionAverageValue.text = compactSummary(snapshot.visualMotion.aiSummary)
+            quietMotionPeakValue.text = compactPeak(snapshot.visualMotion.quietSummary)
+            userMotionPeakValue.text = compactPeak(snapshot.visualMotion.userSummary)
+            aiMotionPeakValue.text = compactPeak(snapshot.visualMotion.aiSummary)
+            aiQuietRatioValue.text = compactRatios(
+                snapshot.visualMotion.aiQuietMeanRatio,
+                snapshot.visualMotion.aiQuietChangedPixelRatio,
+                snapshot.visualMotion.aiQuietHighMotionRatio,
+                snapshot.visualMotion.aiQuietEdgeMotionRatio,
+                snapshot.visualMotion.aiQuietColorMotionRatio
+            )
+            aiUserRatioValue.text = compactRatios(
+                snapshot.visualMotion.aiUserMeanRatio,
+                snapshot.visualMotion.aiUserChangedPixelRatio,
+                snapshot.visualMotion.aiUserHighMotionRatio,
+                snapshot.visualMotion.aiUserEdgeMotionRatio,
+                snapshot.visualMotion.aiUserColorMotionRatio
+            )
             visualMotionHistoryValue.text = snapshot.visualMotion.history.takeLast(100).joinToString("\n") { sample ->
-                "${sample.elapsedTimestampMs} | ${sample.phase} | m=${"%.3f".format(sample.motionScore)} | " +
-                    "a1=${"%.3f".format(sample.average1s)} | a3=${"%.3f".format(sample.average3s)}"
+                "${sample.elapsedTimestampMs} | ${sample.phase} | ${compactMetrics(sample.metrics)} | excluded=${sample.excludedFromSummary}"
             }.ifBlank { "n/a" }
             accessibilityEnabledValue.text = accessibilityEnabledLabel(snapshot.accessibilityProbe.enabled)
             accessibilityObservedPackageValue.text = snapshot.accessibilityProbe.observedPackage
@@ -731,6 +748,40 @@ class MainActivity : Activity() {
 
     private fun accessibilityEnabledLabel(serviceSnapshotValue: String): String {
         return if (isAccessibilityServiceEnabled()) "ENABLED" else serviceSnapshotValue
+    }
+
+    private fun compactMetrics(metrics: VisualMotionMetrics): String {
+        return "mean=${"%.3f".format(metrics.meanMotion)} " +
+            "px=${"%.3f".format(metrics.changedPixelRatio)} " +
+            "p95=${"%.3f".format(metrics.highMotionPercentile)} " +
+            "edge=${"%.3f".format(metrics.edgeMotion)} " +
+            "color=${"%.3f".format(metrics.colorMotion)}"
+    }
+
+    private fun compactSummary(summary: VisualMotionPhaseSummary): String {
+        return "mean=${"%.3f".format(summary.meanAverage)} " +
+            "px=${"%.3f".format(summary.changedPixelRatioAverage)} " +
+            "p95=${"%.3f".format(summary.highMotionPercentileAverage)} " +
+            "edge=${"%.3f".format(summary.edgeMotionAverage)} " +
+            "color=${"%.3f".format(summary.colorMotionAverage)}"
+    }
+
+    private fun compactPeak(summary: VisualMotionPhaseSummary): String {
+        return "filtered=${"%.3f".format(summary.filteredPeakMeanMotion)} raw=${"%.3f".format(summary.rawPeakMeanMotion)}"
+    }
+
+    private fun compactRatios(
+        mean: Double,
+        changedPixel: Double,
+        highMotion: Double,
+        edge: Double,
+        color: Double
+    ): String {
+        return "mean=${"%.2f".format(mean)} " +
+            "px=${"%.2f".format(changedPixel)} " +
+            "p95=${"%.2f".format(highMotion)} " +
+            "edge=${"%.2f".format(edge)} " +
+            "color=${"%.2f".format(color)}"
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {

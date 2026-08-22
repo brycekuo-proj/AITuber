@@ -130,14 +130,16 @@ class VisualMotionProbeService : Service() {
             val buffer = plane.buffer
             val bytes = ByteArray(buffer.remaining())
             buffer.get(bytes)
-            val score = analyzer.scoreFromRgbaBytes(
+            val processingStart = SystemClock.elapsedRealtime()
+            val metrics = analyzer.metricsFromRgbaBytes(
                 width = image.width,
                 height = image.height,
                 rowStride = plane.rowStride,
                 pixelStride = plane.pixelStride,
                 bytes = bytes
             )
-            CaptureSessionState.updateVisualMotion(accumulator.record(now, score))
+            val processingMs = SystemClock.elapsedRealtime() - processingStart
+            CaptureSessionState.updateVisualMotion(accumulator.record(now, metrics, processingMs))
             if (automatedTestStartElapsedMs?.let { start -> now - start >= TEST_DURATION_MS } == true) {
                 stopProbe()
             }
