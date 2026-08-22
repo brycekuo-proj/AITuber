@@ -8,5 +8,6 @@ data class UniversalStateSnapshot(
     val captureStatus: String,
     val speakingSignalSource: String = "n/a",
     val diagnostics: CaptureDiagnostics = CaptureDiagnostics.empty(),
-    val playbackProbe: PlaybackProbeSnapshot = PlaybackProbeSnapshot.empty()
+    val playbackProbe: PlaybackProbeSnapshot = PlaybackProbeSnapshot.empty(),
+    val accessibilityProbe: AccessibilityProbeSnapshot = AccessibilityProbeSnapshot.empty()
 )

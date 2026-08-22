@@ -78,6 +78,16 @@ class MainActivity : Activity() {
     private lateinit var lastFineGrainedEventsValue: TextView
     private lateinit var lastCombinedEventsValue: TextView
     private lateinit var playbackAttributionValue: TextView
+    private lateinit var accessibilityEnabledValue: TextView
+    private lateinit var accessibilityObservedPackageValue: TextView
+    private lateinit var accessibilityEventCountValue: TextView
+    private lateinit var accessibilityRootNodeAvailableValue: TextView
+    private lateinit var accessibilityCandidateNodesValue: TextView
+    private lateinit var accessibilityUiSignatureValue: TextView
+    private lateinit var accessibilityUiSignatureChangedValue: TextView
+    private lateinit var accessibilityLastUiChangeValue: TextView
+    private lateinit var accessibilityCandidateStateValue: TextView
+    private lateinit var lastAccessibilityEventsValue: TextView
 
     private var diagnosticsExpanded = false
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
@@ -194,6 +204,13 @@ class MainActivity : Activity() {
         }, buttonLayoutParams())
 
         root.addView(Button(this).apply {
+            text = "OPEN ACCESSIBILITY SETTINGS"
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
             text = "ENABLE MOUTH OVERLAY"
             setOnClickListener { enableMouthOverlay() }
         }, buttonLayoutParams())
@@ -247,10 +264,22 @@ class MainActivity : Activity() {
         recordingSessionIdentityValue = addDiagnosticField(root, "Recording Identity")
         playbackAttributionValue = addDiagnosticField(root, "Attribution")
 
+        root.addView(sectionTitle("Accessibility Probe"))
+        accessibilityEnabledValue = addDiagnosticField(root, "Accessibility Enabled")
+        accessibilityObservedPackageValue = addDiagnosticField(root, "Observed Package")
+        accessibilityEventCountValue = addDiagnosticField(root, "Accessibility Event Count")
+        accessibilityRootNodeAvailableValue = addDiagnosticField(root, "Root Node Available")
+        accessibilityCandidateNodesValue = addDiagnosticField(root, "Voice UI Candidate Nodes")
+        accessibilityUiSignatureValue = addDiagnosticField(root, "UI Signature")
+        accessibilityUiSignatureChangedValue = addDiagnosticField(root, "UI Signature Changed")
+        accessibilityLastUiChangeValue = addDiagnosticField(root, "Last UI Change")
+        accessibilityCandidateStateValue = addDiagnosticField(root, "Accessibility Candidate State")
+
         root.addView(sectionTitle("Event Log"))
         lastPlaybackEventsValue = addLogField(root, "Last 10 Playback Events")
         lastFineGrainedEventsValue = addLogField(root, "Last 20 Fine-Grained Events")
         lastCombinedEventsValue = addLogField(root, "Last 20 Combined Events")
+        lastAccessibilityEventsValue = addLogField(root, "Last 20 Accessibility Events")
     }
 
     private fun addCoreField(root: LinearLayout, label: String): TextView {
@@ -461,6 +490,34 @@ class MainActivity : Activity() {
             lastPlaybackEventsValue.text = compactPlaybackLog(snapshot.playbackProbe.lastPlaybackEvents)
             lastFineGrainedEventsValue.text = compactFineGrainedLog(snapshot.playbackProbe.lastFineGrainedEvents)
             lastCombinedEventsValue.text = compactCombinedLog(snapshot.playbackProbe.lastCombinedEvents)
+            accessibilityEnabledValue.text = accessibilityEnabledLabel(snapshot.accessibilityProbe.enabled)
+            accessibilityObservedPackageValue.text = snapshot.accessibilityProbe.observedPackage
+            accessibilityEventCountValue.text = snapshot.accessibilityProbe.eventCount.toString()
+            accessibilityRootNodeAvailableValue.text = snapshot.accessibilityProbe.rootNodeAvailable
+            accessibilityCandidateNodesValue.text = snapshot.accessibilityProbe.voiceUiCandidateNodes.toString()
+            accessibilityUiSignatureValue.text = snapshot.accessibilityProbe.uiSignature
+            accessibilityUiSignatureChangedValue.text = snapshot.accessibilityProbe.uiSignatureChanged
+            accessibilityLastUiChangeValue.text = snapshot.accessibilityProbe.lastUiChangeElapsedMs?.let { "$it ms" } ?: "n/a"
+            accessibilityCandidateStateValue.text = snapshot.accessibilityProbe.candidateState
+            lastAccessibilityEventsValue.text = snapshot.accessibilityProbe.lastEvents.joinToString("\n") { event ->
+                "${event.elapsedTimestampMs} | ${event.eventType.shortEventType()} | sig=${event.uiSignature} | nodes=${event.candidateNodeCount}"
+            }.ifBlank { "n/a" }
+        }
+    }
+
+    private fun accessibilityEnabledLabel(serviceSnapshotValue: String): String {
+        return if (isAccessibilityServiceEnabled()) "ENABLED" else serviceSnapshotValue
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val expected = "$packageName/.accessibility.ChatGptAccessibilityProbeService"
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.split(':').any { serviceName ->
+            serviceName.equals(expected, ignoreCase = true) ||
+                serviceName.equals("$packageName/com.aituber.poc.accessibility.ChatGptAccessibilityProbeService", ignoreCase = true)
         }
     }
 
@@ -506,4 +563,11 @@ class MainActivity : Activity() {
 
     private fun String.shortMode() = replace("MODE_IN_COMMUNICATION", "mode=COMM")
         .replace("MODE_NORMAL", "mode=NORMAL")
+
+    private fun String.shortEventType() = replace("WINDOW_CONTENT_CHANGED", "CONTENT")
+        .replace("WINDOW_STATE_CHANGED", "WINDOW")
+        .replace("WINDOWS_CHANGED", "WINDOWS")
+        .replace("VIEW_ACCESSIBILITY_FOCUSED", "A11Y_FOCUS")
+        .replace("VIEW_FOCUSED", "FOCUS")
+        .replace("VIEW_SELECTED", "SELECTED")
 }

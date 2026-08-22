@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">AITuber PoC</string>
+    <string name="accessibility_probe_label">AITuber ChatGPT Voice Probe</string>
+    <string name="accessibility_probe_description">Observes safe ChatGPT Voice UI metadata for AITuber diagnostics.</string>
 </resources>
