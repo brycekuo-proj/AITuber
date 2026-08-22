@@ -16,9 +16,11 @@ import kotlin.math.sqrt
 class PlaybackCaptureAiAdapter(
     private val context: Context,
     private val mediaProjection: MediaProjection,
+    private val targetUid: Int,
+    private val targetLabel: String,
     private val reducer: UniversalStateReducer = UniversalStateReducer()
 ) : AiAdapter {
-    override val targetAppLabel = "System playback"
+    override val targetAppLabel = targetLabel
     override val detectionMethod = "Android Playback Capture"
 
     @Volatile private var running = false
@@ -39,6 +41,7 @@ class PlaybackCaptureAiAdapter(
             )
             val bufferSize = minBuffer.coerceAtLeast(sampleRate / 10)
             val config = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
+                .addMatchingUid(targetUid)
                 .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                 .addMatchingUsage(AudioAttributes.USAGE_GAME)
                 .build()

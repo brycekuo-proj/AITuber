@@ -16,18 +16,17 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import com.aituber.poc.aiadapter.AiAdapter
 import com.aituber.poc.aiadapter.CaptureStatus
-import com.aituber.poc.aiadapter.PlaybackCaptureAiAdapter
-import com.aituber.poc.aiadapter.UnavailableAiAdapter
-import com.aituber.poc.character.CharacterEngine
-import com.aituber.poc.character.DebugCharacterAdapter
+import com.aituber.poc.poc.CaptureSessionService
+import com.aituber.poc.poc.CaptureSessionState
+import com.aituber.poc.poc.ChatGptTarget
+import com.aituber.poc.poc.DetectionMethod
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 
 class MainActivity : Activity() {
     private val projectionRequestCode = 1001
-    private val recordAudioRequestCode = 1002
+    private val permissionRequestCode = 1002
 
     private lateinit var targetAppValue: TextView
     private lateinit var detectionMethodValue: TextView
@@ -35,32 +34,24 @@ class MainActivity : Activity() {
     private lateinit var audioLevelValue: TextView
     private lateinit var captureStatusValue: TextView
     private lateinit var levelBar: ProgressBar
-    private lateinit var startButton: Button
-    private lateinit var stopButton: Button
-    private lateinit var fallbackButton: Button
-    private lateinit var overlayButton: Button
 
-    private var adapter: AiAdapter? = null
-    private lateinit var characterEngine: CharacterEngine
+    private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
+        renderSnapshot(snapshot)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        characterEngine = CharacterEngine(DebugCharacterAdapter(::renderSnapshot))
         setContentView(buildUi())
-        renderSnapshot(
-            UniversalStateSnapshot(
-                targetApp = "Unknown",
-                detectionMethod = "Not selected",
-                state = UniversalAiState.UNKNOWN,
-                audioLevel = null,
-                captureStatus = CaptureStatus.NOT_STARTED
-            )
-        )
     }
 
-    override fun onDestroy() {
-        adapter?.stop()
-        super.onDestroy()
+    override fun onStart() {
+        super.onStart()
+        CaptureSessionState.subscribe(stateListener)
+    }
+
+    override fun onStop() {
+        CaptureSessionState.unsubscribe(stateListener)
+        super.onStop()
     }
 
     @Deprecated("Used for the minimal PoC Activity result flow.")
@@ -69,13 +60,9 @@ class MainActivity : Activity() {
         if (requestCode != projectionRequestCode) return
 
         if (resultCode == RESULT_OK && data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            val projection = manager.getMediaProjection(resultCode, data)
-            adapter?.stop()
-            adapter = PlaybackCaptureAiAdapter(this, projection)
-            adapter?.start { snapshot -> characterEngine.bind(snapshot) }
+            startCaptureService(resultCode, data)
         } else {
-            useUnavailableAdapter("MediaProjection permission was not granted")
+            publishLocal(CaptureStatus.MEDIA_PROJECTION_DENIED)
         }
     }
 
@@ -85,10 +72,12 @@ class MainActivity : Activity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == recordAudioRequestCode && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode != permissionRequestCode) return
+
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             requestPlaybackCapture()
         } else {
-            useUnavailableAdapter(CaptureStatus.RECORD_AUDIO_DENIED)
+            publishLocal(CaptureStatus.RECORD_AUDIO_DENIED)
         }
     }
 
@@ -121,36 +110,22 @@ class MainActivity : Activity() {
         }
         root.addView(levelBar)
 
-        startButton = Button(this).apply {
-            text = "Start Playback Capture"
+        root.addView(Button(this).apply {
+            text = "Start ChatGPT Capture"
             setOnClickListener { startDetection() }
-        }
-        stopButton = Button(this).apply {
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
             text = "Stop"
-            setOnClickListener {
-                adapter?.stop()
-                renderSnapshot(UniversalStateSnapshot("Unknown", "Stopped", UniversalAiState.UNKNOWN, null, CaptureStatus.STOPPED))
-            }
-        }
-        fallbackButton = Button(this).apply {
-            text = "Use Manual Fallback"
-            setOnClickListener {
-                renderSnapshot(UniversalStateSnapshot("Manual", "Manual fallback", UniversalAiState.UNKNOWN, null, "Fallback selected: show UNKNOWN until a safe signal is available"))
-            }
-        }
-        overlayButton = Button(this).apply {
+            setOnClickListener { stopCaptureService() }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
             text = "Open Overlay Permission"
             setOnClickListener {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
             }
-        }
-
-        listOf(startButton, stopButton, fallbackButton, overlayButton).forEach { button ->
-            root.addView(button, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 14 })
-        }
+        }, buttonLayoutParams())
 
         return root
     }
@@ -179,36 +154,79 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun buttonLayoutParams() = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    ).apply { topMargin = 14 }
+
     private fun startDetection() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            useUnavailableAdapter("Android Playback Capture requires Android 10 / API 29 or later")
+            publishLocal("Android Playback Capture requires Android 10 / API 29 or later")
+            return
+        }
+        if (!ChatGptTarget.isInstalled(this)) {
+            publishLocal(CaptureStatus.CHATGPT_NOT_INSTALLED)
             return
         }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), recordAudioRequestCode)
+            requestCapturePermissions()
             return
         }
         requestPlaybackCapture()
     }
 
+    private fun requestCapturePermissions() {
+        val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        requestPermissions(permissions.toTypedArray(), permissionRequestCode)
+    }
+
     private fun requestPlaybackCapture() {
-        renderSnapshot(
+        CaptureSessionState.update(
             UniversalStateSnapshot(
-                "System playback",
-                "Android Playback Capture",
-                UniversalAiState.UNKNOWN,
-                null,
-                CaptureStatus.WAITING_FOR_PERMISSION
+                targetApp = ChatGptTarget.label,
+                detectionMethod = DetectionMethod.PLAYBACK_CAPTURE.label,
+                state = UniversalAiState.UNKNOWN,
+                audioLevel = null,
+                captureStatus = CaptureStatus.WAITING_FOR_PERMISSION
             )
         )
         val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         startActivityForResult(manager.createScreenCaptureIntent(), projectionRequestCode)
     }
 
-    private fun useUnavailableAdapter(reason: String) {
-        adapter?.stop()
-        adapter = UnavailableAiAdapter(reason)
-        adapter?.start { snapshot -> characterEngine.bind(snapshot) }
+    private fun startCaptureService(resultCode: Int, data: Intent) {
+        val intent = Intent(this, CaptureSessionService::class.java).apply {
+            action = CaptureSessionService.ACTION_START
+            putExtra(CaptureSessionService.EXTRA_RESULT_CODE, resultCode)
+            putExtra(CaptureSessionService.EXTRA_RESULT_DATA, data)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    private fun stopCaptureService() {
+        val intent = Intent(this, CaptureSessionService::class.java).apply {
+            action = CaptureSessionService.ACTION_STOP
+        }
+        startService(intent)
+    }
+
+    private fun publishLocal(status: String) {
+        CaptureSessionState.update(
+            UniversalStateSnapshot(
+                targetApp = ChatGptTarget.label,
+                detectionMethod = DetectionMethod.PLAYBACK_CAPTURE.label,
+                state = UniversalAiState.UNKNOWN,
+                audioLevel = null,
+                captureStatus = status
+            )
+        )
     }
 
     private fun renderSnapshot(snapshot: UniversalStateSnapshot) {
