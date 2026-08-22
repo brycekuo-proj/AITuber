@@ -8,7 +8,7 @@ import android.graphics.RectF
 import android.view.View
 import com.aituber.poc.state.UniversalAiState
 
-class MouthOverlayView(context: Context) : View(context) {
+class MouthOverlayView(context: Context) : View(context), MouthViewPort {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(220, 20, 20, 20)
         style = Paint.Style.FILL
@@ -16,13 +16,14 @@ class MouthOverlayView(context: Context) : View(context) {
     private var state = UniversalAiState.UNKNOWN
     private var mouthOpenRatio = 0f
 
-    fun render(nextState: UniversalAiState) {
+    override fun render(nextState: UniversalAiState) {
         state = nextState
         invalidate()
     }
 
-    fun setMouthOpenRatio(ratio: Float) {
+    override fun setMouthOpenRatio(ratio: Float) {
         mouthOpenRatio = ratio.coerceIn(0f, 1f)
+        MouthRenderDiagnostics.recordViewRequestedRatio(mouthOpenRatio)
         invalidate()
     }
 
@@ -30,13 +31,14 @@ class MouthOverlayView(context: Context) : View(context) {
         super.onDraw(canvas)
         val width = width.toFloat()
         val height = height.toFloat()
-        val closedHeight = height * 0.12f
-        val openHeight = height * 0.72f
-        val currentHeight = if (state == UniversalAiState.SPEAKING) {
-            closedHeight + (openHeight - closedHeight) * mouthOpenRatio
-        } else {
-            closedHeight
-        }
+        val currentHeight = MouthDrawMetrics.calculatedMouthHeight(state, mouthOpenRatio, height)
+        MouthRenderDiagnostics.recordDraw(
+            state = state,
+            ratio = mouthOpenRatio,
+            width = width.toInt(),
+            height = height.toInt(),
+            calculatedMouthHeight = currentHeight
+        )
         val rect = RectF(
             width * 0.12f,
             (height - currentHeight) / 2f,

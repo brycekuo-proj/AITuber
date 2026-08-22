@@ -19,6 +19,7 @@ import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
+import com.aituber.poc.overlay.MouthRenderDiagnostics
 import com.aituber.poc.overlay.OverlayLifecycleTrace
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
@@ -66,6 +67,25 @@ class MainActivity : Activity() {
     private lateinit var diagnosticsContainer: LinearLayout
     private lateinit var diagnosticsToggleButton: Button
     private lateinit var captureStartupTraceValue: TextView
+    private lateinit var mouthPipelineDriveModeValue: TextView
+    private lateinit var mouthPipelineMapperTargetValue: TextView
+    private lateinit var mouthPipelineSmoothedOpenValue: TextView
+    private lateinit var mouthPipelineOverlayStateValue: TextView
+    private lateinit var mouthPipelineOverlayRmsValue: TextView
+    private lateinit var mouthPipelineOverlayPeakValue: TextView
+    private lateinit var mouthPipelineCharacterRenderCountValue: TextView
+    private lateinit var mouthPipelineAdapterRenderCountValue: TextView
+    private lateinit var mouthPipelineAdapterRatioValue: TextView
+    private lateinit var mouthPipelineViewSetCountValue: TextView
+    private lateinit var mouthPipelineViewRequestedRatioValue: TextView
+    private lateinit var mouthPipelineViewDrawCountValue: TextView
+    private lateinit var mouthPipelineViewDrawnRatioValue: TextView
+    private lateinit var mouthPipelineViewSizeValue: TextView
+    private lateinit var mouthPipelineCalculatedHeightValue: TextView
+    private lateinit var mouthPipelineLastRenderTimeValue: TextView
+    private lateinit var mouthPipelineLastDrawTimeValue: TextView
+    private lateinit var mouthPipelineRenderThreadValue: TextView
+    private lateinit var mouthPipelineDrawThreadValue: TextView
     private lateinit var startButtonClickCountValue: TextView
     private lateinit var projectionRequestCountValue: TextView
     private lateinit var projectionResultOkCountValue: TextView
@@ -331,6 +351,28 @@ class MainActivity : Activity() {
     }
 
     private fun addDiagnosticsFields(root: LinearLayout) {
+        root.addView(sectionTitle("Mouth Render Pipeline"))
+        addButton(root, "TEST MOUTH 100%") { CharacterOverlayService.testMouthFullyOpenForDebug() }
+        mouthPipelineDriveModeValue = addDiagnosticField(root, "Drive Mode")
+        mouthPipelineMapperTargetValue = addDiagnosticField(root, "Mapper Target")
+        mouthPipelineSmoothedOpenValue = addDiagnosticField(root, "Smoothed Open")
+        mouthPipelineOverlayStateValue = addDiagnosticField(root, "Overlay State")
+        mouthPipelineOverlayRmsValue = addDiagnosticField(root, "Overlay RMS")
+        mouthPipelineOverlayPeakValue = addDiagnosticField(root, "Overlay Peak")
+        mouthPipelineCharacterRenderCountValue = addDiagnosticField(root, "Character Render Count")
+        mouthPipelineAdapterRenderCountValue = addDiagnosticField(root, "Adapter Render Count")
+        mouthPipelineAdapterRatioValue = addDiagnosticField(root, "Adapter Ratio")
+        mouthPipelineViewSetCountValue = addDiagnosticField(root, "View Set Ratio Count")
+        mouthPipelineViewRequestedRatioValue = addDiagnosticField(root, "View Requested Ratio")
+        mouthPipelineViewDrawCountValue = addDiagnosticField(root, "View Draw Count")
+        mouthPipelineViewDrawnRatioValue = addDiagnosticField(root, "View Drawn Ratio")
+        mouthPipelineViewSizeValue = addDiagnosticField(root, "View Size")
+        mouthPipelineCalculatedHeightValue = addDiagnosticField(root, "Calculated Mouth Height")
+        mouthPipelineLastRenderTimeValue = addDiagnosticField(root, "Last Render Time")
+        mouthPipelineLastDrawTimeValue = addDiagnosticField(root, "Last Draw Time")
+        mouthPipelineRenderThreadValue = addDiagnosticField(root, "Render Thread")
+        mouthPipelineDrawThreadValue = addDiagnosticField(root, "Draw Thread")
+
         root.addView(sectionTitle("Capture Startup Trace"))
         captureStartupTraceValue = addLogField(root, "Capture Startup Trace")
         startButtonClickCountValue = addDiagnosticField(root, "Start Button Click Count")
@@ -736,6 +778,26 @@ class MainActivity : Activity() {
             mouthDriveModeValue.text = mouthDrive.mode
             mouthTargetOpenValue.text = mouthDrive.targetOpen?.let { "%.3f".format(it) } ?: "n/a"
             mouthSmoothedOpenValue.text = "%.3f".format(mouthDrive.smoothedOpen)
+            val mouthRender = MouthRenderDiagnostics.snapshot()
+            mouthPipelineDriveModeValue.text = mouthRender.mouthDriveMode
+            mouthPipelineMapperTargetValue.text = mouthRender.mapperTargetOpen?.let { "%.3f".format(it) } ?: "n/a"
+            mouthPipelineSmoothedOpenValue.text = "%.3f".format(mouthRender.smoothedOpen)
+            mouthPipelineOverlayStateValue.text = mouthRender.overlayReceivedState
+            mouthPipelineOverlayRmsValue.text = "%.3f".format(mouthRender.overlayReceivedRms)
+            mouthPipelineOverlayPeakValue.text = "%.3f".format(mouthRender.overlayReceivedPeak)
+            mouthPipelineCharacterRenderCountValue.text = mouthRender.characterEngineRenderCount.toString()
+            mouthPipelineAdapterRenderCountValue.text = mouthRender.adapterRenderCount.toString()
+            mouthPipelineAdapterRatioValue.text = mouthRender.adapterLastMouthRatio?.let { "%.3f".format(it) } ?: "n/a"
+            mouthPipelineViewSetCountValue.text = mouthRender.viewSetMouthOpenRatioCount.toString()
+            mouthPipelineViewRequestedRatioValue.text = "%.3f".format(mouthRender.viewLastRequestedRatio)
+            mouthPipelineViewDrawCountValue.text = mouthRender.viewOnDrawCount.toString()
+            mouthPipelineViewDrawnRatioValue.text = "%.3f".format(mouthRender.viewLastDrawnRatio)
+            mouthPipelineViewSizeValue.text = "${mouthRender.viewWidth} x ${mouthRender.viewHeight}"
+            mouthPipelineCalculatedHeightValue.text = "%.3f".format(mouthRender.calculatedMouthHeight)
+            mouthPipelineLastRenderTimeValue.text = mouthRender.lastRenderTimestampMs?.toString() ?: "n/a"
+            mouthPipelineLastDrawTimeValue.text = mouthRender.lastDrawTimestampMs?.toString() ?: "n/a"
+            mouthPipelineRenderThreadValue.text = mouthRender.renderThread
+            mouthPipelineDrawThreadValue.text = mouthRender.drawThread
 
             captureStartupTraceValue.text = snapshot.captureStartupTrace.trace.joinToString("\n").ifBlank { "n/a" }
             startButtonClickCountValue.text = snapshot.captureStartupTrace.startButtonClickCount.toString()
