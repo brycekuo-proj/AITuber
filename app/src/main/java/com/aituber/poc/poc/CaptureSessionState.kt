@@ -1,6 +1,7 @@
 package com.aituber.poc.poc
 
 import com.aituber.poc.aiadapter.CaptureStatus
+import com.aituber.poc.state.PlaybackProbeSnapshot
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 import java.util.concurrent.CopyOnWriteArraySet
@@ -20,8 +21,13 @@ object CaptureSessionState {
     fun current(): UniversalStateSnapshot = currentSnapshot
 
     fun update(snapshot: UniversalStateSnapshot) {
-        currentSnapshot = snapshot
-        listeners.forEach { listener -> listener(snapshot) }
+        currentSnapshot = snapshot.copy(playbackProbe = currentSnapshot.playbackProbe)
+        listeners.forEach { listener -> listener(currentSnapshot) }
+    }
+
+    fun updatePlaybackProbe(snapshot: PlaybackProbeSnapshot) {
+        currentSnapshot = currentSnapshot.copy(playbackProbe = snapshot)
+        listeners.forEach { listener -> listener(currentSnapshot) }
     }
 
     fun subscribe(listener: (UniversalStateSnapshot) -> Unit) {

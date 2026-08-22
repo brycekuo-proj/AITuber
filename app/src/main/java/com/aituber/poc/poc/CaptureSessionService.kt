@@ -27,6 +27,7 @@ class CaptureSessionService : Service() {
     private var mediaProjection: MediaProjection? = null
     private var mediaProjectionCallback: MediaProjection.Callback? = null
     private var adapter: AiAdapter? = null
+    private var playbackProbe: AndroidPlaybackStateProbe? = null
     private lateinit var characterEngine: CharacterEngine
     private var foregroundStarted = false
     private var stopping = false
@@ -36,6 +37,9 @@ class CaptureSessionService : Service() {
         characterEngine = CharacterEngine(DebugCharacterAdapter { snapshot ->
             CaptureSessionState.update(snapshot)
         })
+        playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
+            CaptureSessionState.updatePlaybackProbe(snapshot)
+        }
         ensureNotificationChannel()
     }
 
@@ -57,6 +61,7 @@ class CaptureSessionService : Service() {
     private fun startCapture(intent: Intent) {
         startForegroundCompat()
         publish(CaptureStatus.SERVICE_STARTING)
+        playbackProbe?.start()
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
         val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -106,6 +111,7 @@ class CaptureSessionService : Service() {
         stopping = true
         adapter?.stop()
         adapter = null
+        playbackProbe?.stop()
         mediaProjectionCallback?.let { callback ->
             runCatching { mediaProjection?.unregisterCallback(callback) }
         }

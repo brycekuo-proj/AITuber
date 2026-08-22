@@ -15,6 +15,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.poc.CaptureSessionService
@@ -40,6 +41,15 @@ class MainActivity : Activity() {
     private lateinit var lastReadResultValue: TextView
     private lateinit var captureDiagnosticValue: TextView
     private lateinit var captureStatusValue: TextView
+    private lateinit var playbackCallbackValue: TextView
+    private lateinit var activePlaybackCountValue: TextView
+    private lateinit var chatGptPlaybackDetectedValue: TextView
+    private lateinit var chatGptPlaybackStateValue: TextView
+    private lateinit var lastPlaybackChangeValue: TextView
+    private lateinit var observedUsageValue: TextView
+    private lateinit var observedContentTypeValue: TextView
+    private lateinit var observedPlayerStateValue: TextView
+    private lateinit var playbackAttributionValue: TextView
     private lateinit var levelBar: ProgressBar
 
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
@@ -113,6 +123,15 @@ class MainActivity : Activity() {
         lastReadResultValue = addField(root, "Last Read Result")
         captureDiagnosticValue = addField(root, "Capture Diagnostic")
         captureStatusValue = addField(root, "Capture Status")
+        playbackCallbackValue = addField(root, "Playback Callback")
+        activePlaybackCountValue = addField(root, "Active Playback Count")
+        chatGptPlaybackDetectedValue = addField(root, "ChatGPT Playback Detected")
+        chatGptPlaybackStateValue = addField(root, "ChatGPT Playback State")
+        lastPlaybackChangeValue = addField(root, "Last Playback Change")
+        observedUsageValue = addField(root, "Observed Usage")
+        observedContentTypeValue = addField(root, "Observed Content Type")
+        observedPlayerStateValue = addField(root, "Observed Player State")
+        playbackAttributionValue = addField(root, "Playback Attribution")
 
         levelBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -141,7 +160,9 @@ class MainActivity : Activity() {
             }
         }, buttonLayoutParams())
 
-        return root
+        return ScrollView(this).apply {
+            addView(root)
+        }
     }
 
     private fun addField(root: LinearLayout, label: String): TextView {
@@ -257,6 +278,15 @@ class MainActivity : Activity() {
             lastReadResultValue.text = snapshot.diagnostics.lastReadResult?.toString() ?: "n/a"
             captureDiagnosticValue.text = snapshot.diagnostics.diagnostic.label
             captureStatusValue.text = snapshot.captureStatus
+            playbackCallbackValue.text = snapshot.playbackProbe.callbackStatus
+            activePlaybackCountValue.text = snapshot.playbackProbe.activePlaybackCount.toString()
+            chatGptPlaybackDetectedValue.text = snapshot.playbackProbe.chatGptPlaybackDetected
+            chatGptPlaybackStateValue.text = snapshot.playbackProbe.chatGptPlaybackState
+            lastPlaybackChangeValue.text = snapshot.playbackProbe.lastPlaybackChangeElapsedMs?.let { "$it ms" } ?: "n/a"
+            observedUsageValue.text = snapshot.playbackProbe.observedUsage
+            observedContentTypeValue.text = snapshot.playbackProbe.observedContentType
+            observedPlayerStateValue.text = snapshot.playbackProbe.observedPlayerState
+            playbackAttributionValue.text = snapshot.playbackProbe.attribution
             levelBar.progress = ((snapshot.diagnostics.currentAudioLevel ?: 0f) * 100).toInt().coerceIn(0, 100)
         }
     }
