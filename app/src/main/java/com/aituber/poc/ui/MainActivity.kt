@@ -153,6 +153,9 @@ class MainActivity : Activity() {
     private lateinit var visualizerCurrentActivityValue: TextView
     private lateinit var visualizerOutputMixStatusValue: TextView
     private lateinit var visualizerCurrentPhaseValue: TextView
+    private lateinit var visualizerStartupTraceValue: TextView
+    private lateinit var visualizerStartRequestCountValue: TextView
+    private lateinit var visualizerStartInternalCountValue: TextView
     private lateinit var visualizerDetectorThresholdsValue: TextView
     private lateinit var visualizerDetectorAttackReleaseValue: TextView
     private lateinit var visualizerDetectorHysteresisValue: TextView
@@ -478,6 +481,9 @@ class MainActivity : Activity() {
         visualizerCurrentActivityValue = addDiagnosticField(root, "Current Activity Ratio")
         visualizerOutputMixStatusValue = addDiagnosticField(root, "Output Mix Signal Status")
         visualizerCurrentPhaseValue = addDiagnosticField(root, "Current Test Phase")
+        visualizerStartupTraceValue = addLogField(root, "Visualizer Startup Trace")
+        visualizerStartRequestCountValue = addDiagnosticField(root, "Visualizer Start Request Count")
+        visualizerStartInternalCountValue = addDiagnosticField(root, "Visualizer startInternal Count")
         visualizerDetectorThresholdsValue = addDiagnosticField(root, "Detector Thresholds")
         visualizerDetectorAttackReleaseValue = addDiagnosticField(root, "Attack / Release")
         visualizerDetectorHysteresisValue = addDiagnosticField(root, "Detector Hysteresis")
@@ -804,6 +810,9 @@ class MainActivity : Activity() {
             visualizerCurrentActivityValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.activityRatio)
             visualizerOutputMixStatusValue.text = snapshot.visualizerProbe.outputMixSignalStatus
             visualizerCurrentPhaseValue.text = snapshot.visualizerProbe.currentTestPhase
+            visualizerStartupTraceValue.text = snapshot.visualizerProbe.startupTrace.joinToString("\n").ifBlank { "n/a" }
+            visualizerStartRequestCountValue.text = snapshot.visualizerProbe.startRequestCount.toString()
+            visualizerStartInternalCountValue.text = snapshot.visualizerProbe.startInternalCount.toString()
             visualizerDetectorThresholdsValue.text = snapshot.visualizerProbe.detectorThresholds
             visualizerDetectorAttackReleaseValue.text = snapshot.visualizerProbe.detectorAttackRelease
             visualizerDetectorHysteresisValue.text = snapshot.visualizerProbe.detectorHysteresisState

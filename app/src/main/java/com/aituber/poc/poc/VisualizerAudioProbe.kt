@@ -31,15 +31,27 @@ object VisualizerAudioProbe {
     private var testStartElapsedMs: Long? = null
     private var automatedTest = false
 
+    fun recordStartupTrace(step: String) {
+        accumulator.recordStartupTrace(step)
+        CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
+    }
+
     fun startDetector() {
+        accumulator.incrementStartRequest()
+        recordStartupTrace("visualizer start requested")
         startCoordinator.startNormalCapture()
     }
 
     fun startThirtySecondTest() {
+        accumulator.incrementStartRequest()
+        recordStartupTrace("visualizer start requested")
         startCoordinator.startThirtySecondTest()
     }
 
     private fun startInternal(automatedTest: Boolean) {
+        accumulator.incrementStartInternal()
+        accumulator.recordStartupTrace("visualizer startInternal entered")
+        CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
         releaseVisualizer()
         detector.reset()
         val now = SystemClock.elapsedRealtime()
@@ -51,6 +63,7 @@ object VisualizerAudioProbe {
             val effect = Visualizer(OUTPUT_MIX_AUDIO_SESSION).apply {
                 setCaptureSize(captureSize)
             }
+            accumulator.recordStartupTrace("visualizer constructed")
             handlerThread = HandlerThread("aituber-visualizer-probe").also { thread ->
                 thread.start()
                 handler = Handler(thread.looper)
@@ -90,6 +103,7 @@ object VisualizerAudioProbe {
                 true,
                 false
             )
+            accumulator.recordStartupTrace("listener registered")
             visualizer = effect
             testStartElapsedMs = now
             accumulator.start(
@@ -101,7 +115,10 @@ object VisualizerAudioProbe {
             )
             CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
             effect.enabled = true
+            accumulator.recordStartupTrace("visualizer enabled")
+            CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
         } catch (exception: Throwable) {
+            accumulator.recordStartupTrace("visualizer failed: ${exception::class.java.simpleName}")
             releaseVisualizer()
             val decision = detector.evaluate(
                 now = SystemClock.elapsedRealtime(),

@@ -59,9 +59,29 @@ class CaptureSessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startCapture(intent: Intent) {
-        startForegroundCompat()
-        publish(CaptureStatus.SERVICE_STARTING)
-        playbackProbe?.start()
+        CaptureSessionStartupSequence(
+            object : CaptureSessionStartupSequence.Actions {
+                override fun startForeground() {
+                    startForegroundCompat()
+                }
+
+                override fun recordVisualizerTrace(step: String) {
+                    VisualizerAudioProbe.recordStartupTrace(step)
+                }
+
+                override fun publish(status: String) {
+                    this@CaptureSessionService.publish(status)
+                }
+
+                override fun startPlaybackProbe() {
+                    playbackProbe?.start()
+                }
+
+                override fun startVisualizer() {
+                    VisualizerAudioProbe.startDetector()
+                }
+            }
+        ).run()
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
         val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -104,7 +124,6 @@ class CaptureSessionService : Service() {
             targetLabel = ChatGptTarget.label
         )
         adapter?.start { snapshot -> characterEngine.bind(snapshot) }
-        VisualizerAudioProbe.startDetector()
     }
 
     private fun stopCapture(status: String) {

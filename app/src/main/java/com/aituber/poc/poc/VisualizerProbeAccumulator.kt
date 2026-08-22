@@ -22,6 +22,9 @@ class VisualizerProbeAccumulator(
     private var detectorHysteresisState = "state=UNKNOWN candidate=false candidateSince=n/a silentSince=n/a"
     private var detectorTransitionCount = 0
     private var detectorLastTransitionElapsedMs: Long? = null
+    private val startupTrace = ArrayDeque<String>(20)
+    private var startRequestCount = 0
+    private var startInternalCount = 0
 
     fun start(
         now: Long,
@@ -63,6 +66,19 @@ class VisualizerProbeAccumulator(
         testStartElapsedMs = null
         derivedSpeaking = "IDLE"
         detectorHysteresisState = "state=IDLE candidate=false candidateSince=n/a silentSince=n/a"
+    }
+
+    fun recordStartupTrace(step: String) {
+        if (startupTrace.size == STARTUP_TRACE_CAPACITY) startupTrace.removeFirst()
+        startupTrace.addLast(step)
+    }
+
+    fun incrementStartRequest() {
+        startRequestCount += 1
+    }
+
+    fun incrementStartInternal() {
+        startInternalCount += 1
     }
 
     fun record(now: Long, metrics: VisualizerWaveformMetrics): VisualizerProbeSnapshot {
@@ -111,6 +127,9 @@ class VisualizerProbeAccumulator(
             detectorHysteresisState = detectorHysteresisState,
             detectorTransitionCount = detectorTransitionCount,
             detectorLastTransitionElapsedMs = detectorLastTransitionElapsedMs,
+            startupTrace = startupTrace.toList(),
+            startRequestCount = startRequestCount,
+            startInternalCount = startInternalCount,
             currentTestPhase = samples.lastOrNull()?.phase ?: "UNMARKED",
             history = samples.toList()
         )
@@ -155,5 +174,6 @@ class VisualizerProbeAccumulator(
 
     companion object {
         private const val SIGNAL_EPSILON = 0.000001
+        private const val STARTUP_TRACE_CAPACITY = 20
     }
 }

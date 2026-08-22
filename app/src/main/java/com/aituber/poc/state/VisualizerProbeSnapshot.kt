@@ -59,6 +59,9 @@ data class VisualizerProbeSnapshot(
     val detectorHysteresisState: String,
     val detectorTransitionCount: Int,
     val detectorLastTransitionElapsedMs: Long?,
+    val startupTrace: List<String>,
+    val startRequestCount: Int,
+    val startInternalCount: Int,
     val currentTestPhase: String,
     val history: List<VisualizerProbeSample>
 ) {
@@ -84,6 +87,9 @@ data class VisualizerProbeSnapshot(
             detectorHysteresisState = "state=UNKNOWN candidate=false candidateSince=n/a silentSince=n/a",
             detectorTransitionCount = 0,
             detectorLastTransitionElapsedMs = null,
+            startupTrace = emptyList(),
+            startRequestCount = 0,
+            startInternalCount = 0,
             currentTestPhase = "UNMARKED",
             history = emptyList()
         )

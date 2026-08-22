@@ -80,6 +80,29 @@ class VisualizerProbeAccumulatorTest {
         assertEquals(1L, snapshot.waveformCallbackCount)
     }
 
+    @Test
+    fun startupTraceAndCountsAreRetainedInSnapshot() {
+        val accumulator = VisualizerProbeAccumulator()
+
+        accumulator.recordStartupTrace("startCapture entered")
+        accumulator.incrementStartRequest()
+        accumulator.recordStartupTrace("visualizer start requested")
+        accumulator.incrementStartInternal()
+        accumulator.recordStartupTrace("visualizer startInternal entered")
+        val snapshot = accumulator.snapshot()
+
+        assertEquals(1, snapshot.startRequestCount)
+        assertEquals(1, snapshot.startInternalCount)
+        assertEquals(
+            listOf(
+                "startCapture entered",
+                "visualizer start requested",
+                "visualizer startInternal entered"
+            ),
+            snapshot.startupTrace
+        )
+    }
+
     private fun metrics(rms: Double, peak: Double, activity: Double): VisualizerWaveformMetrics {
         return VisualizerWaveformMetrics(rms = rms, peak = peak, activityRatio = activity)
     }
