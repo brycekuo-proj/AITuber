@@ -8,14 +8,11 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
-import android.os.Build
-import android.annotation.RequiresApi
 import com.aituber.poc.state.UniversalStateReducer
 import com.aituber.poc.state.UniversalStateSnapshot
 import kotlin.concurrent.thread
 import kotlin.math.sqrt
 
-@RequiresApi(Build.VERSION_CODES.Q)
 class PlaybackCaptureAiAdapter(
     private val context: Context,
     private val mediaProjection: MediaProjection,
