@@ -4,10 +4,12 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.aituber.poc.aiadapter.VoiceCommunicationPlaybackAdapter
+import com.aituber.poc.state.FineGrainedVoiceEvent
 import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.PlaybackProbeSnapshot
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -33,6 +35,11 @@ class AndroidPlaybackStateProbe(
     private var lastObservedUsageWhileActive = "n/a"
     private var lastObservedContentTypeWhileActive = "n/a"
     private val lastPlaybackEvents = ArrayDeque<PlaybackProbeEvent>(10)
+    private val lastFineGrainedEvents = ArrayDeque<FineGrainedVoiceEvent>(20)
+    private var lastConfigurationIdentity = "n/a"
+    private var lastCandidate = "NO"
+    private var lastCandidateChangeElapsedMs: Long? = null
+    private var previousCallbackElapsedMs: Long? = null
 
     fun start() {
         if (callback != null) return
@@ -85,9 +92,24 @@ class AndroidPlaybackStateProbe(
         val usage = attributes.map { usageLabel(it.usage) }.distinct().joinToStringOrDefault()
         val contentType = attributes.map { contentTypeLabel(it.contentType) }.distinct().joinToStringOrDefault()
         val activeCount = configs.size
+        val configurationIdentity = configs.map { config -> config.hashCode().toString() }
+            .sorted()
+            .joinToStringOrDefault()
+        val configurationIdentityChanged = configurationIdentity != lastConfigurationIdentity
+        lastConfigurationIdentity = configurationIdentity
+        val publicAudioModeAndDeviceSignal = publicAudioModeAndDeviceSignal(configs)
+        val callbackDeltaMs = previousCallbackElapsedMs?.let { previous -> now - previous }
+        previousCallbackElapsedMs = now
         val hasVoiceCommunicationSpeech = attributes.any { attribute ->
             attribute.usage == AudioAttributes.USAGE_VOICE_COMMUNICATION &&
                 attribute.contentType == AudioAttributes.CONTENT_TYPE_SPEECH
+        }
+        val voiceSessionActive = activeCount > 0 && hasVoiceCommunicationSpeech
+        val actualCandidate = if (voiceSessionActive) "UNKNOWN" else "NO"
+        val candidateConfidence = if (voiceSessionActive) "NONE" else "HIGH"
+        if (actualCandidate != lastCandidate) {
+            lastCandidate = actualCandidate
+            lastCandidateChangeElapsedMs = now
         }
 
         recordPlaybackEvent(
@@ -96,6 +118,16 @@ class AndroidPlaybackStateProbe(
                 activePlaybackCount = activeCount,
                 usage = usage,
                 contentType = contentType
+            )
+        )
+        recordFineGrainedEvent(
+            FineGrainedVoiceEvent(
+                elapsedTimestampMs = now,
+                activePlaybackCount = activeCount,
+                usage = usage,
+                contentType = contentType,
+                configurationIdentity = configurationIdentity,
+                publicAudioModeAndDeviceSignal = publicAudioModeAndDeviceSignal
             )
         )
 
@@ -126,6 +158,13 @@ class AndroidPlaybackStateProbe(
                 observedUsage = usage,
                 observedContentType = contentType,
                 observedPlayerState = "UNAVAILABLE",
+                voiceSessionActive = if (voiceSessionActive) "YES" else "NO",
+                probeSignalA = "Configuration identity changed=$configurationIdentityChanged value=$configurationIdentity",
+                probeSignalB = publicAudioModeAndDeviceSignal,
+                probeSignalC = "Callback delta=${callbackDeltaMs?.let { "$it ms" } ?: "n/a"} events=$callbackEventCount",
+                actualSpeakingCandidate = actualCandidate,
+                candidateConfidence = candidateConfidence,
+                lastCandidateChangeElapsedMs = lastCandidateChangeElapsedMs,
                 attribution = "UNSUPPORTED - Attribution unavailable"
             )
         )
@@ -148,6 +187,13 @@ class AndroidPlaybackStateProbe(
         lastPlaybackEvents.addLast(event)
     }
 
+    private fun recordFineGrainedEvent(event: FineGrainedVoiceEvent) {
+        if (lastFineGrainedEvents.size == 20) {
+            lastFineGrainedEvents.removeFirst()
+        }
+        lastFineGrainedEvents.addLast(event)
+    }
+
     private fun currentSnapshot() = PlaybackProbeSnapshot.empty().copy(
         callbackEventCount = callbackEventCount,
         lastCallbackElapsedMs = lastCallbackElapsedMs,
@@ -160,11 +206,43 @@ class AndroidPlaybackStateProbe(
         lastActiveElapsedMs = lastActiveElapsedMs,
         lastObservedUsageWhileActive = lastObservedUsageWhileActive,
         lastObservedContentTypeWhileActive = lastObservedContentTypeWhileActive,
-        lastPlaybackEvents = lastPlaybackEvents.toList()
+        lastPlaybackEvents = lastPlaybackEvents.toList(),
+        lastCandidateChangeElapsedMs = lastCandidateChangeElapsedMs,
+        lastFineGrainedEvents = lastFineGrainedEvents.toList()
     )
 
     private fun List<String>.joinToStringOrDefault(): String {
         return if (isEmpty()) "n/a" else joinToString(", ")
+    }
+
+    private fun publicAudioModeAndDeviceSignal(configs: List<AudioPlaybackConfiguration>): String {
+        val mode = modeLabel(audioManager.mode)
+        val communicationDevice = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.communicationDevice?.let { device ->
+                "communicationDevice=type:${device.type}/id:${device.id}"
+            } ?: "communicationDevice=null"
+        } else {
+            "communicationDevice=UNSUPPORTED_API_${Build.VERSION.SDK_INT}"
+        }
+        val playbackDevices = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            configs.mapNotNull { config -> config.audioDeviceInfo }
+                .map { device -> "playbackDevice=type:${device.type}/id:${device.id}" }
+                .distinct()
+                .joinToStringOrDefault()
+        } else {
+            "playbackDevice=UNSUPPORTED_API_${Build.VERSION.SDK_INT}"
+        }
+        return "mode=$mode $communicationDevice $playbackDevices"
+    }
+
+    private fun modeLabel(mode: Int): String {
+        return when (mode) {
+            AudioManager.MODE_NORMAL -> "MODE_NORMAL"
+            AudioManager.MODE_RINGTONE -> "MODE_RINGTONE"
+            AudioManager.MODE_IN_CALL -> "MODE_IN_CALL"
+            AudioManager.MODE_IN_COMMUNICATION -> "MODE_IN_COMMUNICATION"
+            else -> "MODE_$mode"
+        }
     }
 
     private fun usageLabel(usage: Int): String {

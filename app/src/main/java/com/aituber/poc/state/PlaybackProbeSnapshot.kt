@@ -7,6 +7,15 @@ data class PlaybackProbeEvent(
     val contentType: String
 )
 
+data class FineGrainedVoiceEvent(
+    val elapsedTimestampMs: Long,
+    val activePlaybackCount: Int,
+    val usage: String,
+    val contentType: String,
+    val configurationIdentity: String,
+    val publicAudioModeAndDeviceSignal: String
+)
+
 data class PlaybackProbeSnapshot(
     val callbackStatus: String,
     val registrationAttempted: String,
@@ -29,6 +38,14 @@ data class PlaybackProbeSnapshot(
     val observedUsage: String,
     val observedContentType: String,
     val observedPlayerState: String,
+    val voiceSessionActive: String,
+    val probeSignalA: String,
+    val probeSignalB: String,
+    val probeSignalC: String,
+    val actualSpeakingCandidate: String,
+    val candidateConfidence: String,
+    val lastCandidateChangeElapsedMs: Long?,
+    val lastFineGrainedEvents: List<FineGrainedVoiceEvent>,
     val attribution: String
 ) {
     companion object {
@@ -54,6 +71,14 @@ data class PlaybackProbeSnapshot(
             observedUsage = "n/a",
             observedContentType = "n/a",
             observedPlayerState = "UNAVAILABLE",
+            voiceSessionActive = "NO",
+            probeSignalA = "Configuration identity: n/a",
+            probeSignalB = "Public audio mode/device: n/a",
+            probeSignalC = "Callback timing: n/a",
+            actualSpeakingCandidate = "NO",
+            candidateConfidence = "HIGH",
+            lastCandidateChangeElapsedMs = null,
+            lastFineGrainedEvents = emptyList(),
             attribution = "UNSUPPORTED - Attribution unavailable"
         )
     }

@@ -65,6 +65,14 @@ class MainActivity : Activity() {
     private lateinit var observedUsageValue: TextView
     private lateinit var observedContentTypeValue: TextView
     private lateinit var observedPlayerStateValue: TextView
+    private lateinit var voiceSessionActiveValue: TextView
+    private lateinit var probeSignalAValue: TextView
+    private lateinit var probeSignalBValue: TextView
+    private lateinit var probeSignalCValue: TextView
+    private lateinit var actualSpeakingCandidateValue: TextView
+    private lateinit var candidateConfidenceValue: TextView
+    private lateinit var lastCandidateChangeValue: TextView
+    private lateinit var lastFineGrainedEventsValue: TextView
     private lateinit var playbackAttributionValue: TextView
     private lateinit var levelBar: ProgressBar
 
@@ -171,6 +179,14 @@ class MainActivity : Activity() {
         observedUsageValue = addField(root, "Observed Usage")
         observedContentTypeValue = addField(root, "Observed Content Type")
         observedPlayerStateValue = addField(root, "Observed Player State")
+        voiceSessionActiveValue = addField(root, "Voice Session Active")
+        probeSignalAValue = addField(root, "Probe Signal A")
+        probeSignalBValue = addField(root, "Probe Signal B")
+        probeSignalCValue = addField(root, "Probe Signal C")
+        actualSpeakingCandidateValue = addField(root, "Actual Speaking Candidate")
+        candidateConfidenceValue = addField(root, "Candidate Confidence")
+        lastCandidateChangeValue = addField(root, "Last Candidate Change")
+        lastFineGrainedEventsValue = addField(root, "Last 20 Fine-Grained Events")
         playbackAttributionValue = addField(root, "Playback Attribution")
 
         levelBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -364,6 +380,16 @@ class MainActivity : Activity() {
             observedUsageValue.text = snapshot.playbackProbe.observedUsage
             observedContentTypeValue.text = snapshot.playbackProbe.observedContentType
             observedPlayerStateValue.text = snapshot.playbackProbe.observedPlayerState
+            voiceSessionActiveValue.text = snapshot.playbackProbe.voiceSessionActive
+            probeSignalAValue.text = snapshot.playbackProbe.probeSignalA
+            probeSignalBValue.text = snapshot.playbackProbe.probeSignalB
+            probeSignalCValue.text = snapshot.playbackProbe.probeSignalC
+            actualSpeakingCandidateValue.text = snapshot.playbackProbe.actualSpeakingCandidate
+            candidateConfidenceValue.text = snapshot.playbackProbe.candidateConfidence
+            lastCandidateChangeValue.text = snapshot.playbackProbe.lastCandidateChangeElapsedMs?.let { "$it ms" } ?: "n/a"
+            lastFineGrainedEventsValue.text = snapshot.playbackProbe.lastFineGrainedEvents.joinToString("\n") { event ->
+                "${event.elapsedTimestampMs} ms | count=${event.activePlaybackCount} | ${event.usage} | ${event.contentType} | config=${event.configurationIdentity} | ${event.publicAudioModeAndDeviceSignal}"
+            }.ifBlank { "n/a" }
             playbackAttributionValue.text = snapshot.playbackProbe.attribution
             levelBar.progress = ((snapshot.diagnostics.currentAudioLevel ?: 0f) * 100).toInt().coerceIn(0, 100)
         }
