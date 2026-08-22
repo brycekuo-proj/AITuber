@@ -87,6 +87,12 @@ class MainActivity : Activity() {
     private lateinit var accessibilityUiSignatureChangedValue: TextView
     private lateinit var accessibilityLastUiChangeValue: TextView
     private lateinit var accessibilityCandidateStateValue: TextView
+    private lateinit var lastValidChatGptSignatureValue: TextView
+    private lateinit var validSignatureEventCountValue: TextView
+    private lateinit var signatureTransitionCountValue: TextView
+    private lateinit var ignoredEmptyEventsValue: TextView
+    private lateinit var duplicateSignatureEventsValue: TextView
+    private lateinit var signatureTransitionsValue: TextView
     private lateinit var lastAccessibilityEventsValue: TextView
 
     private var diagnosticsExpanded = false
@@ -274,12 +280,18 @@ class MainActivity : Activity() {
         accessibilityUiSignatureChangedValue = addDiagnosticField(root, "UI Signature Changed")
         accessibilityLastUiChangeValue = addDiagnosticField(root, "Last UI Change")
         accessibilityCandidateStateValue = addDiagnosticField(root, "Accessibility Candidate State")
+        lastValidChatGptSignatureValue = addDiagnosticField(root, "Last Valid ChatGPT Signature")
+        validSignatureEventCountValue = addDiagnosticField(root, "Valid Signature Event Count")
+        signatureTransitionCountValue = addDiagnosticField(root, "Signature Transition Count")
+        ignoredEmptyEventsValue = addDiagnosticField(root, "Ignored Empty Events")
+        duplicateSignatureEventsValue = addDiagnosticField(root, "Duplicate Signature Events")
 
         root.addView(sectionTitle("Event Log"))
         lastPlaybackEventsValue = addLogField(root, "Last 10 Playback Events")
         lastFineGrainedEventsValue = addLogField(root, "Last 20 Fine-Grained Events")
         lastCombinedEventsValue = addLogField(root, "Last 20 Combined Events")
-        lastAccessibilityEventsValue = addLogField(root, "Last 20 Accessibility Events")
+        signatureTransitionsValue = addLogField(root, "Last 50 Signature Transitions")
+        lastAccessibilityEventsValue = addLogField(root, "Last 30 Accessibility Events")
     }
 
     private fun addCoreField(root: LinearLayout, label: String): TextView {
@@ -499,8 +511,18 @@ class MainActivity : Activity() {
             accessibilityUiSignatureChangedValue.text = snapshot.accessibilityProbe.uiSignatureChanged
             accessibilityLastUiChangeValue.text = snapshot.accessibilityProbe.lastUiChangeElapsedMs?.let { "$it ms" } ?: "n/a"
             accessibilityCandidateStateValue.text = snapshot.accessibilityProbe.candidateState
-            lastAccessibilityEventsValue.text = snapshot.accessibilityProbe.lastEvents.joinToString("\n") { event ->
-                "${event.elapsedTimestampMs} | ${event.eventType.shortEventType()} | sig=${event.uiSignature} | nodes=${event.candidateNodeCount}"
+            lastValidChatGptSignatureValue.text = snapshot.accessibilityProbe.lastValidChatGptSignature
+            validSignatureEventCountValue.text = snapshot.accessibilityProbe.validSignatureEventCount.toString()
+            signatureTransitionCountValue.text = snapshot.accessibilityProbe.signatureTransitionCount.toString()
+            ignoredEmptyEventsValue.text = snapshot.accessibilityProbe.ignoredEmptyEvents.toString()
+            duplicateSignatureEventsValue.text = snapshot.accessibilityProbe.duplicateSignatureEvents.toString()
+            signatureTransitionsValue.text = snapshot.accessibilityProbe.signatureTransitions.joinToString("\n") { transition ->
+                "${transition.elapsedTimestampMs} | ${transition.oldSignature} -> ${transition.newSignature} | " +
+                    "nodes=${transition.candidateNodeCount} | ${transition.eventType.shortEventType()}"
+            }.ifBlank { "n/a" }
+            lastAccessibilityEventsValue.text = snapshot.accessibilityProbe.lastEvents.takeLast(30).joinToString("\n") { event ->
+                val ignored = if (event.ignored) " | ignored" else ""
+                "${event.elapsedTimestampMs} | ${event.eventType.shortEventType()} | sig=${event.uiSignature} | nodes=${event.candidateNodeCount}$ignored"
             }.ifBlank { "n/a" }
         }
     }

@@ -6,18 +6,13 @@ import android.os.Build
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.aituber.poc.poc.AccessibilityUiSignature
+import com.aituber.poc.poc.AccessibilityProbeLogger
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.poc.ChatGptTarget
-import com.aituber.poc.state.AccessibilityProbeEvent
-import com.aituber.poc.state.AccessibilityProbeSnapshot
 import com.aituber.poc.state.SafeAccessibilityNodeMetadata
 
 class ChatGptAccessibilityProbeService : AccessibilityService() {
-    private var eventCount = 0
-    private var lastSignature = "n/a"
-    private var lastUiChangeElapsedMs: Long? = null
-    private val lastEvents = ArrayDeque<AccessibilityProbeEvent>(20)
+    private val logger = AccessibilityProbeLogger()
 
     override fun onServiceConnected() {
         publish(
@@ -32,12 +27,13 @@ class ChatGptAccessibilityProbeService : AccessibilityService() {
         val packageName = event?.packageName?.toString() ?: return
         if (packageName != ChatGptTarget.packageName) return
 
-        eventCount += 1
+        val root = rootInActiveWindow
+        val rootMatchesTarget = root?.packageName?.toString() == ChatGptTarget.packageName
         publish(
             observedPackage = packageName,
             eventType = eventTypeLabel(event.eventType),
-            root = rootInActiveWindow,
-            rootAvailable = rootInActiveWindow != null
+            root = if (rootMatchesTarget) root else null,
+            rootAvailable = rootMatchesTarget
         )
     }
 
@@ -51,15 +47,7 @@ class ChatGptAccessibilityProbeService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        CaptureSessionState.updateAccessibilityProbe(
-            currentSnapshot(
-                observedPackage = "n/a",
-                rootAvailable = false,
-                candidateNodeCount = 0,
-                uiSignature = lastSignature,
-                uiSignatureChanged = "NO"
-            ).copy(enabled = "DISABLED")
-        )
+        CaptureSessionState.updateAccessibilityProbe(logger.snapshot(enabled = "DISABLED"))
         super.onDestroy()
     }
 
@@ -71,55 +59,15 @@ class ChatGptAccessibilityProbeService : AccessibilityService() {
     ) {
         val now = SystemClock.elapsedRealtime()
         val nodes = root?.let { collectSafeMetadata(it) }.orEmpty()
-        val signature = AccessibilityUiSignature.signature(nodes)
-        val changed = signature != lastSignature
-        if (changed) {
-            lastSignature = signature
-            lastUiChangeElapsedMs = now
-        }
-        recordEvent(
-            AccessibilityProbeEvent(
-                elapsedTimestampMs = now,
-                eventType = eventType,
-                uiSignature = signature,
-                candidateNodeCount = nodes.size
-            )
-        )
         CaptureSessionState.updateAccessibilityProbe(
-            currentSnapshot(
-                observedPackage = observedPackage,
+            logger.record(
+                elapsedTimestampMs = now,
+                packageName = observedPackage,
+                eventType = eventType,
                 rootAvailable = rootAvailable,
-                candidateNodeCount = nodes.size,
-                uiSignature = signature,
-                uiSignatureChanged = if (changed) "YES" else "NO"
+                nodes = nodes
             )
         )
-    }
-
-    private fun currentSnapshot(
-        observedPackage: String,
-        rootAvailable: Boolean,
-        candidateNodeCount: Int,
-        uiSignature: String,
-        uiSignatureChanged: String
-    ) = AccessibilityProbeSnapshot.empty().copy(
-        enabled = "ENABLED",
-        observedPackage = observedPackage,
-        eventCount = eventCount,
-        rootNodeAvailable = if (rootAvailable) "YES" else "NO",
-        voiceUiCandidateNodes = candidateNodeCount,
-        uiSignature = uiSignature,
-        uiSignatureChanged = uiSignatureChanged,
-        lastUiChangeElapsedMs = lastUiChangeElapsedMs,
-        candidateState = "UNKNOWN",
-        lastEvents = lastEvents.toList()
-    )
-
-    private fun recordEvent(event: AccessibilityProbeEvent) {
-        if (lastEvents.size == 20) {
-            lastEvents.removeFirst()
-        }
-        lastEvents.addLast(event)
     }
 
     private fun collectSafeMetadata(root: AccessibilityNodeInfo): List<SafeAccessibilityNodeMetadata> {

@@ -20,7 +20,16 @@ data class AccessibilityProbeEvent(
     val elapsedTimestampMs: Long,
     val eventType: String,
     val uiSignature: String,
-    val candidateNodeCount: Int
+    val candidateNodeCount: Int,
+    val ignored: Boolean
+)
+
+data class AccessibilitySignatureTransition(
+    val elapsedTimestampMs: Long,
+    val oldSignature: String,
+    val newSignature: String,
+    val candidateNodeCount: Int,
+    val eventType: String
 )
 
 data class AccessibilityProbeSnapshot(
@@ -33,7 +42,13 @@ data class AccessibilityProbeSnapshot(
     val uiSignatureChanged: String,
     val lastUiChangeElapsedMs: Long?,
     val candidateState: String,
-    val lastEvents: List<AccessibilityProbeEvent>
+    val lastEvents: List<AccessibilityProbeEvent>,
+    val lastValidChatGptSignature: String,
+    val validSignatureEventCount: Int,
+    val signatureTransitionCount: Int,
+    val ignoredEmptyEvents: Int,
+    val duplicateSignatureEvents: Int,
+    val signatureTransitions: List<AccessibilitySignatureTransition>
 ) {
     companion object {
         fun empty() = AccessibilityProbeSnapshot(
@@ -46,7 +61,13 @@ data class AccessibilityProbeSnapshot(
             uiSignatureChanged = "NO",
             lastUiChangeElapsedMs = null,
             candidateState = "UNKNOWN",
-            lastEvents = emptyList()
+            lastEvents = emptyList(),
+            lastValidChatGptSignature = "n/a",
+            validSignatureEventCount = 0,
+            signatureTransitionCount = 0,
+            ignoredEmptyEvents = 0,
+            duplicateSignatureEvents = 0,
+            signatureTransitions = emptyList()
         )
     }
 }
