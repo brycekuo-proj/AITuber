@@ -24,7 +24,7 @@ class AccessibilityProbeLogger(
     private var duplicateSignatureEvents = 0
     private val lastEvents = ArrayDeque<AccessibilityProbeEvent>(eventCapacity)
     private val signatureTransitions = ArrayDeque<AccessibilitySignatureTransition>(transitionCapacity)
-    private val candidateNodeTracker = AccessibilityCandidateNodeTracker()
+    private val centerVoiceUiProbeTracker = CenterVoiceUiProbeTracker()
 
     fun record(
         elapsedTimestampMs: Long,
@@ -60,7 +60,11 @@ class AccessibilityProbeLogger(
         }
 
         validSignatureEventCount += 1
-        candidateNodeTracker.record(elapsedTimestampMs, nodes)
+        centerVoiceUiProbeTracker.record(
+            elapsedTimestampMs = elapsedTimestampMs,
+            phase = CaptureSessionState.currentAccessibilityTestPhase(),
+            nodes = nodes
+        )
         currentUiSignature = signature
         recordEvent(
             AccessibilityProbeEvent(
@@ -91,6 +95,7 @@ class AccessibilityProbeLogger(
     }
 
     fun snapshot(enabled: String = "ENABLED"): AccessibilityProbeSnapshot {
+        val centerSummary = centerVoiceUiProbeTracker.summary()
         return AccessibilityProbeSnapshot.empty().copy(
             enabled = enabled,
             observedPackage = observedPackage,
@@ -108,10 +113,17 @@ class AccessibilityProbeLogger(
             ignoredEmptyEvents = ignoredEmptyEvents,
             duplicateSignatureEvents = duplicateSignatureEvents,
             signatureTransitions = signatureTransitions.toList(),
-            trackedAccessibilityNodes = candidateNodeTracker.trackedNodeCount(),
-            dynamicCandidateCount = candidateNodeTracker.dynamicCandidateCount(),
-            topDynamicCandidateNodes = candidateNodeTracker.topCandidates(),
-            topCandidateSnapshotHistory = candidateNodeTracker.topCandidateSnapshotHistory()
+            centerCandidatePresent = centerSummary.present,
+            centerCandidateBounds = centerSummary.bounds,
+            centerChildCount = centerSummary.childCount,
+            centerChangeRate1s = centerSummary.changeRate1s,
+            centerChangeRate3s = centerSummary.changeRate3s,
+            currentTestPhase = CaptureSessionState.currentAccessibilityTestPhase(),
+            quietAverageRate = centerSummary.quietAverageRate,
+            userAverageRate = centerSummary.userAverageRate,
+            aiAverageRate = centerSummary.aiAverageRate,
+            centerProbeSampleCount = centerSummary.sampleCount,
+            centerHistory = centerSummary.history
         )
     }
 

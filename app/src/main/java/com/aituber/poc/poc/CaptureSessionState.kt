@@ -19,7 +19,20 @@ object CaptureSessionState {
         captureStatus = CaptureStatus.NOT_STARTED
     )
 
+    @Volatile
+    private var accessibilityTestPhase = "UNMARKED"
+
     fun current(): UniversalStateSnapshot = currentSnapshot
+
+    fun currentAccessibilityTestPhase(): String = accessibilityTestPhase
+
+    fun markAccessibilityTestPhase(phase: String) {
+        accessibilityTestPhase = phase
+        currentSnapshot = currentSnapshot.copy(
+            accessibilityProbe = currentSnapshot.accessibilityProbe.copy(currentTestPhase = phase)
+        )
+        listeners.forEach { listener -> listener(currentSnapshot) }
+    }
 
     fun update(snapshot: UniversalStateSnapshot) {
         currentSnapshot = snapshot.copy(

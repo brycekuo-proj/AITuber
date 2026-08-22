@@ -87,6 +87,17 @@ class MainActivity : Activity() {
     private lateinit var accessibilityUiSignatureChangedValue: TextView
     private lateinit var accessibilityLastUiChangeValue: TextView
     private lateinit var accessibilityCandidateStateValue: TextView
+    private lateinit var centerCandidatePresentValue: TextView
+    private lateinit var centerCandidateBoundsValue: TextView
+    private lateinit var centerChildCountValue: TextView
+    private lateinit var centerChangeRate1sValue: TextView
+    private lateinit var centerChangeRate3sValue: TextView
+    private lateinit var currentTestPhaseValue: TextView
+    private lateinit var quietAverageRateValue: TextView
+    private lateinit var userAverageRateValue: TextView
+    private lateinit var aiAverageRateValue: TextView
+    private lateinit var centerProbeSampleCountValue: TextView
+    private lateinit var centerHistoryValue: TextView
     private lateinit var lastValidChatGptSignatureValue: TextView
     private lateinit var validSignatureEventCountValue: TextView
     private lateinit var signatureTransitionCountValue: TextView
@@ -221,6 +232,21 @@ class MainActivity : Activity() {
         }, buttonLayoutParams())
 
         root.addView(Button(this).apply {
+            text = "MARK QUIET"
+            setOnClickListener { CaptureSessionState.markAccessibilityTestPhase("QUIET") }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "MARK USER"
+            setOnClickListener { CaptureSessionState.markAccessibilityTestPhase("USER") }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "MARK AI"
+            setOnClickListener { CaptureSessionState.markAccessibilityTestPhase("AI") }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
             text = "ENABLE MOUTH OVERLAY"
             setOnClickListener { enableMouthOverlay() }
         }, buttonLayoutParams())
@@ -284,6 +310,19 @@ class MainActivity : Activity() {
         accessibilityUiSignatureChangedValue = addDiagnosticField(root, "UI Signature Changed")
         accessibilityLastUiChangeValue = addDiagnosticField(root, "Last UI Change")
         accessibilityCandidateStateValue = addDiagnosticField(root, "Accessibility Candidate State")
+        root.addView(sectionTitle("Center Voice UI Probe"))
+        centerCandidatePresentValue = addDiagnosticField(root, "Center Candidate Present")
+        centerCandidateBoundsValue = addDiagnosticField(root, "Center Candidate Bounds")
+        centerChildCountValue = addDiagnosticField(root, "Center Child Count")
+        centerChangeRate1sValue = addDiagnosticField(root, "Center Change Rate 1s")
+        centerChangeRate3sValue = addDiagnosticField(root, "Center Change Rate 3s")
+        currentTestPhaseValue = addDiagnosticField(root, "Current Test Phase")
+        quietAverageRateValue = addDiagnosticField(root, "QUIET Average Rate")
+        userAverageRateValue = addDiagnosticField(root, "USER Average Rate")
+        aiAverageRateValue = addDiagnosticField(root, "AI Average Rate")
+        centerProbeSampleCountValue = addDiagnosticField(root, "Center Probe Sample Count")
+
+        root.addView(sectionTitle("Candidate Node Diagnostics"))
         lastValidChatGptSignatureValue = addDiagnosticField(root, "Last Valid ChatGPT Signature")
         validSignatureEventCountValue = addDiagnosticField(root, "Valid Signature Event Count")
         signatureTransitionCountValue = addDiagnosticField(root, "Signature Transition Count")
@@ -296,6 +335,7 @@ class MainActivity : Activity() {
         lastPlaybackEventsValue = addLogField(root, "Last 10 Playback Events")
         lastFineGrainedEventsValue = addLogField(root, "Last 20 Fine-Grained Events")
         lastCombinedEventsValue = addLogField(root, "Last 20 Combined Events")
+        centerHistoryValue = addLogField(root, "Center History")
         topDynamicCandidateNodesValue = addLogField(root, "Top 10 Dynamic Candidate Nodes")
         topCandidateSnapshotHistoryValue = addLogField(root, "Top Candidate Snapshot History")
         signatureTransitionsValue = addLogField(root, "Last 50 Signature Transitions")
@@ -519,6 +559,22 @@ class MainActivity : Activity() {
             accessibilityUiSignatureChangedValue.text = snapshot.accessibilityProbe.uiSignatureChanged
             accessibilityLastUiChangeValue.text = snapshot.accessibilityProbe.lastUiChangeElapsedMs?.let { "$it ms" } ?: "n/a"
             accessibilityCandidateStateValue.text = snapshot.accessibilityProbe.candidateState
+            centerCandidatePresentValue.text = snapshot.accessibilityProbe.centerCandidatePresent
+            centerCandidateBoundsValue.text = snapshot.accessibilityProbe.centerCandidateBounds
+            centerChildCountValue.text = snapshot.accessibilityProbe.centerChildCount.toString()
+            centerChangeRate1sValue.text = "%.1f/s".format(snapshot.accessibilityProbe.centerChangeRate1s)
+            centerChangeRate3sValue.text = "%.1f/s".format(snapshot.accessibilityProbe.centerChangeRate3s)
+            currentTestPhaseValue.text = snapshot.accessibilityProbe.currentTestPhase
+            quietAverageRateValue.text = "%.1f/s".format(snapshot.accessibilityProbe.quietAverageRate)
+            userAverageRateValue.text = "%.1f/s".format(snapshot.accessibilityProbe.userAverageRate)
+            aiAverageRateValue.text = "%.1f/s".format(snapshot.accessibilityProbe.aiAverageRate)
+            centerProbeSampleCountValue.text = snapshot.accessibilityProbe.centerProbeSampleCount.toString()
+            centerHistoryValue.text = snapshot.accessibilityProbe.centerHistory.takeLast(200).joinToString("\n") { sample ->
+                "${sample.elapsedTimestampMs} | ${sample.phase} | present=${sample.present} | " +
+                    "child=${sample.childCount} | Δchild=${if (sample.childCountChanged) 1 else 0} | " +
+                    "Δbounds=${if (sample.boundsChanged) 1 else 0} | " +
+                    "rate1=${"%.1f".format(sample.changeRate1s)} | rate3=${"%.1f".format(sample.changeRate3s)}"
+            }.ifBlank { "n/a" }
             lastValidChatGptSignatureValue.text = snapshot.accessibilityProbe.lastValidChatGptSignature
             validSignatureEventCountValue.text = snapshot.accessibilityProbe.validSignatureEventCount.toString()
             signatureTransitionCountValue.text = snapshot.accessibilityProbe.signatureTransitionCount.toString()
