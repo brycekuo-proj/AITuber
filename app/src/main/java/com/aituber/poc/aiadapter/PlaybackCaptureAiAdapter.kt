@@ -8,17 +8,19 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
+import android.os.SystemClock
+import com.aituber.poc.state.CaptureDiagnosticsAccumulator
 import com.aituber.poc.state.UniversalStateReducer
 import com.aituber.poc.state.UniversalStateSnapshot
 import kotlin.concurrent.thread
-import kotlin.math.sqrt
 
 class PlaybackCaptureAiAdapter(
     private val context: Context,
     private val mediaProjection: MediaProjection,
     private val targetUid: Int,
     private val targetLabel: String,
-    private val reducer: UniversalStateReducer = UniversalStateReducer()
+    private val reducer: UniversalStateReducer = UniversalStateReducer(),
+    private val diagnostics: CaptureDiagnosticsAccumulator = CaptureDiagnosticsAccumulator()
 ) : AiAdapter {
     override val targetAppLabel = targetLabel
     override val detectionMethod = "Android Playback Capture"
@@ -28,11 +30,12 @@ class PlaybackCaptureAiAdapter(
 
     override fun start(onSnapshot: (UniversalStateSnapshot) -> Unit) {
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            onSnapshot(reducer.reduce(targetAppLabel, detectionMethod, null, CaptureStatus.RECORD_AUDIO_DENIED))
+            onSnapshot(snapshot(null, CaptureStatus.RECORD_AUDIO_DENIED))
             return
         }
 
         try {
+            diagnostics.reset()
             val sampleRate = 44100
             val minBuffer = AudioRecord.getMinBufferSize(
                 sampleRate,
@@ -60,26 +63,36 @@ class PlaybackCaptureAiAdapter(
 
             running = true
             recorder?.startRecording()
-            onSnapshot(reducer.reduce(targetAppLabel, detectionMethod, 0f, CaptureStatus.CAPTURING))
+            diagnostics.onNoSamples(0)
+            onSnapshot(snapshot(null, CaptureStatus.CAPTURING))
 
             thread(name = "aituber-playback-capture", isDaemon = true) {
                 val buffer = ShortArray(bufferSize / 2)
                 while (running) {
                     val read = recorder?.read(buffer, 0, buffer.size) ?: 0
                     if (read > 0) {
-                        val level = rms(buffer, read)
-                        onSnapshot(reducer.reduce(targetAppLabel, detectionMethod, level, CaptureStatus.CAPTURING))
+                        val level = diagnostics.onReadResult(
+                            readResult = read,
+                            buffer = buffer,
+                            length = read,
+                            elapsedRealtimeMs = SystemClock.elapsedRealtime()
+                        )
+                        onSnapshot(snapshot(level, CaptureStatus.CAPTURING))
+                    } else if (read == 0) {
+                        diagnostics.onNoSamples(read)
+                        onSnapshot(snapshot(null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
                     } else {
-                        onSnapshot(reducer.reduce(targetAppLabel, detectionMethod, null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
+                        diagnostics.onReadError(read)
+                        onSnapshot(snapshot(null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
                     }
                 }
             }
         } catch (security: SecurityException) {
-            onSnapshot(reducer.reduce(targetAppLabel, detectionMethod, null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
+            onSnapshot(snapshot(null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
         } catch (illegal: IllegalStateException) {
-            onSnapshot(reducer.reduce(targetAppLabel, detectionMethod, null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
+            onSnapshot(snapshot(null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
         } catch (argument: IllegalArgumentException) {
-            onSnapshot(reducer.reduce(targetAppLabel, detectionMethod, null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
+            onSnapshot(snapshot(null, CaptureStatus.BLOCKED_BY_SOURCE_APP))
         }
     }
 
@@ -90,12 +103,8 @@ class PlaybackCaptureAiAdapter(
         recorder = null
     }
 
-    private fun rms(buffer: ShortArray, length: Int): Float {
-        var sum = 0.0
-        for (index in 0 until length) {
-            val normalized = buffer[index] / Short.MAX_VALUE.toDouble()
-            sum += normalized * normalized
-        }
-        return sqrt(sum / length).toFloat()
+    private fun snapshot(level: Float?, captureStatus: String): UniversalStateSnapshot {
+        val reduced = reducer.reduce(targetAppLabel, detectionMethod, level, captureStatus)
+        return reduced.copy(diagnostics = diagnostics.onState(reduced.state))
     }
 }

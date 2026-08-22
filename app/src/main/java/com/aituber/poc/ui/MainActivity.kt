@@ -32,6 +32,13 @@ class MainActivity : Activity() {
     private lateinit var detectionMethodValue: TextView
     private lateinit var stateValue: TextView
     private lateinit var audioLevelValue: TextView
+    private lateinit var peakAudioLevelValue: TextView
+    private lateinit var capturedSamplesValue: TextView
+    private lateinit var nonZeroSamplesValue: TextView
+    private lateinit var speakingEventsValue: TextView
+    private lateinit var lastNonZeroAudioValue: TextView
+    private lateinit var lastReadResultValue: TextView
+    private lateinit var captureDiagnosticValue: TextView
     private lateinit var captureStatusValue: TextView
     private lateinit var levelBar: ProgressBar
 
@@ -97,7 +104,14 @@ class MainActivity : Activity() {
         targetAppValue = addField(root, "Target App")
         detectionMethodValue = addField(root, "Detection Method")
         stateValue = addField(root, "State")
-        audioLevelValue = addField(root, "Audio Level")
+        audioLevelValue = addField(root, "Current Audio Level")
+        peakAudioLevelValue = addField(root, "Peak Audio Level")
+        capturedSamplesValue = addField(root, "Captured Frames/Samples")
+        nonZeroSamplesValue = addField(root, "Non-zero Frames/Samples")
+        speakingEventsValue = addField(root, "Speaking Events")
+        lastNonZeroAudioValue = addField(root, "Last Non-zero Audio")
+        lastReadResultValue = addField(root, "Last Read Result")
+        captureDiagnosticValue = addField(root, "Capture Diagnostic")
         captureStatusValue = addField(root, "Capture Status")
 
         levelBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -234,9 +248,16 @@ class MainActivity : Activity() {
             targetAppValue.text = snapshot.targetApp
             detectionMethodValue.text = snapshot.detectionMethod
             stateValue.text = snapshot.state.name
-            audioLevelValue.text = snapshot.audioLevel?.let { "%.3f".format(it) } ?: "n/a"
+            audioLevelValue.text = snapshot.diagnostics.currentAudioLevel?.let { "%.3f".format(it) } ?: "n/a"
+            peakAudioLevelValue.text = "%.3f".format(snapshot.diagnostics.peakAudioLevel)
+            capturedSamplesValue.text = snapshot.diagnostics.capturedSamples.toString()
+            nonZeroSamplesValue.text = snapshot.diagnostics.nonZeroSamples.toString()
+            speakingEventsValue.text = snapshot.diagnostics.speakingEvents.toString()
+            lastNonZeroAudioValue.text = snapshot.diagnostics.lastNonZeroAudioElapsedMs?.let { "$it ms" } ?: "n/a"
+            lastReadResultValue.text = snapshot.diagnostics.lastReadResult?.toString() ?: "n/a"
+            captureDiagnosticValue.text = snapshot.diagnostics.diagnostic.label
             captureStatusValue.text = snapshot.captureStatus
-            levelBar.progress = ((snapshot.audioLevel ?: 0f) * 100).toInt().coerceIn(0, 100)
+            levelBar.progress = ((snapshot.diagnostics.currentAudioLevel ?: 0f) * 100).toInt().coerceIn(0, 100)
         }
     }
 }
