@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
@@ -18,13 +19,15 @@ import com.aituber.poc.state.UniversalStateSnapshot
 
 class CharacterOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
-    private val animationFrames = floatArrayOf(0.15f, 0.65f, 0.35f, 0.9f)
+    private val animationFrames = floatArrayOf(0.08f, 0.35f, 0.85f, 0.45f, 0.12f, 0.70f, 1.00f, 0.25f)
+    private val amplitudeMapper = MouthAmplitudeMapper()
     private var frameIndex = 0
     private var mouthView: MouthOverlayView? = null
     private var characterEngine: CharacterEngine? = null
     private var windowManager: WindowManager? = null
     private var currentState = UniversalAiState.UNKNOWN
     private var animationRunning = false
+    private var mouthDriveMode = MouthDriveMode.CLOSED
 
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
@@ -44,7 +47,7 @@ class CharacterOverlayService : Service() {
             if (!animationRunning || currentState != UniversalAiState.SPEAKING || mouthView == null) return
             mouthView?.setMouthOpenRatio(animationFrames[frameIndex % animationFrames.size])
             frameIndex += 1
-            handler.postDelayed(this, 130L)
+            handler.postDelayed(this, 185L)
         }
     }
 
@@ -108,17 +111,20 @@ class CharacterOverlayService : Service() {
     private fun ensureAnimation() {
         requireMainThread("ensureAnimation")
         if (animationRunning) return
+        if (mouthDriveMode != MouthDriveMode.PSEUDO_FALLBACK) return
         animationRunning = true
         OverlayLifecycleTrace.recordDeferred("animation started")
         handler.post(animationRunnable)
     }
 
-    private fun stopAnimation() {
+    private fun stopAnimation(closeMouth: Boolean = true) {
         requireMainThread("stopAnimation")
         val wasRunning = animationRunning
         animationRunning = false
         handler.removeCallbacks(animationRunnable)
-        mouthView?.setMouthOpenRatio(0f)
+        if (closeMouth) {
+            mouthView?.setMouthOpenRatio(0f)
+        }
         frameIndex = 0
         if (wasRunning) {
             OverlayLifecycleTrace.recordDeferred("animation stopped")
@@ -130,11 +136,14 @@ class CharacterOverlayService : Service() {
         if (mouthView == null) return
         currentState = snapshot.state
         characterEngine?.bind(snapshot)
+        applyMouthAmplitude(snapshot)
     }
 
     private fun cleanupOverlayOnMain() {
         requireMainThread("cleanupOverlayOnMain")
         stopAnimation()
+        amplitudeMapper.reset()
+        MouthDriveDiagnostics.reset()
         mouthView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
@@ -147,6 +156,26 @@ class CharacterOverlayService : Service() {
     private fun requireMainThread(operation: String) {
         check(Looper.myLooper() == Looper.getMainLooper()) {
             "$operation must run on the main thread"
+        }
+    }
+
+    private fun applyMouthAmplitude(snapshot: UniversalStateSnapshot) {
+        val frame = amplitudeMapper.evaluate(
+            state = snapshot.state,
+            metrics = snapshot.visualizerProbe.currentMetrics,
+            nowMs = SystemClock.elapsedRealtime()
+        )
+        mouthDriveMode = frame.mode
+        MouthDriveDiagnostics.update(frame.mode, frame.targetOpen, frame.smoothedOpen)
+        when (frame.mode) {
+            MouthDriveMode.RMS -> {
+                stopAnimation(closeMouth = false)
+                if (frame.shouldRender) {
+                    mouthView?.setMouthOpenRatio(frame.smoothedOpen.toFloat())
+                }
+            }
+            MouthDriveMode.PSEUDO_FALLBACK -> ensureAnimation()
+            MouthDriveMode.CLOSED -> stopAnimation()
         }
     }
 

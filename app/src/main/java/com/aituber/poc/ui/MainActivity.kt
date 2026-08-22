@@ -18,6 +18,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.overlay.CharacterOverlayService
+import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.OverlayLifecycleTrace
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
@@ -58,6 +59,9 @@ class MainActivity : Activity() {
     private lateinit var visualizerPeakCoreValue: TextView
     private lateinit var derivedSpeakingCoreValue: TextView
     private lateinit var mouthOverlayStateValue: TextView
+    private lateinit var mouthDriveModeValue: TextView
+    private lateinit var mouthTargetOpenValue: TextView
+    private lateinit var mouthSmoothedOpenValue: TextView
 
     private lateinit var diagnosticsContainer: LinearLayout
     private lateinit var diagnosticsToggleButton: Button
@@ -284,6 +288,9 @@ class MainActivity : Activity() {
         visualizerPeakCoreValue = addCoreField(root, "Peak")
         derivedSpeakingCoreValue = addCoreField(root, "Derived Speaking")
         mouthOverlayStateValue = addCoreField(root, "Mouth Overlay")
+        mouthDriveModeValue = addCoreField(root, "Mouth Drive Mode")
+        mouthTargetOpenValue = addCoreField(root, "Mouth Target Open")
+        mouthSmoothedOpenValue = addCoreField(root, "Mouth Smoothed Open")
 
         addControls(root)
 
@@ -725,6 +732,10 @@ class MainActivity : Activity() {
             visualizerPeakCoreValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.peak)
             derivedSpeakingCoreValue.text = snapshot.visualizerProbe.derivedSpeaking
             mouthOverlayStateValue.text = mouthOverlayStateLabel()
+            val mouthDrive = MouthDriveDiagnostics.snapshot()
+            mouthDriveModeValue.text = mouthDrive.mode
+            mouthTargetOpenValue.text = mouthDrive.targetOpen?.let { "%.3f".format(it) } ?: "n/a"
+            mouthSmoothedOpenValue.text = "%.3f".format(mouthDrive.smoothedOpen)
 
             captureStartupTraceValue.text = snapshot.captureStartupTrace.trace.joinToString("\n").ifBlank { "n/a" }
             startButtonClickCountValue.text = snapshot.captureStartupTrace.startButtonClickCount.toString()
