@@ -10,11 +10,11 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import com.aituber.poc.aiadapter.VoiceCommunicationPlaybackAdapter
 import com.aituber.poc.state.CombinedPlaybackRecordingEvent
 import com.aituber.poc.state.FineGrainedVoiceEvent
 import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.PlaybackProbeSnapshot
+import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 import kotlin.math.max
 
@@ -24,7 +24,6 @@ class AndroidPlaybackStateProbe(
     private val onSnapshot: (PlaybackProbeSnapshot) -> Unit
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private val speakingAdapter = VoiceCommunicationPlaybackAdapter()
     private var callback: AudioManager.AudioPlaybackCallback? = null
     private var recordingCallback: AudioManager.AudioRecordingCallback? = null
     private var callbackEventCount = 0
@@ -204,13 +203,13 @@ class AndroidPlaybackStateProbe(
             )
         )
 
-        val speakingResult = speakingAdapter.evaluate(activeCount, hasVoiceCommunicationSpeech)
+        val universalState = universalStateForPlaybackProbe(voiceSessionActive)
         CaptureSessionState.update(
             currentUniversalState().copy(
-                state = speakingResult.state,
+                state = universalState,
                 audioLevel = null,
-                captureStatus = "Playback callback heuristic evaluated",
-                speakingSignalSource = speakingResult.signalSource
+                captureStatus = "Playback/recording diagnostics evaluated",
+                speakingSignalSource = "Actual speaking signal not established"
             )
         )
     }
@@ -380,6 +379,16 @@ class AndroidPlaybackStateProbe(
             AudioAttributes.CONTENT_TYPE_SONIFICATION -> "CONTENT_TYPE_SONIFICATION"
             AudioAttributes.CONTENT_TYPE_UNKNOWN -> "CONTENT_TYPE_UNKNOWN"
             else -> "CONTENT_TYPE_$contentType"
+        }
+    }
+
+    companion object {
+        internal fun universalStateForPlaybackProbe(voiceSessionActive: Boolean): UniversalAiState {
+            return if (voiceSessionActive) {
+                UniversalAiState.UNKNOWN
+            } else {
+                UniversalAiState.IDLE
+            }
         }
     }
 }
