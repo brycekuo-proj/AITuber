@@ -1,6 +1,7 @@
 package com.aituber.poc.poc
 
 import com.aituber.poc.state.VisualizerWaveformMetrics
+import com.aituber.poc.state.UniversalAiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,6 +57,26 @@ class VisualizerProbeAccumulatorTest {
         assertEquals("YES", snapshot.enabled)
         assertEquals(256, snapshot.captureSize)
         assertEquals(5_000, snapshot.captureRate)
+        assertEquals(1L, snapshot.waveformCallbackCount)
+    }
+
+    @Test
+    fun visualizerCallbackSnapshotCanEnterDetectorPipeline() {
+        val accumulator = VisualizerProbeAccumulator()
+        val detector = VisualizerSpeakingDetector()
+        accumulator.start(0L, "Initialized Visualizer(0)", captureSize = 512, captureRate = 10_000)
+
+        detector.evaluate(0L, metrics(rms = 0.32, peak = 0.89, activity = 0.75), voiceSessionActive = true, visualizerAvailable = true)
+        val decision = detector.evaluate(
+            now = 160L,
+            metrics = metrics(rms = 0.32, peak = 0.89, activity = 0.75),
+            voiceSessionActive = true,
+            visualizerAvailable = true
+        )
+        accumulator.updateDetector(decision)
+        val snapshot = accumulator.record(160L, metrics(rms = 0.32, peak = 0.89, activity = 0.75))
+
+        assertEquals(UniversalAiState.SPEAKING.name, snapshot.derivedSpeaking)
         assertEquals(1L, snapshot.waveformCallbackCount)
     }
 

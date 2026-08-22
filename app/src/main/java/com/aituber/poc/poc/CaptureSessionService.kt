@@ -104,6 +104,7 @@ class CaptureSessionService : Service() {
             targetLabel = ChatGptTarget.label
         )
         adapter?.start { snapshot -> characterEngine.bind(snapshot) }
+        VisualizerAudioProbe.startDetector()
     }
 
     private fun stopCapture(status: String) {
@@ -111,6 +112,7 @@ class CaptureSessionService : Service() {
         stopping = true
         adapter?.stop()
         adapter = null
+        VisualizerAudioProbe.stop()
         playbackProbe?.stop()
         mediaProjectionCallback?.let { callback ->
             runCatching { mediaProjection?.unregisterCallback(callback) }

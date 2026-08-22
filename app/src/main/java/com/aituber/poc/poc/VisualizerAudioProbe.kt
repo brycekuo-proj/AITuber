@@ -14,6 +14,17 @@ object VisualizerAudioProbe {
     private val analyzer = VisualizerWaveformAnalyzer()
     private val accumulator = VisualizerProbeAccumulator()
     private val detector = VisualizerSpeakingDetector()
+    private val startCoordinator = VisualizerProbeStartCoordinator(
+        object : VisualizerProbeStartCoordinator.Backend {
+            override fun start(automatedTest: Boolean) {
+                startInternal(automatedTest)
+            }
+
+            override fun stop() {
+                stopInternal()
+            }
+        }
+    )
     private var visualizer: Visualizer? = null
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
@@ -21,15 +32,15 @@ object VisualizerAudioProbe {
     private var automatedTest = false
 
     fun startDetector() {
-        start(automatedTest = false)
+        startCoordinator.startNormalCapture()
     }
 
     fun startThirtySecondTest() {
-        start(automatedTest = true)
+        startCoordinator.startThirtySecondTest()
     }
 
-    private fun start(automatedTest: Boolean) {
-        stop()
+    private fun startInternal(automatedTest: Boolean) {
+        releaseVisualizer()
         detector.reset()
         val now = SystemClock.elapsedRealtime()
         this.automatedTest = automatedTest
@@ -107,6 +118,10 @@ object VisualizerAudioProbe {
     }
 
     fun stop() {
+        startCoordinator.stop()
+    }
+
+    private fun stopInternal() {
         releaseVisualizer()
         accumulator.stop()
         CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
