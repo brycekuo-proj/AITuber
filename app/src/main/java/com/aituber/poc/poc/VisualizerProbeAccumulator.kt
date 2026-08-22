@@ -16,12 +16,28 @@ class VisualizerProbeAccumulator(
     private var callbackCount = 0L
     private var currentMetrics = VisualizerWaveformMetrics.zero()
     private var testStartElapsedMs: Long? = null
+    private var derivedSpeaking = "UNKNOWN"
+    private var detectorThresholds = "rms>=0.12 or peak>=0.35 + activity>=0.20"
+    private var detectorAttackRelease = "attack=150ms release=300ms"
+    private var detectorHysteresisState = "state=UNKNOWN candidate=false candidateSince=n/a silentSince=n/a"
+    private var detectorTransitionCount = 0
+    private var detectorLastTransitionElapsedMs: Long? = null
 
-    fun start(now: Long, initStatus: String, captureSize: Int, captureRate: Int) {
+    fun start(
+        now: Long,
+        initStatus: String,
+        captureSize: Int,
+        captureRate: Int,
+        automatedTest: Boolean = true
+    ) {
         samples.clear()
         callbackCount = 0L
         currentMetrics = VisualizerWaveformMetrics.zero()
-        testStartElapsedMs = now
+        testStartElapsedMs = if (automatedTest) now else null
+        derivedSpeaking = "IDLE"
+        detectorHysteresisState = "state=IDLE candidate=false candidateSince=n/a silentSince=n/a"
+        detectorTransitionCount = 0
+        detectorLastTransitionElapsedMs = null
         this.initStatus = initStatus
         this.enabled = "YES"
         this.captureSize = captureSize
@@ -33,6 +49,8 @@ class VisualizerProbeAccumulator(
         callbackCount = 0L
         currentMetrics = VisualizerWaveformMetrics.zero()
         testStartElapsedMs = null
+        derivedSpeaking = "UNKNOWN"
+        detectorHysteresisState = "state=UNKNOWN candidate=false candidateSince=n/a silentSince=n/a"
         this.initStatus = initStatus
         enabled = "NO"
         captureSize = 0
@@ -43,6 +61,8 @@ class VisualizerProbeAccumulator(
     fun stop() {
         enabled = "NO"
         testStartElapsedMs = null
+        derivedSpeaking = "IDLE"
+        detectorHysteresisState = "state=IDLE candidate=false candidateSince=n/a silentSince=n/a"
     }
 
     fun record(now: Long, metrics: VisualizerWaveformMetrics): VisualizerProbeSnapshot {
@@ -52,6 +72,15 @@ class VisualizerProbeAccumulator(
         if (samples.size == historyCapacity) samples.removeFirst()
         samples.addLast(sample)
         return snapshot()
+    }
+
+    fun updateDetector(decision: VisualizerSpeakingDecision) {
+        derivedSpeaking = decision.state.name
+        detectorThresholds = decision.diagnostics.thresholdSummary
+        detectorAttackRelease = decision.diagnostics.attackReleaseSummary
+        detectorHysteresisState = decision.diagnostics.hysteresisState
+        detectorTransitionCount = decision.diagnostics.transitionCount
+        detectorLastTransitionElapsedMs = decision.diagnostics.lastTransitionElapsedMs
     }
 
     fun snapshot(): VisualizerProbeSnapshot {
@@ -76,6 +105,12 @@ class VisualizerProbeAccumulator(
             aiQuietPeakRatio = ratio(aiSummary.peakAverage, quietSummary.peakAverage),
             aiUserPeakRatio = ratio(aiSummary.peakAverage, userSummary.peakAverage),
             outputMixSignalStatus = outputMixSignalStatus(),
+            derivedSpeaking = derivedSpeaking,
+            detectorThresholds = detectorThresholds,
+            detectorAttackRelease = detectorAttackRelease,
+            detectorHysteresisState = detectorHysteresisState,
+            detectorTransitionCount = detectorTransitionCount,
+            detectorLastTransitionElapsedMs = detectorLastTransitionElapsedMs,
             currentTestPhase = samples.lastOrNull()?.phase ?: "UNMARKED",
             history = samples.toList()
         )

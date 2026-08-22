@@ -4,6 +4,8 @@ import android.media.audiofx.Visualizer
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import com.aituber.poc.state.UniversalAiState
+import com.aituber.poc.state.VisualizerWaveformMetrics
 
 object VisualizerAudioProbe {
     private const val OUTPUT_MIX_AUDIO_SESSION = 0
@@ -11,14 +13,26 @@ object VisualizerAudioProbe {
 
     private val analyzer = VisualizerWaveformAnalyzer()
     private val accumulator = VisualizerProbeAccumulator()
+    private val detector = VisualizerSpeakingDetector()
     private var visualizer: Visualizer? = null
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
     private var testStartElapsedMs: Long? = null
+    private var automatedTest = false
+
+    fun startDetector() {
+        start(automatedTest = false)
+    }
 
     fun startThirtySecondTest() {
+        start(automatedTest = true)
+    }
+
+    private fun start(automatedTest: Boolean) {
         stop()
+        detector.reset()
         val now = SystemClock.elapsedRealtime()
+        this.automatedTest = automatedTest
         try {
             val captureSizeRange = Visualizer.getCaptureSizeRange()
             val captureSize = selectCaptureSize(captureSizeRange)
@@ -40,8 +54,17 @@ object VisualizerAudioProbe {
                         val data = waveform ?: return
                         val elapsed = SystemClock.elapsedRealtime()
                         val metrics = analyzer.metrics(data)
+                        val voiceSessionActive = CaptureSessionState.current().playbackProbe.voiceSessionActive == "YES"
+                        val decision = detector.evaluate(
+                            now = elapsed,
+                            metrics = metrics,
+                            voiceSessionActive = voiceSessionActive,
+                            visualizerAvailable = true
+                        )
+                        accumulator.updateDetector(decision)
                         CaptureSessionState.updateVisualizerProbe(accumulator.record(elapsed, metrics))
-                        if (elapsed - now >= TEST_DURATION_MS) {
+                        updateUniversalState(decision.state)
+                        if (this@VisualizerAudioProbe.automatedTest && elapsed - now >= TEST_DURATION_MS) {
                             stop()
                         }
                     }
@@ -58,14 +81,28 @@ object VisualizerAudioProbe {
             )
             visualizer = effect
             testStartElapsedMs = now
-            accumulator.start(now, initStatus = "Initialized Visualizer(0)", captureSize = captureSize, captureRate = captureRate)
+            accumulator.start(
+                now = now,
+                initStatus = "Initialized Visualizer(0)",
+                captureSize = captureSize,
+                captureRate = captureRate,
+                automatedTest = automatedTest
+            )
             CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
             effect.enabled = true
         } catch (exception: Throwable) {
             releaseVisualizer()
+            val decision = detector.evaluate(
+                now = SystemClock.elapsedRealtime(),
+                metrics = VisualizerWaveformMetrics.zero(),
+                voiceSessionActive = CaptureSessionState.current().playbackProbe.voiceSessionActive == "YES",
+                visualizerAvailable = false
+            )
+            accumulator.updateDetector(decision)
             CaptureSessionState.updateVisualizerProbe(
                 accumulator.fail("${exception::class.java.simpleName}: ${exception.message ?: "Visualizer init failed"}")
             )
+            updateUniversalState(UniversalAiState.UNKNOWN)
         }
     }
 
@@ -73,6 +110,7 @@ object VisualizerAudioProbe {
         releaseVisualizer()
         accumulator.stop()
         CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
+        updateUniversalState(UniversalAiState.IDLE)
     }
 
     private fun releaseVisualizer() {
@@ -83,12 +121,25 @@ object VisualizerAudioProbe {
         handlerThread = null
         handler = null
         testStartElapsedMs = null
+        automatedTest = false
     }
 
     private fun selectCaptureSize(range: IntArray): Int {
         val min = range.getOrNull(0) ?: 256
         val max = range.getOrNull(1) ?: min
         return 512.coerceIn(min, max)
+    }
+
+    private fun updateUniversalState(state: UniversalAiState) {
+        val current = CaptureSessionState.current()
+        CaptureSessionState.update(
+            current.copy(
+                state = state,
+                audioLevel = null,
+                captureStatus = "Visualizer speaking detector evaluated",
+                speakingSignalSource = "Visualizer(0) waveform RMS/Peak/Activity"
+            )
+        )
     }
 
 }

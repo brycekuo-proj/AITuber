@@ -51,6 +51,11 @@ class MainActivity : Activity() {
     private lateinit var combinedCandidateValue: TextView
     private lateinit var confidenceValue: TextView
     private lateinit var speakingSignalValue: TextView
+    private lateinit var visualizerSignalValue: TextView
+    private lateinit var visualizerRmsCoreValue: TextView
+    private lateinit var visualizerPeakCoreValue: TextView
+    private lateinit var visualizerActivityCoreValue: TextView
+    private lateinit var derivedSpeakingCoreValue: TextView
 
     private lateinit var diagnosticsContainer: LinearLayout
     private lateinit var diagnosticsToggleButton: Button
@@ -148,6 +153,10 @@ class MainActivity : Activity() {
     private lateinit var visualizerCurrentActivityValue: TextView
     private lateinit var visualizerOutputMixStatusValue: TextView
     private lateinit var visualizerCurrentPhaseValue: TextView
+    private lateinit var visualizerDetectorThresholdsValue: TextView
+    private lateinit var visualizerDetectorAttackReleaseValue: TextView
+    private lateinit var visualizerDetectorHysteresisValue: TextView
+    private lateinit var visualizerDetectorTransitionsValue: TextView
     private lateinit var visualizerQuietSummaryValue: TextView
     private lateinit var visualizerUserSummaryValue: TextView
     private lateinit var visualizerAiSummaryValue: TextView
@@ -156,6 +165,7 @@ class MainActivity : Activity() {
     private lateinit var visualizerHistoryValue: TextView
 
     private var diagnosticsExpanded = false
+    private var pendingVisualizerAutomatedTest = true
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
         renderSnapshot(snapshot)
     }
@@ -225,7 +235,7 @@ class MainActivity : Activity() {
             }
             visualizerPermissionRequestCode -> {
                 if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                    VisualizerAudioProbe.startThirtySecondTest()
+                    startVisualizerProbeAfterPermission(pendingVisualizerAutomatedTest)
                 } else {
                     publishLocal(CaptureStatus.RECORD_AUDIO_DENIED)
                 }
@@ -256,6 +266,11 @@ class MainActivity : Activity() {
         combinedCandidateValue = addCoreField(root, "Combined Candidate")
         confidenceValue = addCoreField(root, "Confidence")
         speakingSignalValue = addCoreField(root, "Speaking Signal")
+        visualizerSignalValue = addCoreField(root, "Visualizer Signal")
+        visualizerRmsCoreValue = addCoreField(root, "RMS")
+        visualizerPeakCoreValue = addCoreField(root, "Peak")
+        visualizerActivityCoreValue = addCoreField(root, "Activity")
+        derivedSpeakingCoreValue = addCoreField(root, "Derived Speaking")
 
         addControls(root)
 
@@ -300,7 +315,12 @@ class MainActivity : Activity() {
 
         root.addView(Button(this).apply {
             text = "START 30S VISUALIZER TEST"
-            setOnClickListener { startVisualizerTest() }
+            setOnClickListener { startVisualizerProbe(automatedTest = true) }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "START VISUALIZER DETECTOR"
+            setOnClickListener { startVisualizerProbe(automatedTest = false) }
         }, buttonLayoutParams())
 
         root.addView(Button(this).apply {
@@ -458,6 +478,10 @@ class MainActivity : Activity() {
         visualizerCurrentActivityValue = addDiagnosticField(root, "Current Activity Ratio")
         visualizerOutputMixStatusValue = addDiagnosticField(root, "Output Mix Signal Status")
         visualizerCurrentPhaseValue = addDiagnosticField(root, "Current Test Phase")
+        visualizerDetectorThresholdsValue = addDiagnosticField(root, "Detector Thresholds")
+        visualizerDetectorAttackReleaseValue = addDiagnosticField(root, "Attack / Release")
+        visualizerDetectorHysteresisValue = addDiagnosticField(root, "Detector Hysteresis")
+        visualizerDetectorTransitionsValue = addDiagnosticField(root, "Detector Transitions")
         visualizerQuietSummaryValue = addDiagnosticField(root, "QUIET RMS Avg / Peak")
         visualizerUserSummaryValue = addDiagnosticField(root, "USER RMS Avg / Peak")
         visualizerAiSummaryValue = addDiagnosticField(root, "AI RMS Avg / Peak")
@@ -612,12 +636,21 @@ class MainActivity : Activity() {
         startActivityForResult(manager.createScreenCaptureIntent(), requestCode)
     }
 
-    private fun startVisualizerTest() {
+    private fun startVisualizerProbe(automatedTest: Boolean) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            pendingVisualizerAutomatedTest = automatedTest
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), visualizerPermissionRequestCode)
             return
         }
-        VisualizerAudioProbe.startThirtySecondTest()
+        startVisualizerProbeAfterPermission(automatedTest)
+    }
+
+    private fun startVisualizerProbeAfterPermission(automatedTest: Boolean) {
+        if (automatedTest) {
+            VisualizerAudioProbe.startThirtySecondTest()
+        } else {
+            VisualizerAudioProbe.startDetector()
+        }
     }
 
     private fun startVisualMotionService(resultCode: Int, data: Intent, automatedTest: Boolean) {
@@ -685,7 +718,12 @@ class MainActivity : Activity() {
             clientSilencedValue.text = snapshot.playbackProbe.clientSilenced
             combinedCandidateValue.text = snapshot.playbackProbe.combinedCandidateState
             confidenceValue.text = snapshot.playbackProbe.combinedCandidateConfidence
-            speakingSignalValue.text = "Not established"
+            speakingSignalValue.text = snapshot.speakingSignalSource
+            visualizerSignalValue.text = snapshot.visualizerProbe.outputMixSignalStatus
+            visualizerRmsCoreValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.rms)
+            visualizerPeakCoreValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.peak)
+            visualizerActivityCoreValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.activityRatio)
+            derivedSpeakingCoreValue.text = snapshot.visualizerProbe.derivedSpeaking
 
             targetAppValue.text = snapshot.targetApp
             detectionMethodValue.text = snapshot.detectionMethod
@@ -766,6 +804,11 @@ class MainActivity : Activity() {
             visualizerCurrentActivityValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.activityRatio)
             visualizerOutputMixStatusValue.text = snapshot.visualizerProbe.outputMixSignalStatus
             visualizerCurrentPhaseValue.text = snapshot.visualizerProbe.currentTestPhase
+            visualizerDetectorThresholdsValue.text = snapshot.visualizerProbe.detectorThresholds
+            visualizerDetectorAttackReleaseValue.text = snapshot.visualizerProbe.detectorAttackRelease
+            visualizerDetectorHysteresisValue.text = snapshot.visualizerProbe.detectorHysteresisState
+            visualizerDetectorTransitionsValue.text =
+                "count=${snapshot.visualizerProbe.detectorTransitionCount} last=${snapshot.visualizerProbe.detectorLastTransitionElapsedMs?.let { "$it ms" } ?: "n/a"}"
             visualizerQuietSummaryValue.text = compactVisualizerSummary(snapshot.visualizerProbe.quietSummary)
             visualizerUserSummaryValue.text = compactVisualizerSummary(snapshot.visualizerProbe.userSummary)
             visualizerAiSummaryValue.text = compactVisualizerSummary(snapshot.visualizerProbe.aiSummary)

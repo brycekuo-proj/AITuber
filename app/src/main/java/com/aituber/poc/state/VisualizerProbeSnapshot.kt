@@ -53,6 +53,12 @@ data class VisualizerProbeSnapshot(
     val aiQuietPeakRatio: Double,
     val aiUserPeakRatio: Double,
     val outputMixSignalStatus: String,
+    val derivedSpeaking: String,
+    val detectorThresholds: String,
+    val detectorAttackRelease: String,
+    val detectorHysteresisState: String,
+    val detectorTransitionCount: Int,
+    val detectorLastTransitionElapsedMs: Long?,
     val currentTestPhase: String,
     val history: List<VisualizerProbeSample>
 ) {
@@ -72,6 +78,12 @@ data class VisualizerProbeSnapshot(
             aiQuietPeakRatio = 0.0,
             aiUserPeakRatio = 0.0,
             outputMixSignalStatus = "Not started",
+            derivedSpeaking = "UNKNOWN",
+            detectorThresholds = "rms>=0.12 or peak>=0.35 + activity>=0.20",
+            detectorAttackRelease = "attack=150ms release=300ms",
+            detectorHysteresisState = "state=UNKNOWN candidate=false candidateSince=n/a silentSince=n/a",
+            detectorTransitionCount = 0,
+            detectorLastTransitionElapsedMs = null,
             currentTestPhase = "UNMARKED",
             history = emptyList()
         )

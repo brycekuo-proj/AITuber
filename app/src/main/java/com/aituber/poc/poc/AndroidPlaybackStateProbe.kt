@@ -203,13 +203,21 @@ class AndroidPlaybackStateProbe(
             )
         )
 
-        val universalState = universalStateForPlaybackProbe(voiceSessionActive)
+        val currentUniversalSnapshot = currentUniversalState()
+        val universalState = universalStateForPlaybackAndVisualizer(
+            voiceSessionActive = voiceSessionActive,
+            visualizerDerivedState = currentUniversalSnapshot.visualizerProbe.derivedSpeaking
+        )
         CaptureSessionState.update(
-            currentUniversalState().copy(
+            currentUniversalSnapshot.copy(
                 state = universalState,
                 audioLevel = null,
                 captureStatus = "Playback/recording diagnostics evaluated",
-                speakingSignalSource = "Not established"
+                speakingSignalSource = if (voiceSessionActive) {
+                    "Visualizer(0) waveform RMS/Peak/Activity"
+                } else {
+                    "Voice session inactive"
+                }
             )
         )
     }
@@ -388,6 +396,18 @@ class AndroidPlaybackStateProbe(
                 UniversalAiState.UNKNOWN
             } else {
                 UniversalAiState.IDLE
+            }
+        }
+
+        internal fun universalStateForPlaybackAndVisualizer(
+            voiceSessionActive: Boolean,
+            visualizerDerivedState: String
+        ): UniversalAiState {
+            if (!voiceSessionActive) return UniversalAiState.IDLE
+            return when (visualizerDerivedState) {
+                UniversalAiState.SPEAKING.name -> UniversalAiState.SPEAKING
+                UniversalAiState.IDLE.name -> UniversalAiState.IDLE
+                else -> UniversalAiState.UNKNOWN
             }
         }
     }
