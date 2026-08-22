@@ -4,11 +4,14 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.AudioPlaybackConfiguration
+import android.media.AudioRecordingConfiguration
+import android.media.MediaRecorder
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.aituber.poc.aiadapter.VoiceCommunicationPlaybackAdapter
+import com.aituber.poc.state.CombinedPlaybackRecordingEvent
 import com.aituber.poc.state.FineGrainedVoiceEvent
 import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.PlaybackProbeSnapshot
@@ -23,6 +26,7 @@ class AndroidPlaybackStateProbe(
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val speakingAdapter = VoiceCommunicationPlaybackAdapter()
     private var callback: AudioManager.AudioPlaybackCallback? = null
+    private var recordingCallback: AudioManager.AudioRecordingCallback? = null
     private var callbackEventCount = 0
     private var lastCallbackElapsedMs: Long? = null
     private var lastActivePlaybackCount = 0
@@ -36,10 +40,22 @@ class AndroidPlaybackStateProbe(
     private var lastObservedContentTypeWhileActive = "n/a"
     private val lastPlaybackEvents = ArrayDeque<PlaybackProbeEvent>(10)
     private val lastFineGrainedEvents = ArrayDeque<FineGrainedVoiceEvent>(20)
+    private val lastCombinedEvents = ArrayDeque<CombinedPlaybackRecordingEvent>(20)
     private var lastConfigurationIdentity = "n/a"
     private var lastCandidate = "NO"
     private var lastCandidateChangeElapsedMs: Long? = null
     private var previousCallbackElapsedMs: Long? = null
+    private var lastPlaybackUsage = "n/a"
+    private var lastPlaybackContentType = "n/a"
+    private var lastPlaybackSessionActive = "NO"
+    private var recordingCallbackEventCount = 0
+    private var activeRecordingCount = 0
+    private var observedAudioSource = "n/a"
+    private var clientSilenced = "n/a"
+    private var recordingSessionIdentity = "n/a"
+    private var combinedCandidateState = "UNKNOWN"
+    private var combinedCandidateConfidence = "NONE"
+    private var lastCombinedStateChangeElapsedMs: Long? = null
 
     fun start() {
         if (callback != null) return
@@ -58,13 +74,23 @@ class AndroidPlaybackStateProbe(
                 publish(configs.orEmpty())
             }
         }
+        val audioRecordingCallback = object : AudioManager.AudioRecordingCallback() {
+            override fun onRecordingConfigChanged(configs: MutableList<AudioRecordingConfiguration>?) {
+                recordingCallbackEventCount += 1
+                publishRecording(configs.orEmpty())
+            }
+        }
         callback = playbackCallback
+        recordingCallback = audioRecordingCallback
 
         try {
             audioManager.registerAudioPlaybackCallback(playbackCallback, Handler(Looper.getMainLooper()))
+            audioManager.registerAudioRecordingCallback(audioRecordingCallback, Handler(Looper.getMainLooper()))
+            publishRecording(audioManager.activeRecordingConfigurations)
             publish(audioManager.activePlaybackConfigurations, "Registered; no callback seen yet")
         } catch (runtime: RuntimeException) {
             callback = null
+            recordingCallback = null
             onSnapshot(
                 currentSnapshot().copy(
                     callbackStatus = "UNAVAILABLE",
@@ -80,7 +106,11 @@ class AndroidPlaybackStateProbe(
         callback?.let { playbackCallback ->
             runCatching { audioManager.unregisterAudioPlaybackCallback(playbackCallback) }
         }
+        recordingCallback?.let { audioRecordingCallback ->
+            runCatching { audioManager.unregisterAudioRecordingCallback(audioRecordingCallback) }
+        }
         callback = null
+        recordingCallback = null
     }
 
     private fun publish(
@@ -92,6 +122,8 @@ class AndroidPlaybackStateProbe(
         val usage = attributes.map { usageLabel(it.usage) }.distinct().joinToStringOrDefault()
         val contentType = attributes.map { contentTypeLabel(it.contentType) }.distinct().joinToStringOrDefault()
         val activeCount = configs.size
+        lastPlaybackUsage = usage
+        lastPlaybackContentType = contentType
         val configurationIdentity = configs.map { config -> config.hashCode().toString() }
             .sorted()
             .joinToStringOrDefault()
@@ -105,6 +137,7 @@ class AndroidPlaybackStateProbe(
                 attribute.contentType == AudioAttributes.CONTENT_TYPE_SPEECH
         }
         val voiceSessionActive = activeCount > 0 && hasVoiceCommunicationSpeech
+        lastPlaybackSessionActive = if (voiceSessionActive) "YES" else "NO"
         val actualCandidate = if (voiceSessionActive) "UNKNOWN" else "NO"
         val candidateConfidence = if (voiceSessionActive) "NONE" else "HIGH"
         if (actualCandidate != lastCandidate) {
@@ -130,6 +163,7 @@ class AndroidPlaybackStateProbe(
                 publicAudioModeAndDeviceSignal = publicAudioModeAndDeviceSignal
             )
         )
+        recordCombinedEvent(now)
 
         if (activeCount > 0) {
             activePlaybackEvents += 1
@@ -165,6 +199,7 @@ class AndroidPlaybackStateProbe(
                 actualSpeakingCandidate = actualCandidate,
                 candidateConfidence = candidateConfidence,
                 lastCandidateChangeElapsedMs = lastCandidateChangeElapsedMs,
+                playbackSessionActive = if (activeCount > 0) "YES" else "NO",
                 attribution = "UNSUPPORTED - Attribution unavailable"
             )
         )
@@ -178,6 +213,24 @@ class AndroidPlaybackStateProbe(
                 speakingSignalSource = speakingResult.signalSource
             )
         )
+    }
+
+    private fun publishRecording(configs: List<AudioRecordingConfiguration>) {
+        val now = SystemClock.elapsedRealtime()
+        activeRecordingCount = configs.size
+        observedAudioSource = configs.map { config -> audioSourceLabel(config.clientAudioSource) }
+            .distinct()
+            .joinToStringOrDefault()
+        clientSilenced = configs.map { config -> config.isClientSilenced.toString() }
+            .distinct()
+            .joinToStringOrDefault()
+        recordingSessionIdentity = configs.map { config ->
+            "session=${config.clientAudioSessionId}/source=${audioSourceLabel(config.clientAudioSource)}/hash=${config.hashCode()}"
+        }.sorted().joinToStringOrDefault()
+
+        updateCombinedCandidate(now)
+        recordCombinedEvent(now)
+        onSnapshot(currentSnapshot())
     }
 
     private fun recordPlaybackEvent(event: PlaybackProbeEvent) {
@@ -194,6 +247,35 @@ class AndroidPlaybackStateProbe(
         lastFineGrainedEvents.addLast(event)
     }
 
+    private fun recordCombinedEvent(now: Long) {
+        if (lastCombinedEvents.size == 20) {
+            lastCombinedEvents.removeFirst()
+        }
+        lastCombinedEvents.addLast(
+            CombinedPlaybackRecordingEvent(
+                elapsedTimestampMs = now,
+                playbackActiveCount = lastActivePlaybackCount,
+                playbackUsage = lastPlaybackUsage,
+                playbackContentType = lastPlaybackContentType,
+                recordingActiveCount = activeRecordingCount,
+                audioSource = observedAudioSource,
+                clientSilenced = clientSilenced,
+                recordingSessionIdentity = recordingSessionIdentity,
+                audioManagerMode = modeLabel(audioManager.mode)
+            )
+        )
+    }
+
+    private fun updateCombinedCandidate(now: Long) {
+        val nextState = "UNKNOWN"
+        val nextConfidence = "NONE"
+        if (nextState != combinedCandidateState) {
+            combinedCandidateState = nextState
+            lastCombinedStateChangeElapsedMs = now
+        }
+        combinedCandidateConfidence = nextConfidence
+    }
+
     private fun currentSnapshot() = PlaybackProbeSnapshot.empty().copy(
         callbackEventCount = callbackEventCount,
         lastCallbackElapsedMs = lastCallbackElapsedMs,
@@ -208,7 +290,18 @@ class AndroidPlaybackStateProbe(
         lastObservedContentTypeWhileActive = lastObservedContentTypeWhileActive,
         lastPlaybackEvents = lastPlaybackEvents.toList(),
         lastCandidateChangeElapsedMs = lastCandidateChangeElapsedMs,
-        lastFineGrainedEvents = lastFineGrainedEvents.toList()
+        lastFineGrainedEvents = lastFineGrainedEvents.toList(),
+        playbackSessionActive = if (lastActivePlaybackCount > 0) "YES" else "NO",
+        recordingSessionActive = if (activeRecordingCount > 0) "YES" else "NO",
+        activeRecordingCount = activeRecordingCount,
+        recordingCallbackEventCount = recordingCallbackEventCount,
+        observedAudioSource = observedAudioSource,
+        clientSilenced = clientSilenced,
+        recordingSessionIdentity = recordingSessionIdentity,
+        combinedCandidateState = combinedCandidateState,
+        combinedCandidateConfidence = combinedCandidateConfidence,
+        lastCombinedStateChangeElapsedMs = lastCombinedStateChangeElapsedMs,
+        lastCombinedEvents = lastCombinedEvents.toList()
     )
 
     private fun List<String>.joinToStringOrDefault(): String {
@@ -242,6 +335,23 @@ class AndroidPlaybackStateProbe(
             AudioManager.MODE_IN_CALL -> "MODE_IN_CALL"
             AudioManager.MODE_IN_COMMUNICATION -> "MODE_IN_COMMUNICATION"
             else -> "MODE_$mode"
+        }
+    }
+
+    private fun audioSourceLabel(source: Int): String {
+        return when (source) {
+            MediaRecorder.AudioSource.DEFAULT -> "DEFAULT"
+            MediaRecorder.AudioSource.MIC -> "MIC"
+            MediaRecorder.AudioSource.VOICE_UPLINK -> "VOICE_UPLINK"
+            MediaRecorder.AudioSource.VOICE_DOWNLINK -> "VOICE_DOWNLINK"
+            MediaRecorder.AudioSource.VOICE_CALL -> "VOICE_CALL"
+            MediaRecorder.AudioSource.CAMCORDER -> "CAMCORDER"
+            MediaRecorder.AudioSource.VOICE_RECOGNITION -> "VOICE_RECOGNITION"
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION -> "VOICE_COMMUNICATION"
+            MediaRecorder.AudioSource.REMOTE_SUBMIX -> "REMOTE_SUBMIX"
+            MediaRecorder.AudioSource.UNPROCESSED -> "UNPROCESSED"
+            MediaRecorder.AudioSource.VOICE_PERFORMANCE -> "VOICE_PERFORMANCE"
+            else -> "AUDIO_SOURCE_$source"
         }
     }
 

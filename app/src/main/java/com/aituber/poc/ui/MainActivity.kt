@@ -66,6 +66,17 @@ class MainActivity : Activity() {
     private lateinit var observedContentTypeValue: TextView
     private lateinit var observedPlayerStateValue: TextView
     private lateinit var voiceSessionActiveValue: TextView
+    private lateinit var playbackSessionActiveValue: TextView
+    private lateinit var recordingSessionActiveValue: TextView
+    private lateinit var activeRecordingCountValue: TextView
+    private lateinit var recordingCallbackEventCountValue: TextView
+    private lateinit var observedAudioSourceValue: TextView
+    private lateinit var clientSilencedValue: TextView
+    private lateinit var recordingSessionIdentityValue: TextView
+    private lateinit var combinedCandidateStateValue: TextView
+    private lateinit var combinedCandidateConfidenceValue: TextView
+    private lateinit var lastCombinedStateChangeValue: TextView
+    private lateinit var lastCombinedEventsValue: TextView
     private lateinit var probeSignalAValue: TextView
     private lateinit var probeSignalBValue: TextView
     private lateinit var probeSignalCValue: TextView
@@ -180,6 +191,17 @@ class MainActivity : Activity() {
         observedContentTypeValue = addField(root, "Observed Content Type")
         observedPlayerStateValue = addField(root, "Observed Player State")
         voiceSessionActiveValue = addField(root, "Voice Session Active")
+        playbackSessionActiveValue = addField(root, "Playback Session Active")
+        recordingSessionActiveValue = addField(root, "Recording Session Active")
+        activeRecordingCountValue = addField(root, "Active Recording Count")
+        recordingCallbackEventCountValue = addField(root, "Recording Callback Event Count")
+        observedAudioSourceValue = addField(root, "Observed Audio Source")
+        clientSilencedValue = addField(root, "Client Silenced")
+        recordingSessionIdentityValue = addField(root, "Recording Session Identity")
+        combinedCandidateStateValue = addField(root, "Combined Candidate State")
+        combinedCandidateConfidenceValue = addField(root, "Combined Candidate Confidence")
+        lastCombinedStateChangeValue = addField(root, "Last Combined State Change")
+        lastCombinedEventsValue = addField(root, "Last 20 Combined Events")
         probeSignalAValue = addField(root, "Probe Signal A")
         probeSignalBValue = addField(root, "Probe Signal B")
         probeSignalCValue = addField(root, "Probe Signal C")
@@ -381,6 +403,19 @@ class MainActivity : Activity() {
             observedContentTypeValue.text = snapshot.playbackProbe.observedContentType
             observedPlayerStateValue.text = snapshot.playbackProbe.observedPlayerState
             voiceSessionActiveValue.text = snapshot.playbackProbe.voiceSessionActive
+            playbackSessionActiveValue.text = snapshot.playbackProbe.playbackSessionActive
+            recordingSessionActiveValue.text = snapshot.playbackProbe.recordingSessionActive
+            activeRecordingCountValue.text = snapshot.playbackProbe.activeRecordingCount.toString()
+            recordingCallbackEventCountValue.text = snapshot.playbackProbe.recordingCallbackEventCount.toString()
+            observedAudioSourceValue.text = snapshot.playbackProbe.observedAudioSource
+            clientSilencedValue.text = snapshot.playbackProbe.clientSilenced
+            recordingSessionIdentityValue.text = snapshot.playbackProbe.recordingSessionIdentity
+            combinedCandidateStateValue.text = snapshot.playbackProbe.combinedCandidateState
+            combinedCandidateConfidenceValue.text = snapshot.playbackProbe.combinedCandidateConfidence
+            lastCombinedStateChangeValue.text = snapshot.playbackProbe.lastCombinedStateChangeElapsedMs?.let { "$it ms" } ?: "n/a"
+            lastCombinedEventsValue.text = snapshot.playbackProbe.lastCombinedEvents.joinToString("\n") { event ->
+                "${event.elapsedTimestampMs} ms | playback=${event.playbackActiveCount} | ${event.playbackUsage} | ${event.playbackContentType} | recording=${event.recordingActiveCount} | source=${event.audioSource} | silenced=${event.clientSilenced} | rec=${event.recordingSessionIdentity} | mode=${event.audioManagerMode}"
+            }.ifBlank { "n/a" }
             probeSignalAValue.text = snapshot.playbackProbe.probeSignalA
             probeSignalBValue.text = snapshot.playbackProbe.probeSignalB
             probeSignalCValue.text = snapshot.playbackProbe.probeSignalC

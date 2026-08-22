@@ -16,6 +16,18 @@ data class FineGrainedVoiceEvent(
     val publicAudioModeAndDeviceSignal: String
 )
 
+data class CombinedPlaybackRecordingEvent(
+    val elapsedTimestampMs: Long,
+    val playbackActiveCount: Int,
+    val playbackUsage: String,
+    val playbackContentType: String,
+    val recordingActiveCount: Int,
+    val audioSource: String,
+    val clientSilenced: String,
+    val recordingSessionIdentity: String,
+    val audioManagerMode: String
+)
+
 data class PlaybackProbeSnapshot(
     val callbackStatus: String,
     val registrationAttempted: String,
@@ -46,6 +58,17 @@ data class PlaybackProbeSnapshot(
     val candidateConfidence: String,
     val lastCandidateChangeElapsedMs: Long?,
     val lastFineGrainedEvents: List<FineGrainedVoiceEvent>,
+    val playbackSessionActive: String,
+    val recordingSessionActive: String,
+    val activeRecordingCount: Int,
+    val recordingCallbackEventCount: Int,
+    val observedAudioSource: String,
+    val clientSilenced: String,
+    val recordingSessionIdentity: String,
+    val combinedCandidateState: String,
+    val combinedCandidateConfidence: String,
+    val lastCombinedStateChangeElapsedMs: Long?,
+    val lastCombinedEvents: List<CombinedPlaybackRecordingEvent>,
     val attribution: String
 ) {
     companion object {
@@ -79,6 +102,17 @@ data class PlaybackProbeSnapshot(
             candidateConfidence = "HIGH",
             lastCandidateChangeElapsedMs = null,
             lastFineGrainedEvents = emptyList(),
+            playbackSessionActive = "NO",
+            recordingSessionActive = "NO",
+            activeRecordingCount = 0,
+            recordingCallbackEventCount = 0,
+            observedAudioSource = "n/a",
+            clientSilenced = "n/a",
+            recordingSessionIdentity = "n/a",
+            combinedCandidateState = "UNKNOWN",
+            combinedCandidateConfidence = "NONE",
+            lastCombinedStateChangeElapsedMs = null,
+            lastCombinedEvents = emptyList(),
             attribution = "UNSUPPORTED - Attribution unavailable"
         )
     }
