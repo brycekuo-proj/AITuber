@@ -1,4 +1,3 @@
 <resources>
     <string name="app_name">AITuber PoC</string>
-    <string name="accessibility_probe_description">AITuber ChatGPT Voice UI state probe. Captures safe UI metadata only, not conversation text.</string>
 </resources>

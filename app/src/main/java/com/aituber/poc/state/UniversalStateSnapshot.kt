@@ -7,6 +7,5 @@ data class UniversalStateSnapshot(
     val audioLevel: Float?,
     val captureStatus: String,
     val diagnostics: CaptureDiagnostics = CaptureDiagnostics.empty(),
-    val playbackProbe: PlaybackProbeSnapshot = PlaybackProbeSnapshot.empty(),
-    val accessibilityProbe: AccessibilityProbeSnapshot = AccessibilityProbeSnapshot.empty()
+    val playbackProbe: PlaybackProbeSnapshot = PlaybackProbeSnapshot.empty()
 )

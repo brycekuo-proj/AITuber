@@ -1,7 +1,6 @@
 package com.aituber.poc.poc
 
 import com.aituber.poc.aiadapter.CaptureStatus
-import com.aituber.poc.state.AccessibilityProbeSnapshot
 import com.aituber.poc.state.PlaybackProbeSnapshot
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -22,20 +21,12 @@ object CaptureSessionState {
     fun current(): UniversalStateSnapshot = currentSnapshot
 
     fun update(snapshot: UniversalStateSnapshot) {
-        currentSnapshot = snapshot.copy(
-            playbackProbe = currentSnapshot.playbackProbe,
-            accessibilityProbe = currentSnapshot.accessibilityProbe
-        )
+        currentSnapshot = snapshot.copy(playbackProbe = currentSnapshot.playbackProbe)
         listeners.forEach { listener -> listener(currentSnapshot) }
     }
 
     fun updatePlaybackProbe(snapshot: PlaybackProbeSnapshot) {
         currentSnapshot = currentSnapshot.copy(playbackProbe = snapshot)
-        listeners.forEach { listener -> listener(currentSnapshot) }
-    }
-
-    fun updateAccessibilityProbe(snapshot: AccessibilityProbeSnapshot) {
-        currentSnapshot = currentSnapshot.copy(accessibilityProbe = snapshot)
         listeners.forEach { listener -> listener(currentSnapshot) }
     }
 
