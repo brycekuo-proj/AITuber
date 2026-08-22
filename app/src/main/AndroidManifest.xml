@@ -29,6 +29,11 @@
             android:foregroundServiceType="mediaProjection" />
 
         <service
+            android:name=".poc.VisualMotionProbeService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <service
             android:name=".overlay.CharacterOverlayService"
             android:exported="false" />
 

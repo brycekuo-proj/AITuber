@@ -23,6 +23,7 @@ import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.poc.ChatGptTarget
 import com.aituber.poc.poc.DetectionMethod
+import com.aituber.poc.poc.VisualMotionProbeService
 import com.aituber.poc.state.CombinedPlaybackRecordingEvent
 import com.aituber.poc.state.FineGrainedVoiceEvent
 import com.aituber.poc.state.PlaybackProbeEvent
@@ -31,6 +32,8 @@ import com.aituber.poc.state.UniversalStateSnapshot
 
 class MainActivity : Activity() {
     private val projectionRequestCode = 1001
+    private val visualProjectionRequestCode = 1003
+    private val visualTestProjectionRequestCode = 1004
     private val permissionRequestCode = 1002
 
     private lateinit var universalStateValue: TextView
@@ -109,6 +112,25 @@ class MainActivity : Activity() {
     private lateinit var topCandidateSnapshotHistoryValue: TextView
     private lateinit var signatureTransitionsValue: TextView
     private lateinit var lastAccessibilityEventsValue: TextView
+    private lateinit var visualProbeActiveValue: TextView
+    private lateinit var visualRoiBoundsValue: TextView
+    private lateinit var visualMotionAlgorithmValue: TextView
+    private lateinit var currentMotionValue: TextView
+    private lateinit var motionAvg1sValue: TextView
+    private lateinit var motionAvg3sValue: TextView
+    private lateinit var peakMotionValue: TextView
+    private lateinit var validFramesValue: TextView
+    private lateinit var skippedFramesValue: TextView
+    private lateinit var visualCurrentPhaseValue: TextView
+    private lateinit var quietMotionAverageValue: TextView
+    private lateinit var userMotionAverageValue: TextView
+    private lateinit var aiMotionAverageValue: TextView
+    private lateinit var quietMotionPeakValue: TextView
+    private lateinit var userMotionPeakValue: TextView
+    private lateinit var aiMotionPeakValue: TextView
+    private lateinit var aiQuietRatioValue: TextView
+    private lateinit var aiUserRatioValue: TextView
+    private lateinit var visualMotionHistoryValue: TextView
 
     private var diagnosticsExpanded = false
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
@@ -143,12 +165,24 @@ class MainActivity : Activity() {
     @Deprecated("Used for the minimal PoC Activity result flow.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != projectionRequestCode) return
-
-        if (resultCode == RESULT_OK && data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startCaptureService(resultCode, data)
-        } else {
-            publishLocal(CaptureStatus.MEDIA_PROJECTION_DENIED)
+        when (requestCode) {
+            projectionRequestCode -> {
+                if (resultCode == RESULT_OK && data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startCaptureService(resultCode, data)
+                } else {
+                    publishLocal(CaptureStatus.MEDIA_PROJECTION_DENIED)
+                }
+            }
+            visualProjectionRequestCode -> {
+                if (resultCode == RESULT_OK && data != null) {
+                    startVisualMotionService(resultCode, data, automatedTest = false)
+                }
+            }
+            visualTestProjectionRequestCode -> {
+                if (resultCode == RESULT_OK && data != null) {
+                    startVisualMotionService(resultCode, data, automatedTest = true)
+                }
+            }
         }
     }
 
@@ -215,6 +249,21 @@ class MainActivity : Activity() {
         root.addView(Button(this).apply {
             text = "STOP"
             setOnClickListener { stopCaptureService() }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "START VISUAL MOTION PROBE"
+            setOnClickListener { requestVisualMotionProbe(automatedTest = false) }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "STOP VISUAL MOTION PROBE"
+            setOnClickListener { stopVisualMotionService() }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "START 30S VISUAL TEST"
+            setOnClickListener { requestVisualMotionProbe(automatedTest = true) }
         }, buttonLayoutParams())
 
         root.addView(Button(this).apply {
@@ -335,6 +384,26 @@ class MainActivity : Activity() {
         lastPlaybackEventsValue = addLogField(root, "Last 10 Playback Events")
         lastFineGrainedEventsValue = addLogField(root, "Last 20 Fine-Grained Events")
         lastCombinedEventsValue = addLogField(root, "Last 20 Combined Events")
+        root.addView(sectionTitle("Visual Motion Probe"))
+        visualProbeActiveValue = addDiagnosticField(root, "Visual Probe Active")
+        visualRoiBoundsValue = addDiagnosticField(root, "ROI Bounds")
+        visualMotionAlgorithmValue = addDiagnosticField(root, "Motion Algorithm")
+        currentMotionValue = addDiagnosticField(root, "Current Motion")
+        motionAvg1sValue = addDiagnosticField(root, "Motion Avg 1s")
+        motionAvg3sValue = addDiagnosticField(root, "Motion Avg 3s")
+        peakMotionValue = addDiagnosticField(root, "Peak Motion")
+        validFramesValue = addDiagnosticField(root, "Valid Frames")
+        skippedFramesValue = addDiagnosticField(root, "Dropped/Skipped Frames")
+        visualCurrentPhaseValue = addDiagnosticField(root, "Current Test Phase")
+        quietMotionAverageValue = addDiagnosticField(root, "QUIET Average")
+        userMotionAverageValue = addDiagnosticField(root, "USER Average")
+        aiMotionAverageValue = addDiagnosticField(root, "AI Average")
+        quietMotionPeakValue = addDiagnosticField(root, "QUIET Peak")
+        userMotionPeakValue = addDiagnosticField(root, "USER Peak")
+        aiMotionPeakValue = addDiagnosticField(root, "AI Peak")
+        aiQuietRatioValue = addDiagnosticField(root, "AI / QUIET Ratio")
+        aiUserRatioValue = addDiagnosticField(root, "AI / USER Ratio")
+        visualMotionHistoryValue = addLogField(root, "Visual Motion History")
         centerHistoryValue = addLogField(root, "Center History")
         topDynamicCandidateNodesValue = addLogField(root, "Top 10 Dynamic Candidate Nodes")
         topCandidateSnapshotHistoryValue = addLogField(root, "Top Candidate Snapshot History")
@@ -473,6 +542,40 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun requestVisualMotionProbe(automatedTest: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            publishLocal("Visual motion probe requires Android 10 / API 29 or later")
+            return
+        }
+        val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val requestCode = if (automatedTest) visualTestProjectionRequestCode else visualProjectionRequestCode
+        startActivityForResult(manager.createScreenCaptureIntent(), requestCode)
+    }
+
+    private fun startVisualMotionService(resultCode: Int, data: Intent, automatedTest: Boolean) {
+        val intent = Intent(this, VisualMotionProbeService::class.java).apply {
+            action = if (automatedTest) {
+                VisualMotionProbeService.ACTION_START_30S_TEST
+            } else {
+                VisualMotionProbeService.ACTION_START
+            }
+            putExtra(VisualMotionProbeService.EXTRA_RESULT_CODE, resultCode)
+            putExtra(VisualMotionProbeService.EXTRA_RESULT_DATA, data)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    private fun stopVisualMotionService() {
+        val intent = Intent(this, VisualMotionProbeService::class.java).apply {
+            action = VisualMotionProbeService.ACTION_STOP
+        }
+        startService(intent)
+    }
+
     private fun stopCaptureService() {
         val intent = Intent(this, CaptureSessionService::class.java).apply {
             action = CaptureSessionService.ACTION_STOP
@@ -550,6 +653,28 @@ class MainActivity : Activity() {
             lastPlaybackEventsValue.text = compactPlaybackLog(snapshot.playbackProbe.lastPlaybackEvents)
             lastFineGrainedEventsValue.text = compactFineGrainedLog(snapshot.playbackProbe.lastFineGrainedEvents)
             lastCombinedEventsValue.text = compactCombinedLog(snapshot.playbackProbe.lastCombinedEvents)
+            visualProbeActiveValue.text = snapshot.visualMotion.active
+            visualRoiBoundsValue.text = snapshot.visualMotion.roiBounds
+            visualMotionAlgorithmValue.text = snapshot.visualMotion.motionAlgorithm
+            currentMotionValue.text = "%.3f".format(snapshot.visualMotion.currentMotionScore)
+            motionAvg1sValue.text = "%.3f".format(snapshot.visualMotion.average1s)
+            motionAvg3sValue.text = "%.3f".format(snapshot.visualMotion.average3s)
+            peakMotionValue.text = "%.3f".format(snapshot.visualMotion.peakMotionScore)
+            validFramesValue.text = snapshot.visualMotion.validFrameCount.toString()
+            skippedFramesValue.text = snapshot.visualMotion.skippedFrameCount.toString()
+            visualCurrentPhaseValue.text = snapshot.visualMotion.currentTestPhase
+            quietMotionAverageValue.text = "%.3f".format(snapshot.visualMotion.quietAverageMotion)
+            userMotionAverageValue.text = "%.3f".format(snapshot.visualMotion.userAverageMotion)
+            aiMotionAverageValue.text = "%.3f".format(snapshot.visualMotion.aiAverageMotion)
+            quietMotionPeakValue.text = "%.3f".format(snapshot.visualMotion.quietPeakMotion)
+            userMotionPeakValue.text = "%.3f".format(snapshot.visualMotion.userPeakMotion)
+            aiMotionPeakValue.text = "%.3f".format(snapshot.visualMotion.aiPeakMotion)
+            aiQuietRatioValue.text = "%.2f".format(snapshot.visualMotion.aiQuietRatio)
+            aiUserRatioValue.text = "%.2f".format(snapshot.visualMotion.aiUserRatio)
+            visualMotionHistoryValue.text = snapshot.visualMotion.history.takeLast(100).joinToString("\n") { sample ->
+                "${sample.elapsedTimestampMs} | ${sample.phase} | m=${"%.3f".format(sample.motionScore)} | " +
+                    "a1=${"%.3f".format(sample.average1s)} | a3=${"%.3f".format(sample.average3s)}"
+            }.ifBlank { "n/a" }
             accessibilityEnabledValue.text = accessibilityEnabledLabel(snapshot.accessibilityProbe.enabled)
             accessibilityObservedPackageValue.text = snapshot.accessibilityProbe.observedPackage
             accessibilityEventCountValue.text = snapshot.accessibilityProbe.eventCount.toString()
