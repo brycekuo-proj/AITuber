@@ -18,6 +18,7 @@ import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
+import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
@@ -33,6 +34,7 @@ class MainActivity : Activity() {
     private lateinit var targetAppValue: TextView
     private lateinit var detectionMethodValue: TextView
     private lateinit var stateValue: TextView
+    private lateinit var speakingSignalSourceValue: TextView
     private lateinit var audioLevelValue: TextView
     private lateinit var peakAudioLevelValue: TextView
     private lateinit var capturedSamplesValue: TextView
@@ -73,7 +75,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
+        playbackProbe = AndroidPlaybackStateProbe(this, CaptureSessionState::current) { snapshot ->
             CaptureSessionState.updatePlaybackProbe(snapshot)
         }
         setContentView(buildUi())
@@ -91,9 +93,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        if (isFinishing) {
-            playbackProbe?.stop()
-        }
+        playbackProbe?.stop()
         super.onDestroy()
     }
 
@@ -139,7 +139,8 @@ class MainActivity : Activity() {
 
         targetAppValue = addField(root, "Target App")
         detectionMethodValue = addField(root, "Detection Method")
-        stateValue = addField(root, "State")
+        stateValue = addField(root, "Current Universal State")
+        speakingSignalSourceValue = addField(root, "Speaking Signal Source")
         audioLevelValue = addField(root, "Current Audio Level")
         peakAudioLevelValue = addField(root, "Peak Audio Level")
         capturedSamplesValue = addField(root, "Captured Frames/Samples")
@@ -197,6 +198,16 @@ class MainActivity : Activity() {
             setOnClickListener {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
             }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "Enable Mouth Overlay"
+            setOnClickListener { enableMouthOverlay() }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "Disable Mouth Overlay"
+            setOnClickListener { disableMouthOverlay() }
         }, buttonLayoutParams())
 
         return ScrollView(this).apply {
@@ -303,11 +314,24 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun enableMouthOverlay() {
+        if (!Settings.canDrawOverlays(this)) {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+            return
+        }
+        startService(Intent(this, CharacterOverlayService::class.java))
+    }
+
+    private fun disableMouthOverlay() {
+        stopService(Intent(this, CharacterOverlayService::class.java))
+    }
+
     private fun renderSnapshot(snapshot: UniversalStateSnapshot) {
         runOnUiThread {
             targetAppValue.text = snapshot.targetApp
             detectionMethodValue.text = snapshot.detectionMethod
             stateValue.text = snapshot.state.name
+            speakingSignalSourceValue.text = snapshot.speakingSignalSource
             audioLevelValue.text = snapshot.diagnostics.currentAudioLevel?.let { "%.3f".format(it) } ?: "n/a"
             peakAudioLevelValue.text = "%.3f".format(snapshot.diagnostics.peakAudioLevel)
             capturedSamplesValue.text = snapshot.diagnostics.capturedSamples.toString()

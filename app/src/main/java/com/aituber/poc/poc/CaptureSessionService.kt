@@ -37,7 +37,7 @@ class CaptureSessionService : Service() {
         characterEngine = CharacterEngine(DebugCharacterAdapter { snapshot ->
             CaptureSessionState.update(snapshot)
         })
-        playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
+        playbackProbe = AndroidPlaybackStateProbe(this, CaptureSessionState::current) { snapshot ->
             CaptureSessionState.updatePlaybackProbe(snapshot)
         }
         ensureNotificationChannel()

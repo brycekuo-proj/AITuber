@@ -7,15 +7,19 @@ import android.media.AudioPlaybackConfiguration
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import com.aituber.poc.aiadapter.VoiceCommunicationPlaybackAdapter
 import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.PlaybackProbeSnapshot
+import com.aituber.poc.state.UniversalStateSnapshot
 import kotlin.math.max
 
 class AndroidPlaybackStateProbe(
     context: Context,
+    private val currentUniversalState: () -> UniversalStateSnapshot,
     private val onSnapshot: (PlaybackProbeSnapshot) -> Unit
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val speakingAdapter = VoiceCommunicationPlaybackAdapter()
     private var callback: AudioManager.AudioPlaybackCallback? = null
     private var callbackEventCount = 0
     private var lastCallbackElapsedMs: Long? = null
@@ -81,6 +85,10 @@ class AndroidPlaybackStateProbe(
         val usage = attributes.map { usageLabel(it.usage) }.distinct().joinToStringOrDefault()
         val contentType = attributes.map { contentTypeLabel(it.contentType) }.distinct().joinToStringOrDefault()
         val activeCount = configs.size
+        val hasVoiceCommunicationSpeech = attributes.any { attribute ->
+            attribute.usage == AudioAttributes.USAGE_VOICE_COMMUNICATION &&
+                attribute.contentType == AudioAttributes.CONTENT_TYPE_SPEECH
+        }
 
         recordPlaybackEvent(
             PlaybackProbeEvent(
@@ -119,6 +127,16 @@ class AndroidPlaybackStateProbe(
                 observedContentType = contentType,
                 observedPlayerState = "UNAVAILABLE",
                 attribution = "UNSUPPORTED - Attribution unavailable"
+            )
+        )
+
+        val speakingResult = speakingAdapter.evaluate(activeCount, hasVoiceCommunicationSpeech)
+        CaptureSessionState.update(
+            currentUniversalState().copy(
+                state = speakingResult.state,
+                audioLevel = null,
+                captureStatus = "Playback callback heuristic evaluated",
+                speakingSignalSource = speakingResult.signalSource
             )
         )
     }
