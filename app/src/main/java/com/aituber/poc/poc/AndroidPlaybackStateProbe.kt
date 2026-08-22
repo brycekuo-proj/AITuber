@@ -209,7 +209,7 @@ class AndroidPlaybackStateProbe(
                 state = universalState,
                 audioLevel = null,
                 captureStatus = "Playback/recording diagnostics evaluated",
-                speakingSignalSource = "Actual speaking signal not established"
+                speakingSignalSource = "Not established"
             )
         )
     }

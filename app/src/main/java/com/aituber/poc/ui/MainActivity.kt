@@ -6,15 +6,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Typeface
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
@@ -24,6 +23,9 @@ import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.poc.ChatGptTarget
 import com.aituber.poc.poc.DetectionMethod
+import com.aituber.poc.state.CombinedPlaybackRecordingEvent
+import com.aituber.poc.state.FineGrainedVoiceEvent
+import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 
@@ -31,62 +33,53 @@ class MainActivity : Activity() {
     private val projectionRequestCode = 1001
     private val permissionRequestCode = 1002
 
+    private lateinit var universalStateValue: TextView
+    private lateinit var voiceSessionValue: TextView
+    private lateinit var playbackActiveValue: TextView
+    private lateinit var recordingActiveValue: TextView
+    private lateinit var audioSourceValue: TextView
+    private lateinit var clientSilencedValue: TextView
+    private lateinit var combinedCandidateValue: TextView
+    private lateinit var confidenceValue: TextView
+    private lateinit var speakingSignalValue: TextView
+
+    private lateinit var diagnosticsContainer: LinearLayout
+    private lateinit var diagnosticsToggleButton: Button
     private lateinit var targetAppValue: TextView
     private lateinit var detectionMethodValue: TextView
-    private lateinit var stateValue: TextView
-    private lateinit var speakingSignalSourceValue: TextView
-    private lateinit var audioLevelValue: TextView
+    private lateinit var captureStatusValue: TextView
+    private lateinit var currentAudioLevelValue: TextView
     private lateinit var peakAudioLevelValue: TextView
     private lateinit var capturedSamplesValue: TextView
     private lateinit var nonZeroSamplesValue: TextView
     private lateinit var speakingEventsValue: TextView
-    private lateinit var lastNonZeroAudioValue: TextView
     private lateinit var lastReadResultValue: TextView
     private lateinit var captureDiagnosticValue: TextView
-    private lateinit var captureStatusValue: TextView
     private lateinit var playbackCallbackValue: TextView
     private lateinit var registrationAttemptedValue: TextView
     private lateinit var registrationResultValue: TextView
     private lateinit var callbackEventCountValue: TextView
-    private lateinit var lastCallbackTimestampValue: TextView
+    private lateinit var recordingCallbackEventCountValue: TextView
     private lateinit var activePlaybackCountValue: TextView
     private lateinit var peakActivePlaybackCountValue: TextView
     private lateinit var activePlaybackEventsValue: TextView
-    private lateinit var playbackBecameActiveCountValue: TextView
-    private lateinit var playbackBecameInactiveCountValue: TextView
-    private lateinit var lastNonZeroActiveCountValue: TextView
+    private lateinit var playbackTransitionValue: TextView
     private lateinit var lastActiveTimestampValue: TextView
-    private lateinit var lastObservedUsageWhileActiveValue: TextView
-    private lateinit var lastObservedContentTypeWhileActiveValue: TextView
-    private lateinit var lastPlaybackEventsValue: TextView
-    private lateinit var chatGptPlaybackDetectedValue: TextView
-    private lateinit var chatGptPlaybackStateValue: TextView
-    private lateinit var lastPlaybackChangeValue: TextView
     private lateinit var observedUsageValue: TextView
     private lateinit var observedContentTypeValue: TextView
-    private lateinit var observedPlayerStateValue: TextView
-    private lateinit var voiceSessionActiveValue: TextView
-    private lateinit var playbackSessionActiveValue: TextView
-    private lateinit var recordingSessionActiveValue: TextView
-    private lateinit var activeRecordingCountValue: TextView
-    private lateinit var recordingCallbackEventCountValue: TextView
-    private lateinit var observedAudioSourceValue: TextView
-    private lateinit var clientSilencedValue: TextView
-    private lateinit var recordingSessionIdentityValue: TextView
-    private lateinit var combinedCandidateStateValue: TextView
-    private lateinit var combinedCandidateConfidenceValue: TextView
-    private lateinit var lastCombinedStateChangeValue: TextView
-    private lateinit var lastCombinedEventsValue: TextView
-    private lateinit var probeSignalAValue: TextView
-    private lateinit var probeSignalBValue: TextView
-    private lateinit var probeSignalCValue: TextView
     private lateinit var actualSpeakingCandidateValue: TextView
     private lateinit var candidateConfidenceValue: TextView
     private lateinit var lastCandidateChangeValue: TextView
+    private lateinit var probeSignalAValue: TextView
+    private lateinit var probeSignalBValue: TextView
+    private lateinit var probeSignalCValue: TextView
+    private lateinit var recordingSessionIdentityValue: TextView
+    private lateinit var lastPlaybackEventsValue: TextView
     private lateinit var lastFineGrainedEventsValue: TextView
+    private lateinit var lastCombinedEventsValue: TextView
     private lateinit var playbackAttributionValue: TextView
-    private lateinit var levelBar: ProgressBar
 
+    private var diagnosticsExpanded = false
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
         renderSnapshot(snapshot)
     }
@@ -146,141 +139,199 @@ class MainActivity : Activity() {
     private fun buildUi(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(40, 48, 40, 40)
+            setPadding(36, 44, 36, 36)
             setBackgroundColor(Color.rgb(250, 250, 250))
         }
 
         root.addView(TextView(this).apply {
-            text = "AITuber Android PoC"
+            text = "AITuber Debug"
             textSize = 24f
             setTextColor(Color.rgb(24, 28, 36))
+            typeface = Typeface.DEFAULT_BOLD
         })
 
-        targetAppValue = addField(root, "Target App")
-        detectionMethodValue = addField(root, "Detection Method")
-        stateValue = addField(root, "Current Universal State")
-        speakingSignalSourceValue = addField(root, "Speaking Signal Source")
-        audioLevelValue = addField(root, "Current Audio Level")
-        peakAudioLevelValue = addField(root, "Peak Audio Level")
-        capturedSamplesValue = addField(root, "Captured Frames/Samples")
-        nonZeroSamplesValue = addField(root, "Non-zero Frames/Samples")
-        speakingEventsValue = addField(root, "Speaking Events")
-        lastNonZeroAudioValue = addField(root, "Last Non-zero Audio")
-        lastReadResultValue = addField(root, "Last Read Result")
-        captureDiagnosticValue = addField(root, "Capture Diagnostic")
-        captureStatusValue = addField(root, "Capture Status")
-        playbackCallbackValue = addField(root, "Playback Callback")
-        registrationAttemptedValue = addField(root, "Registration Attempted")
-        registrationResultValue = addField(root, "Registration Result")
-        callbackEventCountValue = addField(root, "Callback Event Count")
-        lastCallbackTimestampValue = addField(root, "Last Callback Timestamp")
-        activePlaybackCountValue = addField(root, "Active Playback Count")
-        peakActivePlaybackCountValue = addField(root, "Peak Active Playback Count")
-        activePlaybackEventsValue = addField(root, "Active Playback Events")
-        playbackBecameActiveCountValue = addField(root, "Playback Became Active Count")
-        playbackBecameInactiveCountValue = addField(root, "Playback Became Inactive Count")
-        lastNonZeroActiveCountValue = addField(root, "Last Non-zero Active Count")
-        lastActiveTimestampValue = addField(root, "Last Active Timestamp")
-        lastObservedUsageWhileActiveValue = addField(root, "Last Observed Usage While Active")
-        lastObservedContentTypeWhileActiveValue = addField(root, "Last Observed Content Type While Active")
-        lastPlaybackEventsValue = addField(root, "Last 10 Playback Events")
-        chatGptPlaybackDetectedValue = addField(root, "ChatGPT Playback Detected")
-        chatGptPlaybackStateValue = addField(root, "ChatGPT Playback State")
-        lastPlaybackChangeValue = addField(root, "Last Playback Change")
-        observedUsageValue = addField(root, "Observed Usage")
-        observedContentTypeValue = addField(root, "Observed Content Type")
-        observedPlayerStateValue = addField(root, "Observed Player State")
-        voiceSessionActiveValue = addField(root, "Voice Session Active")
-        playbackSessionActiveValue = addField(root, "Playback Session Active")
-        recordingSessionActiveValue = addField(root, "Recording Session Active")
-        activeRecordingCountValue = addField(root, "Active Recording Count")
-        recordingCallbackEventCountValue = addField(root, "Recording Callback Event Count")
-        observedAudioSourceValue = addField(root, "Observed Audio Source")
-        clientSilencedValue = addField(root, "Client Silenced")
-        recordingSessionIdentityValue = addField(root, "Recording Session Identity")
-        combinedCandidateStateValue = addField(root, "Combined Candidate State")
-        combinedCandidateConfidenceValue = addField(root, "Combined Candidate Confidence")
-        lastCombinedStateChangeValue = addField(root, "Last Combined State Change")
-        lastCombinedEventsValue = addField(root, "Last 20 Combined Events")
-        probeSignalAValue = addField(root, "Probe Signal A")
-        probeSignalBValue = addField(root, "Probe Signal B")
-        probeSignalCValue = addField(root, "Probe Signal C")
-        actualSpeakingCandidateValue = addField(root, "Actual Speaking Candidate")
-        candidateConfidenceValue = addField(root, "Candidate Confidence")
-        lastCandidateChangeValue = addField(root, "Last Candidate Change")
-        lastFineGrainedEventsValue = addField(root, "Last 20 Fine-Grained Events")
-        playbackAttributionValue = addField(root, "Playback Attribution")
+        universalStateValue = addCoreField(root, "Universal State")
+        voiceSessionValue = addCoreField(root, "Voice Session")
+        playbackActiveValue = addCoreField(root, "Playback Active")
+        recordingActiveValue = addCoreField(root, "Recording Active")
+        audioSourceValue = addCoreField(root, "Audio Source")
+        clientSilencedValue = addCoreField(root, "Client Silenced")
+        combinedCandidateValue = addCoreField(root, "Combined Candidate")
+        confidenceValue = addCoreField(root, "Confidence")
+        speakingSignalValue = addCoreField(root, "Speaking Signal")
 
-        levelBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 100
-            progress = 0
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 12 }
+        addControls(root)
+
+        diagnosticsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(0, 12, 0, 0)
         }
-        root.addView(levelBar)
-
-        root.addView(Button(this).apply {
-            text = "Start ChatGPT Capture"
-            setOnClickListener { startDetection() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "Stop"
-            setOnClickListener { stopCaptureService() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "Open Overlay Permission"
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
-            }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "Enable Mouth Overlay"
-            setOnClickListener { enableMouthOverlay() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "Disable Mouth Overlay"
-            setOnClickListener { disableMouthOverlay() }
-        }, buttonLayoutParams())
+        root.addView(diagnosticsContainer)
+        addDiagnosticsFields(diagnosticsContainer)
 
         return ScrollView(this).apply {
             addView(root)
         }
     }
 
-    private fun addField(root: LinearLayout, label: String): TextView {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 18 }
-        }
-        row.addView(TextView(this).apply {
-            text = "$label:"
-            textSize = 15f
-            setTextColor(Color.rgb(80, 86, 98))
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+    private fun addControls(root: LinearLayout) {
+        root.addView(Button(this).apply {
+            text = "START CHATGPT CAPTURE"
+            setOnClickListener { startDetection() }
+        }, buttonLayoutParams())
 
-        return TextView(this).apply {
-            textSize = 15f
-            setTextColor(Color.rgb(20, 24, 32))
-            gravity = Gravity.END
-            row.addView(this, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.25f))
-            root.addView(row)
+        root.addView(Button(this).apply {
+            text = "STOP"
+            setOnClickListener { stopCaptureService() }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "OPEN OVERLAY PERMISSION"
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+            }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "ENABLE MOUTH OVERLAY"
+            setOnClickListener { enableMouthOverlay() }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "DISABLE MOUTH OVERLAY"
+            setOnClickListener { disableMouthOverlay() }
+        }, buttonLayoutParams())
+
+        diagnosticsToggleButton = Button(this).apply {
+            text = "SHOW DIAGNOSTICS"
+            setOnClickListener { toggleDiagnostics() }
         }
+        root.addView(diagnosticsToggleButton, buttonLayoutParams())
+    }
+
+    private fun addDiagnosticsFields(root: LinearLayout) {
+        root.addView(sectionTitle("Diagnostics"))
+        targetAppValue = addDiagnosticField(root, "Target App")
+        detectionMethodValue = addDiagnosticField(root, "Detection Method")
+        captureStatusValue = addDiagnosticField(root, "Capture Status")
+        currentAudioLevelValue = addDiagnosticField(root, "Current Audio Level")
+        peakAudioLevelValue = addDiagnosticField(root, "Peak Audio Level")
+        capturedSamplesValue = addDiagnosticField(root, "Captured Samples")
+        nonZeroSamplesValue = addDiagnosticField(root, "Non-zero Samples")
+        speakingEventsValue = addDiagnosticField(root, "Speaking Events")
+        lastReadResultValue = addDiagnosticField(root, "Last Read Result")
+        captureDiagnosticValue = addDiagnosticField(root, "Capture Diagnostic")
+
+        root.addView(sectionTitle("Callback Counters"))
+        playbackCallbackValue = addDiagnosticField(root, "Playback Callback")
+        registrationAttemptedValue = addDiagnosticField(root, "Registration Attempted")
+        registrationResultValue = addDiagnosticField(root, "Registration Result")
+        callbackEventCountValue = addDiagnosticField(root, "Playback Callback Events")
+        recordingCallbackEventCountValue = addDiagnosticField(root, "Recording Callback Events")
+        activePlaybackCountValue = addDiagnosticField(root, "Active Playback Count")
+        peakActivePlaybackCountValue = addDiagnosticField(root, "Peak Active Playback Count")
+        activePlaybackEventsValue = addDiagnosticField(root, "Active Playback Events")
+        playbackTransitionValue = addDiagnosticField(root, "Playback Transitions")
+        lastActiveTimestampValue = addDiagnosticField(root, "Last Active Timestamp")
+
+        root.addView(sectionTitle("Fine-Grained Signals"))
+        observedUsageValue = addDiagnosticField(root, "Observed Usage")
+        observedContentTypeValue = addDiagnosticField(root, "Observed Content Type")
+        actualSpeakingCandidateValue = addDiagnosticField(root, "Actual Speaking Candidate")
+        candidateConfidenceValue = addDiagnosticField(root, "Candidate Confidence")
+        lastCandidateChangeValue = addDiagnosticField(root, "Last Candidate Change")
+        probeSignalAValue = addDiagnosticField(root, "Config Identity")
+        probeSignalBValue = addDiagnosticField(root, "Audio Mode / Device")
+        probeSignalCValue = addDiagnosticField(root, "Callback Timing")
+        recordingSessionIdentityValue = addDiagnosticField(root, "Recording Identity")
+        playbackAttributionValue = addDiagnosticField(root, "Attribution")
+
+        root.addView(sectionTitle("Event Log"))
+        lastPlaybackEventsValue = addLogField(root, "Last 10 Playback Events")
+        lastFineGrainedEventsValue = addLogField(root, "Last 20 Fine-Grained Events")
+        lastCombinedEventsValue = addLogField(root, "Last 20 Combined Events")
+    }
+
+    private fun addCoreField(root: LinearLayout, label: String): TextView {
+        val block = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 18, 0, 0)
+        }
+        block.addView(TextView(this).apply {
+            text = label
+            textSize = 13f
+            setTextColor(Color.rgb(92, 98, 112))
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        return TextView(this).apply {
+            textSize = 20f
+            setTextColor(Color.rgb(18, 22, 30))
+            includeFontPadding = true
+            block.addView(this)
+            root.addView(block)
+        }
+    }
+
+    private fun addDiagnosticField(root: LinearLayout, label: String): TextView {
+        val block = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 12, 0, 0)
+        }
+        block.addView(TextView(this).apply {
+            text = label
+            textSize = 12f
+            setTextColor(Color.rgb(92, 98, 112))
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        return TextView(this).apply {
+            textSize = 13f
+            setTextColor(Color.rgb(30, 34, 44))
+            block.addView(this)
+            root.addView(block)
+        }
+    }
+
+    private fun addLogField(root: LinearLayout, label: String): TextView {
+        val block = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 12, 0, 0)
+        }
+        block.addView(TextView(this).apply {
+            text = label
+            textSize = 12f
+            setTextColor(Color.rgb(92, 98, 112))
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        return TextView(this).apply {
+            textSize = 11f
+            setTextColor(Color.rgb(24, 28, 36))
+            typeface = Typeface.MONOSPACE
+            setBackgroundColor(Color.rgb(238, 240, 244))
+            setPadding(12, 10, 12, 10)
+            block.addView(this, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            root.addView(block)
+        }
+    }
+
+    private fun sectionTitle(text: String) = TextView(this).apply {
+        this.text = text
+        textSize = 16f
+        setTextColor(Color.rgb(24, 28, 36))
+        typeface = Typeface.DEFAULT_BOLD
+        setPadding(0, 22, 0, 0)
     }
 
     private fun buttonLayoutParams() = LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT,
         LinearLayout.LayoutParams.WRAP_CONTENT
-    ).apply { topMargin = 14 }
+    ).apply { topMargin = 12 }
+
+    private fun toggleDiagnostics() {
+        diagnosticsExpanded = !diagnosticsExpanded
+        diagnosticsContainer.visibility = if (diagnosticsExpanded) View.VISIBLE else View.GONE
+        diagnosticsToggleButton.text = if (diagnosticsExpanded) "HIDE DIAGNOSTICS" else "SHOW DIAGNOSTICS"
+    }
 
     private fun startDetection() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -366,67 +417,93 @@ class MainActivity : Activity() {
 
     private fun renderSnapshot(snapshot: UniversalStateSnapshot) {
         runOnUiThread {
+            universalStateValue.text = snapshot.state.name
+            voiceSessionValue.text = activeLabel(snapshot.playbackProbe.voiceSessionActive)
+            playbackActiveValue.text = activeLabel(snapshot.playbackProbe.playbackSessionActive)
+            recordingActiveValue.text = activeLabel(snapshot.playbackProbe.recordingSessionActive)
+            audioSourceValue.text = compactAudioSource(snapshot.playbackProbe.observedAudioSource)
+            clientSilencedValue.text = snapshot.playbackProbe.clientSilenced
+            combinedCandidateValue.text = snapshot.playbackProbe.combinedCandidateState
+            confidenceValue.text = snapshot.playbackProbe.combinedCandidateConfidence
+            speakingSignalValue.text = "Not established"
+
             targetAppValue.text = snapshot.targetApp
             detectionMethodValue.text = snapshot.detectionMethod
-            stateValue.text = snapshot.state.name
-            speakingSignalSourceValue.text = snapshot.speakingSignalSource
-            audioLevelValue.text = snapshot.diagnostics.currentAudioLevel?.let { "%.3f".format(it) } ?: "n/a"
+            captureStatusValue.text = snapshot.captureStatus
+            currentAudioLevelValue.text = snapshot.diagnostics.currentAudioLevel?.let { "%.3f".format(it) } ?: "n/a"
             peakAudioLevelValue.text = "%.3f".format(snapshot.diagnostics.peakAudioLevel)
             capturedSamplesValue.text = snapshot.diagnostics.capturedSamples.toString()
             nonZeroSamplesValue.text = snapshot.diagnostics.nonZeroSamples.toString()
             speakingEventsValue.text = snapshot.diagnostics.speakingEvents.toString()
-            lastNonZeroAudioValue.text = snapshot.diagnostics.lastNonZeroAudioElapsedMs?.let { "$it ms" } ?: "n/a"
             lastReadResultValue.text = snapshot.diagnostics.lastReadResult?.toString() ?: "n/a"
             captureDiagnosticValue.text = snapshot.diagnostics.diagnostic.label
-            captureStatusValue.text = snapshot.captureStatus
             playbackCallbackValue.text = snapshot.playbackProbe.callbackStatus
             registrationAttemptedValue.text = snapshot.playbackProbe.registrationAttempted
             registrationResultValue.text = snapshot.playbackProbe.registrationResult
             callbackEventCountValue.text = snapshot.playbackProbe.callbackEventCount.toString()
-            lastCallbackTimestampValue.text = snapshot.playbackProbe.lastCallbackElapsedMs?.let { "$it ms" } ?: "n/a"
+            recordingCallbackEventCountValue.text = snapshot.playbackProbe.recordingCallbackEventCount.toString()
             activePlaybackCountValue.text = snapshot.playbackProbe.activePlaybackCount.toString()
             peakActivePlaybackCountValue.text = snapshot.playbackProbe.peakActivePlaybackCount.toString()
             activePlaybackEventsValue.text = snapshot.playbackProbe.activePlaybackEvents.toString()
-            playbackBecameActiveCountValue.text = snapshot.playbackProbe.playbackBecameActiveCount.toString()
-            playbackBecameInactiveCountValue.text = snapshot.playbackProbe.playbackBecameInactiveCount.toString()
-            lastNonZeroActiveCountValue.text = snapshot.playbackProbe.lastNonZeroActiveCount.toString()
+            playbackTransitionValue.text =
+                "active=${snapshot.playbackProbe.playbackBecameActiveCount} inactive=${snapshot.playbackProbe.playbackBecameInactiveCount}"
             lastActiveTimestampValue.text = snapshot.playbackProbe.lastActiveElapsedMs?.let { "$it ms" } ?: "n/a"
-            lastObservedUsageWhileActiveValue.text = snapshot.playbackProbe.lastObservedUsageWhileActive
-            lastObservedContentTypeWhileActiveValue.text = snapshot.playbackProbe.lastObservedContentTypeWhileActive
-            lastPlaybackEventsValue.text = snapshot.playbackProbe.lastPlaybackEvents.joinToString("\n") { event ->
-                "${event.elapsedTimestampMs} ms | count=${event.activePlaybackCount} | ${event.usage} | ${event.contentType}"
-            }.ifBlank { "n/a" }
-            chatGptPlaybackDetectedValue.text = snapshot.playbackProbe.chatGptPlaybackDetected
-            chatGptPlaybackStateValue.text = snapshot.playbackProbe.chatGptPlaybackState
-            lastPlaybackChangeValue.text = snapshot.playbackProbe.lastPlaybackChangeElapsedMs?.let { "$it ms" } ?: "n/a"
             observedUsageValue.text = snapshot.playbackProbe.observedUsage
             observedContentTypeValue.text = snapshot.playbackProbe.observedContentType
-            observedPlayerStateValue.text = snapshot.playbackProbe.observedPlayerState
-            voiceSessionActiveValue.text = snapshot.playbackProbe.voiceSessionActive
-            playbackSessionActiveValue.text = snapshot.playbackProbe.playbackSessionActive
-            recordingSessionActiveValue.text = snapshot.playbackProbe.recordingSessionActive
-            activeRecordingCountValue.text = snapshot.playbackProbe.activeRecordingCount.toString()
-            recordingCallbackEventCountValue.text = snapshot.playbackProbe.recordingCallbackEventCount.toString()
-            observedAudioSourceValue.text = snapshot.playbackProbe.observedAudioSource
-            clientSilencedValue.text = snapshot.playbackProbe.clientSilenced
-            recordingSessionIdentityValue.text = snapshot.playbackProbe.recordingSessionIdentity
-            combinedCandidateStateValue.text = snapshot.playbackProbe.combinedCandidateState
-            combinedCandidateConfidenceValue.text = snapshot.playbackProbe.combinedCandidateConfidence
-            lastCombinedStateChangeValue.text = snapshot.playbackProbe.lastCombinedStateChangeElapsedMs?.let { "$it ms" } ?: "n/a"
-            lastCombinedEventsValue.text = snapshot.playbackProbe.lastCombinedEvents.joinToString("\n") { event ->
-                "${event.elapsedTimestampMs} ms | playback=${event.playbackActiveCount} | ${event.playbackUsage} | ${event.playbackContentType} | recording=${event.recordingActiveCount} | source=${event.audioSource} | silenced=${event.clientSilenced} | rec=${event.recordingSessionIdentity} | mode=${event.audioManagerMode}"
-            }.ifBlank { "n/a" }
-            probeSignalAValue.text = snapshot.playbackProbe.probeSignalA
-            probeSignalBValue.text = snapshot.playbackProbe.probeSignalB
-            probeSignalCValue.text = snapshot.playbackProbe.probeSignalC
             actualSpeakingCandidateValue.text = snapshot.playbackProbe.actualSpeakingCandidate
             candidateConfidenceValue.text = snapshot.playbackProbe.candidateConfidence
             lastCandidateChangeValue.text = snapshot.playbackProbe.lastCandidateChangeElapsedMs?.let { "$it ms" } ?: "n/a"
-            lastFineGrainedEventsValue.text = snapshot.playbackProbe.lastFineGrainedEvents.joinToString("\n") { event ->
-                "${event.elapsedTimestampMs} ms | count=${event.activePlaybackCount} | ${event.usage} | ${event.contentType} | config=${event.configurationIdentity} | ${event.publicAudioModeAndDeviceSignal}"
-            }.ifBlank { "n/a" }
+            probeSignalAValue.text = snapshot.playbackProbe.probeSignalA
+            probeSignalBValue.text = snapshot.playbackProbe.probeSignalB
+            probeSignalCValue.text = snapshot.playbackProbe.probeSignalC
+            recordingSessionIdentityValue.text = snapshot.playbackProbe.recordingSessionIdentity
             playbackAttributionValue.text = snapshot.playbackProbe.attribution
-            levelBar.progress = ((snapshot.diagnostics.currentAudioLevel ?: 0f) * 100).toInt().coerceIn(0, 100)
+            lastPlaybackEventsValue.text = compactPlaybackLog(snapshot.playbackProbe.lastPlaybackEvents)
+            lastFineGrainedEventsValue.text = compactFineGrainedLog(snapshot.playbackProbe.lastFineGrainedEvents)
+            lastCombinedEventsValue.text = compactCombinedLog(snapshot.playbackProbe.lastCombinedEvents)
         }
     }
+
+    private fun activeLabel(value: String): String {
+        return if (value == "YES") "ACTIVE" else "INACTIVE"
+    }
+
+    private fun compactAudioSource(value: String): String {
+        return if (value == "n/a") value else value.replace("VOICE_COMMUNICATION", "VOICE_COMM")
+    }
+
+    private fun compactPlaybackLog(events: List<PlaybackProbeEvent>): String {
+        return events.joinToString("\n") { event ->
+            "${event.elapsedTimestampMs} | P=${event.activePlaybackCount} | ${event.usage.shortUsage()} | ${event.contentType.shortContent()}"
+        }.ifBlank { "n/a" }
+    }
+
+    private fun compactFineGrainedLog(events: List<FineGrainedVoiceEvent>): String {
+        return events.joinToString("\n") { event ->
+            "${event.elapsedTimestampMs} | P=${event.activePlaybackCount} | ${event.usage.shortUsage()} | " +
+                "${event.contentType.shortContent()} | cfg=${event.configurationIdentity} | ${event.publicAudioModeAndDeviceSignal.shortMode()}"
+        }.ifBlank { "n/a" }
+    }
+
+    private fun compactCombinedLog(events: List<CombinedPlaybackRecordingEvent>): String {
+        return events.joinToString("\n") { event ->
+            "${event.elapsedTimestampMs} | P=${event.playbackActiveCount} | R=${event.recordingActiveCount} | " +
+                "${event.playbackUsage.shortUsage()} | ${event.playbackContentType.shortContent()} | " +
+                "src=${event.audioSource.shortSource()} | sil=${event.clientSilenced} | ${event.audioManagerMode.shortMode()}"
+        }.ifBlank { "n/a" }
+    }
+
+    private fun String.shortUsage() = replace("USAGE_VOICE_COMMUNICATION", "VC")
+        .replace("USAGE_MEDIA", "MEDIA")
+        .replace("USAGE_UNKNOWN", "U?")
+
+    private fun String.shortContent() = replace("CONTENT_TYPE_SPEECH", "SP")
+        .replace("CONTENT_TYPE_MUSIC", "MUSIC")
+        .replace("CONTENT_TYPE_UNKNOWN", "C?")
+
+    private fun String.shortSource() = replace("VOICE_COMMUNICATION", "VOICE_COMM")
+        .replace("VOICE_RECOGNITION", "VOICE_REC")
+
+    private fun String.shortMode() = replace("MODE_IN_COMMUNICATION", "mode=COMM")
+        .replace("MODE_NORMAL", "mode=NORMAL")
 }

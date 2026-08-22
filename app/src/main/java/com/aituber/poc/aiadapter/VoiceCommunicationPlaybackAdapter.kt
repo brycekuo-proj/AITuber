@@ -12,7 +12,7 @@ class VoiceCommunicationPlaybackAdapter {
         }
         return VoiceCommunicationPlaybackResult(
             state = state,
-            signalSource = "Actual speaking signal not established"
+            signalSource = "Not established"
         )
     }
 }
