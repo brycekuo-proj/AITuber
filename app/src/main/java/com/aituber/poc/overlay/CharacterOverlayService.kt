@@ -46,30 +46,44 @@ class CharacterOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        OverlayLifecycleTrace.record("CharacterOverlayService onCreate")
         if (!Settings.canDrawOverlays(this)) {
+            OverlayLifecycleTrace.record("overlay permission missing")
             stopSelf()
             return
         }
         isRunning = true
+        OverlayLifecycleTrace.setAlive(true)
 
         val view = MouthOverlayView(this)
         mouthView = view
         characterEngine = CharacterEngine(MinimalMouthCharacterAdapter(view))
         windowManager = getSystemService(WindowManager::class.java)
         windowManager?.addView(view, overlayLayoutParams())
+        OverlayLifecycleTrace.record("overlay view attached")
         CaptureSessionState.subscribe(stateListener)
+        OverlayLifecycleTrace.record("overlay subscribed to state")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        OverlayLifecycleTrace.record("CharacterOverlayService onStartCommand")
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        OverlayLifecycleTrace.record("CharacterOverlayService onDestroy")
         CaptureSessionState.unsubscribe(stateListener)
+        OverlayLifecycleTrace.record("overlay unsubscribed")
         stopAnimation()
         mouthView?.let { view -> runCatching { windowManager?.removeView(view) } }
+        OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
         characterEngine = null
         windowManager = null
         isRunning = false
+        OverlayLifecycleTrace.setAlive(false)
         super.onDestroy()
     }
 
@@ -104,6 +118,8 @@ class CharacterOverlayService : Service() {
     }
 
     companion object {
+        const val USES_FOREGROUND_NOTIFICATION = false
+
         @Volatile
         var isRunning: Boolean = false
             private set

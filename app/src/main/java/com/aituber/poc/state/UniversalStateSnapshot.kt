@@ -12,5 +12,6 @@ data class UniversalStateSnapshot(
     val accessibilityProbe: AccessibilityProbeSnapshot = AccessibilityProbeSnapshot.empty(),
     val visualMotion: VisualMotionSnapshot = VisualMotionSnapshot.empty(),
     val visualizerProbe: VisualizerProbeSnapshot = VisualizerProbeSnapshot.empty(),
-    val captureStartupTrace: CaptureStartupTraceSnapshot = CaptureStartupTraceSnapshot.empty()
+    val captureStartupTrace: CaptureStartupTraceSnapshot = CaptureStartupTraceSnapshot.empty(),
+    val overlayLifecycle: OverlayLifecycleSnapshot = OverlayLifecycleSnapshot.empty()
 )

@@ -21,7 +21,6 @@ import android.os.SystemClock
 import com.aituber.poc.R
 
 class VisualMotionProbeService : Service() {
-    private val notificationId = 3001
     private val channelId = "aituber_visual_motion_probe"
     private val analyzer = VisualMotionAnalyzer()
     private val accumulator = VisualMotionAccumulator()
@@ -188,9 +187,9 @@ class VisualMotionProbeService : Service() {
     private fun startForegroundCompat() {
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
-            startForeground(notificationId, notification)
+            startForeground(NOTIFICATION_ID, notification)
         }
         foregroundStarted = true
     }
@@ -227,6 +226,7 @@ class VisualMotionProbeService : Service() {
         const val ACTION_STOP = "com.aituber.poc.action.STOP_VISUAL_MOTION"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
+        const val NOTIFICATION_ID = 3001
         private const val FRAME_INTERVAL_MS = 125L
         private const val TEST_DURATION_MS = 30_000L
     }

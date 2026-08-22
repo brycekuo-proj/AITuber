@@ -18,6 +18,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.overlay.CharacterOverlayService
+import com.aituber.poc.overlay.OverlayLifecycleTrace
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
@@ -68,6 +69,9 @@ class MainActivity : Activity() {
     private lateinit var serviceOnCreateCountValue: TextView
     private lateinit var serviceOnStartCommandCountValue: TextView
     private lateinit var startCaptureCountValue: TextView
+    private lateinit var captureServiceAliveValue: TextView
+    private lateinit var overlayServiceAliveValue: TextView
+    private lateinit var overlayLifecycleTraceValue: TextView
     private lateinit var targetAppValue: TextView
     private lateinit var detectionMethodValue: TextView
     private lateinit var captureStatusValue: TextView
@@ -329,6 +333,9 @@ class MainActivity : Activity() {
         serviceOnCreateCountValue = addDiagnosticField(root, "Service onCreate Count")
         serviceOnStartCommandCountValue = addDiagnosticField(root, "Service onStartCommand Count")
         startCaptureCountValue = addDiagnosticField(root, "startCapture Count")
+        captureServiceAliveValue = addDiagnosticField(root, "Capture Service Alive")
+        overlayServiceAliveValue = addDiagnosticField(root, "Overlay Service Alive")
+        overlayLifecycleTraceValue = addLogField(root, "Overlay Lifecycle Trace")
 
         root.addView(sectionTitle("Diagnostics"))
         targetAppValue = addDiagnosticField(root, "Target App")
@@ -688,7 +695,9 @@ class MainActivity : Activity() {
     }
 
     private fun enableMouthOverlay() {
+        OverlayLifecycleTrace.record("overlay enable requested")
         if (!Settings.canDrawOverlays(this)) {
+            OverlayLifecycleTrace.record("overlay permission requested")
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
             return
         }
@@ -696,6 +705,7 @@ class MainActivity : Activity() {
     }
 
     private fun disableMouthOverlay() {
+        OverlayLifecycleTrace.record("overlay disable requested")
         stopService(Intent(this, CharacterOverlayService::class.java))
     }
 
@@ -724,6 +734,9 @@ class MainActivity : Activity() {
             serviceOnCreateCountValue.text = snapshot.captureStartupTrace.serviceOnCreateCount.toString()
             serviceOnStartCommandCountValue.text = snapshot.captureStartupTrace.serviceOnStartCommandCount.toString()
             startCaptureCountValue.text = snapshot.captureStartupTrace.startCaptureCount.toString()
+            captureServiceAliveValue.text = if (CaptureSessionService.isRunning) "YES" else "NO"
+            overlayServiceAliveValue.text = snapshot.overlayLifecycle.overlayServiceAlive
+            overlayLifecycleTraceValue.text = snapshot.overlayLifecycle.trace.joinToString("\n").ifBlank { "n/a" }
             targetAppValue.text = snapshot.targetApp
             detectionMethodValue.text = snapshot.detectionMethod
             captureStatusValue.text = snapshot.captureStatus

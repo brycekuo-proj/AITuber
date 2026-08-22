@@ -21,7 +21,6 @@ import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 
 class CaptureSessionService : Service() {
-    private val notificationId = 2001
     private val channelId = "aituber_capture_session"
 
     private var mediaProjection: MediaProjection? = null
@@ -34,6 +33,7 @@ class CaptureSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         CaptureStartupTrace.serviceOnCreate()
         characterEngine = CharacterEngine(DebugCharacterAdapter { snapshot ->
             CaptureSessionState.update(snapshot)
@@ -56,6 +56,7 @@ class CaptureSessionService : Service() {
 
     override fun onDestroy() {
         stopCapture(CaptureStatus.STOPPED)
+        isRunning = false
         super.onDestroy()
     }
 
@@ -180,9 +181,9 @@ class CaptureSessionService : Service() {
     private fun startForegroundCompat() {
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
-            startForeground(notificationId, notification)
+            startForeground(NOTIFICATION_ID, notification)
         }
         foregroundStarted = true
     }
@@ -216,9 +217,14 @@ class CaptureSessionService : Service() {
     private fun mainLooperHandler() = android.os.Handler(mainLooper)
 
     companion object {
+        const val NOTIFICATION_ID = 2001
         const val ACTION_START = "com.aituber.poc.action.START_CAPTURE"
         const val ACTION_STOP = "com.aituber.poc.action.STOP_CAPTURE"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
+
+        @Volatile
+        var isRunning: Boolean = false
+            private set
     }
 }
