@@ -34,6 +34,7 @@ class CaptureSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        CaptureStartupTrace.serviceOnCreate()
         characterEngine = CharacterEngine(DebugCharacterAdapter { snapshot ->
             CaptureSessionState.update(snapshot)
         })
@@ -44,9 +45,11 @@ class CaptureSessionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        CaptureStartupTrace.serviceOnStartCommand(intent?.action)
         when (intent?.action) {
             ACTION_START -> startCapture(intent)
             ACTION_STOP -> stopCapture(CaptureStatus.STOPPED)
+            else -> CaptureStartupTrace.record("unexpected service action: ${intent?.action ?: "null"}")
         }
         return START_STICKY
     }
@@ -59,10 +62,15 @@ class CaptureSessionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startCapture(intent: Intent) {
+        CaptureStartupTrace.startCaptureEntered()
         CaptureSessionStartupSequence(
             object : CaptureSessionStartupSequence.Actions {
                 override fun startForeground() {
                     startForegroundCompat()
+                }
+
+                override fun recordCaptureTrace(step: String) {
+                    CaptureStartupTrace.record(step)
                 }
 
                 override fun recordVisualizerTrace(step: String) {
@@ -92,6 +100,7 @@ class CaptureSessionService : Service() {
         }
 
         if (resultCode == 0 || resultData == null) {
+            CaptureStartupTrace.record("invalid result data")
             publish(CaptureStatus.MEDIA_PROJECTION_DENIED)
             stopSelf()
             return
@@ -99,6 +108,7 @@ class CaptureSessionService : Service() {
 
         val targetUid = ChatGptTarget.uid(this)
         if (targetUid == null) {
+            CaptureStartupTrace.record("ChatGPT UID unavailable")
             publish(CaptureStatus.CHATGPT_NOT_INSTALLED)
             stopSelf()
             return
@@ -106,6 +116,7 @@ class CaptureSessionService : Service() {
 
         val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val projection = projectionManager.getMediaProjection(resultCode, resultData)
+        CaptureStartupTrace.record("MediaProjection object created")
         val callback = object : MediaProjection.Callback() {
             override fun onStop() {
                 stopCapture(CaptureStatus.MEDIA_PROJECTION_STOPPED)
@@ -123,6 +134,7 @@ class CaptureSessionService : Service() {
             targetUid = targetUid,
             targetLabel = ChatGptTarget.label
         )
+        CaptureStartupTrace.record("PlaybackCaptureAiAdapter start requested")
         adapter?.start { snapshot -> characterEngine.bind(snapshot) }
     }
 

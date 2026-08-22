@@ -21,6 +21,7 @@ import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
+import com.aituber.poc.poc.CaptureStartupTrace
 import com.aituber.poc.poc.ChatGptTarget
 import com.aituber.poc.poc.DetectionMethod
 import com.aituber.poc.poc.VisualizerAudioProbe
@@ -54,11 +55,19 @@ class MainActivity : Activity() {
     private lateinit var visualizerSignalValue: TextView
     private lateinit var visualizerRmsCoreValue: TextView
     private lateinit var visualizerPeakCoreValue: TextView
-    private lateinit var visualizerActivityCoreValue: TextView
     private lateinit var derivedSpeakingCoreValue: TextView
+    private lateinit var mouthOverlayStateValue: TextView
 
     private lateinit var diagnosticsContainer: LinearLayout
     private lateinit var diagnosticsToggleButton: Button
+    private lateinit var captureStartupTraceValue: TextView
+    private lateinit var startButtonClickCountValue: TextView
+    private lateinit var projectionRequestCountValue: TextView
+    private lateinit var projectionResultOkCountValue: TextView
+    private lateinit var captureServiceStartRequestCountValue: TextView
+    private lateinit var serviceOnCreateCountValue: TextView
+    private lateinit var serviceOnStartCommandCountValue: TextView
+    private lateinit var startCaptureCountValue: TextView
     private lateinit var targetAppValue: TextView
     private lateinit var detectionMethodValue: TextView
     private lateinit var captureStatusValue: TextView
@@ -204,8 +213,10 @@ class MainActivity : Activity() {
         when (requestCode) {
             projectionRequestCode -> {
                 if (resultCode == RESULT_OK && data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    CaptureStartupTrace.projectionResultOk()
                     startCaptureService(resultCode, data)
                 } else {
+                    CaptureStartupTrace.record("MediaProjection denied")
                     publishLocal(CaptureStatus.MEDIA_PROJECTION_DENIED)
                 }
             }
@@ -231,8 +242,10 @@ class MainActivity : Activity() {
         when (requestCode) {
             permissionRequestCode -> {
                 if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    CaptureStartupTrace.recordAudioPermissionCheck(granted = true)
                     requestPlaybackCapture()
                 } else {
+                    CaptureStartupTrace.recordAudioPermissionCheck(granted = false)
                     publishLocal(CaptureStatus.RECORD_AUDIO_DENIED)
                 }
             }
@@ -262,18 +275,11 @@ class MainActivity : Activity() {
 
         universalStateValue = addCoreField(root, "Universal State")
         voiceSessionValue = addCoreField(root, "Voice Session")
-        playbackActiveValue = addCoreField(root, "Playback Active")
-        recordingActiveValue = addCoreField(root, "Recording Active")
-        audioSourceValue = addCoreField(root, "Audio Source")
-        clientSilencedValue = addCoreField(root, "Client Silenced")
-        combinedCandidateValue = addCoreField(root, "Combined Candidate")
-        confidenceValue = addCoreField(root, "Confidence")
-        speakingSignalValue = addCoreField(root, "Speaking Signal")
         visualizerSignalValue = addCoreField(root, "Visualizer Signal")
         visualizerRmsCoreValue = addCoreField(root, "RMS")
         visualizerPeakCoreValue = addCoreField(root, "Peak")
-        visualizerActivityCoreValue = addCoreField(root, "Activity")
         derivedSpeakingCoreValue = addCoreField(root, "Derived Speaking")
+        mouthOverlayStateValue = addCoreField(root, "Mouth Overlay")
 
         addControls(root)
 
@@ -291,84 +297,13 @@ class MainActivity : Activity() {
     }
 
     private fun addControls(root: LinearLayout) {
-        root.addView(Button(this).apply {
-            text = "START CHATGPT CAPTURE"
-            setOnClickListener { startDetection() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "STOP"
-            setOnClickListener { stopCaptureService() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "START VISUAL MOTION PROBE"
-            setOnClickListener { requestVisualMotionProbe(automatedTest = false) }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "STOP VISUAL MOTION PROBE"
-            setOnClickListener { stopVisualMotionService() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "START 30S VISUAL TEST"
-            setOnClickListener { requestVisualMotionProbe(automatedTest = true) }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "START 30S VISUALIZER TEST"
-            setOnClickListener { startVisualizerProbe(automatedTest = true) }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "START VISUALIZER DETECTOR"
-            setOnClickListener { startVisualizerProbe(automatedTest = false) }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "STOP VISUALIZER TEST"
-            setOnClickListener { VisualizerAudioProbe.stop() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "OPEN OVERLAY PERMISSION"
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
-            }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "OPEN ACCESSIBILITY SETTINGS"
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "MARK QUIET"
-            setOnClickListener { CaptureSessionState.markAccessibilityTestPhase("QUIET") }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "MARK USER"
-            setOnClickListener { CaptureSessionState.markAccessibilityTestPhase("USER") }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "MARK AI"
-            setOnClickListener { CaptureSessionState.markAccessibilityTestPhase("AI") }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "ENABLE MOUTH OVERLAY"
-            setOnClickListener { enableMouthOverlay() }
-        }, buttonLayoutParams())
-
-        root.addView(Button(this).apply {
-            text = "DISABLE MOUTH OVERLAY"
-            setOnClickListener { disableMouthOverlay() }
-        }, buttonLayoutParams())
+        addButton(root, primaryControlLabels[0]) { startDetection() }
+        addButton(root, primaryControlLabels[1]) { stopCaptureService() }
+        addButton(root, primaryControlLabels[2]) {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+        }
+        addButton(root, primaryControlLabels[3]) { enableMouthOverlay() }
+        addButton(root, primaryControlLabels[4]) { disableMouthOverlay() }
 
         diagnosticsToggleButton = Button(this).apply {
             text = "SHOW DIAGNOSTICS"
@@ -377,11 +312,35 @@ class MainActivity : Activity() {
         root.addView(diagnosticsToggleButton, buttonLayoutParams())
     }
 
+    private fun addButton(root: LinearLayout, label: String, action: () -> Unit) {
+        root.addView(Button(this).apply {
+            text = label
+            setOnClickListener { action() }
+        }, buttonLayoutParams())
+    }
+
     private fun addDiagnosticsFields(root: LinearLayout) {
+        root.addView(sectionTitle("Capture Startup Trace"))
+        captureStartupTraceValue = addLogField(root, "Capture Startup Trace")
+        startButtonClickCountValue = addDiagnosticField(root, "Start Button Click Count")
+        projectionRequestCountValue = addDiagnosticField(root, "Projection Request Count")
+        projectionResultOkCountValue = addDiagnosticField(root, "Projection Result OK Count")
+        captureServiceStartRequestCountValue = addDiagnosticField(root, "Capture Service Start Request Count")
+        serviceOnCreateCountValue = addDiagnosticField(root, "Service onCreate Count")
+        serviceOnStartCommandCountValue = addDiagnosticField(root, "Service onStartCommand Count")
+        startCaptureCountValue = addDiagnosticField(root, "startCapture Count")
+
         root.addView(sectionTitle("Diagnostics"))
         targetAppValue = addDiagnosticField(root, "Target App")
         detectionMethodValue = addDiagnosticField(root, "Detection Method")
         captureStatusValue = addDiagnosticField(root, "Capture Status")
+        playbackActiveValue = addDiagnosticField(root, "Playback Active")
+        recordingActiveValue = addDiagnosticField(root, "Recording Active")
+        audioSourceValue = addDiagnosticField(root, "Audio Source")
+        clientSilencedValue = addDiagnosticField(root, "Client Silenced")
+        combinedCandidateValue = addDiagnosticField(root, "Combined Candidate")
+        confidenceValue = addDiagnosticField(root, "Confidence")
+        speakingSignalValue = addDiagnosticField(root, "Speaking Signal")
         currentAudioLevelValue = addDiagnosticField(root, "Current Audio Level")
         peakAudioLevelValue = addDiagnosticField(root, "Peak Audio Level")
         capturedSamplesValue = addDiagnosticField(root, "Captured Samples")
@@ -499,6 +458,20 @@ class MainActivity : Activity() {
         topCandidateSnapshotHistoryValue = addLogField(root, "Top Candidate Snapshot History")
         signatureTransitionsValue = addLogField(root, "Last 50 Signature Transitions")
         lastAccessibilityEventsValue = addLogField(root, "Last 30 Accessibility Events")
+
+        root.addView(sectionTitle("Legacy Probe Controls"))
+        addButton(root, legacyProbeControlLabels[0]) { requestVisualMotionProbe(automatedTest = false) }
+        addButton(root, legacyProbeControlLabels[1]) { stopVisualMotionService() }
+        addButton(root, legacyProbeControlLabels[2]) { requestVisualMotionProbe(automatedTest = true) }
+        addButton(root, legacyProbeControlLabels[3]) { startVisualizerProbe(automatedTest = true) }
+        addButton(root, legacyProbeControlLabels[4]) { startVisualizerProbe(automatedTest = false) }
+        addButton(root, legacyProbeControlLabels[5]) { VisualizerAudioProbe.stop() }
+        addButton(root, legacyProbeControlLabels[6]) {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+        addButton(root, legacyProbeControlLabels[7]) { CaptureSessionState.markAccessibilityTestPhase("QUIET") }
+        addButton(root, legacyProbeControlLabels[8]) { CaptureSessionState.markAccessibilityTestPhase("USER") }
+        addButton(root, legacyProbeControlLabels[9]) { CaptureSessionState.markAccessibilityTestPhase("AI") }
     }
 
     private fun addCoreField(root: LinearLayout, label: String): TextView {
@@ -582,15 +555,20 @@ class MainActivity : Activity() {
     }
 
     private fun startDetection() {
+        CaptureStartupTrace.startButtonClicked()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            CaptureStartupTrace.record("Android version unsupported for MediaProjection")
             publishLocal("Android Playback Capture requires Android 10 / API 29 or later")
             return
         }
         if (!ChatGptTarget.isInstalled(this)) {
+            CaptureStartupTrace.record("ChatGPT UID unavailable")
             publishLocal(CaptureStatus.CHATGPT_NOT_INSTALLED)
             return
         }
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        val recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        CaptureStartupTrace.recordAudioPermissionCheck(recordAudioGranted)
+        if (!recordAudioGranted) {
             requestCapturePermissions()
             return
         }
@@ -616,19 +594,26 @@ class MainActivity : Activity() {
             )
         )
         val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        CaptureStartupTrace.projectionRequestLaunched()
         startActivityForResult(manager.createScreenCaptureIntent(), projectionRequestCode)
     }
 
     private fun startCaptureService(resultCode: Int, data: Intent) {
+        CaptureStartupTrace.captureServiceStartRequested()
         val intent = Intent(this, CaptureSessionService::class.java).apply {
             action = CaptureSessionService.ACTION_START
             putExtra(CaptureSessionService.EXTRA_RESULT_CODE, resultCode)
             putExtra(CaptureSessionService.EXTRA_RESULT_DATA, data)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+        } catch (exception: RuntimeException) {
+            CaptureStartupTrace.record("service start exception: ${exception::class.java.simpleName}")
+            throw exception
         }
     }
 
@@ -728,12 +713,26 @@ class MainActivity : Activity() {
             visualizerSignalValue.text = snapshot.visualizerProbe.outputMixSignalStatus
             visualizerRmsCoreValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.rms)
             visualizerPeakCoreValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.peak)
-            visualizerActivityCoreValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.activityRatio)
             derivedSpeakingCoreValue.text = snapshot.visualizerProbe.derivedSpeaking
+            mouthOverlayStateValue.text = mouthOverlayStateLabel()
 
+            captureStartupTraceValue.text = snapshot.captureStartupTrace.trace.joinToString("\n").ifBlank { "n/a" }
+            startButtonClickCountValue.text = snapshot.captureStartupTrace.startButtonClickCount.toString()
+            projectionRequestCountValue.text = snapshot.captureStartupTrace.projectionRequestCount.toString()
+            projectionResultOkCountValue.text = snapshot.captureStartupTrace.projectionResultOkCount.toString()
+            captureServiceStartRequestCountValue.text = snapshot.captureStartupTrace.captureServiceStartRequestCount.toString()
+            serviceOnCreateCountValue.text = snapshot.captureStartupTrace.serviceOnCreateCount.toString()
+            serviceOnStartCommandCountValue.text = snapshot.captureStartupTrace.serviceOnStartCommandCount.toString()
+            startCaptureCountValue.text = snapshot.captureStartupTrace.startCaptureCount.toString()
             targetAppValue.text = snapshot.targetApp
             detectionMethodValue.text = snapshot.detectionMethod
             captureStatusValue.text = snapshot.captureStatus
+            playbackActiveValue.text = activeLabel(snapshot.playbackProbe.playbackSessionActive)
+            recordingActiveValue.text = activeLabel(snapshot.playbackProbe.recordingSessionActive)
+            audioSourceValue.text = compactAudioSource(snapshot.playbackProbe.observedAudioSource)
+            clientSilencedValue.text = snapshot.playbackProbe.clientSilenced
+            combinedCandidateValue.text = snapshot.playbackProbe.combinedCandidateState
+            confidenceValue.text = snapshot.playbackProbe.combinedCandidateConfidence
             currentAudioLevelValue.text = snapshot.diagnostics.currentAudioLevel?.let { "%.3f".format(it) } ?: "n/a"
             peakAudioLevelValue.text = "%.3f".format(snapshot.diagnostics.peakAudioLevel)
             capturedSamplesValue.text = snapshot.diagnostics.capturedSamples.toString()
@@ -886,6 +885,14 @@ class MainActivity : Activity() {
         return if (isAccessibilityServiceEnabled()) "ENABLED" else serviceSnapshotValue
     }
 
+    private fun mouthOverlayStateLabel(): String {
+        return when {
+            !Settings.canDrawOverlays(this) -> "PERMISSION REQUIRED"
+            CharacterOverlayService.isRunning -> "ENABLED"
+            else -> "DISABLED"
+        }
+    }
+
     private fun compactMetrics(metrics: VisualMotionMetrics): String {
         return "mean=${"%.3f".format(metrics.meanMotion)} " +
             "px=${"%.3f".format(metrics.changedPixelRatio)} " +
@@ -998,4 +1005,28 @@ class MainActivity : Activity() {
 
     private fun String.shortClass() = replace("android.widget.", "")
         .replace("android.view.", "")
+
+    companion object {
+        internal val primaryControlLabels = listOf(
+            "START CHATGPT CAPTURE",
+            "STOP",
+            "OPEN OVERLAY PERMISSION",
+            "ENABLE MOUTH OVERLAY",
+            "DISABLE MOUTH OVERLAY",
+            "SHOW DIAGNOSTICS"
+        )
+
+        internal val legacyProbeControlLabels = listOf(
+            "START VISUAL MOTION PROBE",
+            "STOP VISUAL MOTION PROBE",
+            "START 30S VISUAL TEST",
+            "START 30S VISUALIZER TEST",
+            "START VISUALIZER DETECTOR",
+            "STOP VISUALIZER TEST",
+            "OPEN ACCESSIBILITY SETTINGS",
+            "MARK QUIET",
+            "MARK USER",
+            "MARK AI"
+        )
+    }
 }

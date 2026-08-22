@@ -17,8 +17,10 @@ class CaptureSessionStartupSequenceTest {
                 "startForeground",
                 "trace:startCapture entered",
                 "publish",
+                "capture:playbackProbe start requested",
                 "startPlaybackProbe",
                 "trace:playbackProbe started",
+                "capture:visualizer start requested",
                 "startVisualizer",
                 "playbackCapture diagnostics started"
             ),
@@ -42,6 +44,10 @@ class CaptureSessionStartupSequenceTest {
 
         override fun startForeground() {
             events += "startForeground"
+        }
+
+        override fun recordCaptureTrace(step: String) {
+            events += "capture:$step"
         }
 
         override fun recordVisualizerTrace(step: String) {

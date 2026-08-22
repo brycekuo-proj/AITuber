@@ -50,6 +50,7 @@ class CharacterOverlayService : Service() {
             stopSelf()
             return
         }
+        isRunning = true
 
         val view = MouthOverlayView(this)
         mouthView = view
@@ -68,6 +69,7 @@ class CharacterOverlayService : Service() {
         mouthView = null
         characterEngine = null
         windowManager = null
+        isRunning = false
         super.onDestroy()
     }
 
@@ -99,5 +101,11 @@ class CharacterOverlayService : Service() {
         handler.removeCallbacks(animationRunnable)
         mouthView?.setMouthOpenRatio(0f)
         frameIndex = 0
+    }
+
+    companion object {
+        @Volatile
+        var isRunning: Boolean = false
+            private set
     }
 }

@@ -11,5 +11,6 @@ data class UniversalStateSnapshot(
     val playbackProbe: PlaybackProbeSnapshot = PlaybackProbeSnapshot.empty(),
     val accessibilityProbe: AccessibilityProbeSnapshot = AccessibilityProbeSnapshot.empty(),
     val visualMotion: VisualMotionSnapshot = VisualMotionSnapshot.empty(),
-    val visualizerProbe: VisualizerProbeSnapshot = VisualizerProbeSnapshot.empty()
+    val visualizerProbe: VisualizerProbeSnapshot = VisualizerProbeSnapshot.empty(),
+    val captureStartupTrace: CaptureStartupTraceSnapshot = CaptureStartupTraceSnapshot.empty()
 )

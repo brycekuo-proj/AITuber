@@ -9,13 +9,16 @@ class CaptureSessionStartupSequence(
         actions.startForeground()
         actions.recordVisualizerTrace("startCapture entered")
         actions.publish(CaptureStatus.SERVICE_STARTING)
+        actions.recordCaptureTrace("playbackProbe start requested")
         actions.startPlaybackProbe()
         actions.recordVisualizerTrace("playbackProbe started")
+        actions.recordCaptureTrace("visualizer start requested")
         actions.startVisualizer()
     }
 
     interface Actions {
         fun startForeground()
+        fun recordCaptureTrace(step: String)
         fun recordVisualizerTrace(step: String)
         fun publish(status: String)
         fun startPlaybackProbe()

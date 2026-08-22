@@ -2,6 +2,7 @@ package com.aituber.poc.poc
 
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.state.AccessibilityProbeSnapshot
+import com.aituber.poc.state.CaptureStartupTraceSnapshot
 import com.aituber.poc.state.PlaybackProbeSnapshot
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -41,7 +42,8 @@ object CaptureSessionState {
             playbackProbe = currentSnapshot.playbackProbe,
             accessibilityProbe = currentSnapshot.accessibilityProbe,
             visualMotion = currentSnapshot.visualMotion,
-            visualizerProbe = currentSnapshot.visualizerProbe
+            visualizerProbe = currentSnapshot.visualizerProbe,
+            captureStartupTrace = currentSnapshot.captureStartupTrace
         )
         listeners.forEach { listener -> listener(currentSnapshot) }
     }
@@ -63,6 +65,11 @@ object CaptureSessionState {
 
     fun updateVisualizerProbe(snapshot: VisualizerProbeSnapshot) {
         currentSnapshot = currentSnapshot.copy(visualizerProbe = snapshot)
+        listeners.forEach { listener -> listener(currentSnapshot) }
+    }
+
+    fun updateCaptureStartupTrace(snapshot: CaptureStartupTraceSnapshot) {
+        currentSnapshot = currentSnapshot.copy(captureStartupTrace = snapshot)
         listeners.forEach { listener -> listener(currentSnapshot) }
     }
 
