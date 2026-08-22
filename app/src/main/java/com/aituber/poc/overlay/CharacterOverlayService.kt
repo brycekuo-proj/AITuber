@@ -24,20 +24,24 @@ class CharacterOverlayService : Service() {
     private var characterEngine: CharacterEngine? = null
     private var windowManager: WindowManager? = null
     private var currentState = UniversalAiState.UNKNOWN
+    private var animationRunning = false
+
+    private val renderDispatcher = OverlayRenderDispatcher(
+        postToMain = { block -> handler.post { block() } },
+        isMainThread = { Looper.myLooper() == Looper.getMainLooper() },
+        trace = OverlayLifecycleTrace::recordDeferred,
+        renderOnMain = ::renderSnapshotOnMain,
+        startAnimationOnMain = ::ensureAnimation,
+        stopAnimationOnMain = ::stopAnimation
+    )
 
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
-        currentState = snapshot.state
-        characterEngine?.bind(snapshot)
-        if (snapshot.state == UniversalAiState.SPEAKING) {
-            ensureAnimation()
-        } else {
-            stopAnimation()
-        }
+        renderDispatcher.onState(snapshot)
     }
 
     private val animationRunnable = object : Runnable {
         override fun run() {
-            if (currentState != UniversalAiState.SPEAKING) return
+            if (!animationRunning || currentState != UniversalAiState.SPEAKING || mouthView == null) return
             mouthView?.setMouthOpenRatio(animationFrames[frameIndex % animationFrames.size])
             frameIndex += 1
             handler.postDelayed(this, 130L)
@@ -76,14 +80,9 @@ class CharacterOverlayService : Service() {
         OverlayLifecycleTrace.record("CharacterOverlayService onDestroy")
         CaptureSessionState.unsubscribe(stateListener)
         OverlayLifecycleTrace.record("overlay unsubscribed")
-        stopAnimation()
-        mouthView?.let { view -> runCatching { windowManager?.removeView(view) } }
-        OverlayLifecycleTrace.record("overlay view removed")
-        mouthView = null
-        characterEngine = null
-        windowManager = null
-        isRunning = false
-        OverlayLifecycleTrace.setAlive(false)
+        renderDispatcher.destroy()
+        cleanupOverlayOnMain()
+        handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
 
@@ -107,14 +106,48 @@ class CharacterOverlayService : Service() {
     }
 
     private fun ensureAnimation() {
-        handler.removeCallbacks(animationRunnable)
+        requireMainThread("ensureAnimation")
+        if (animationRunning) return
+        animationRunning = true
+        OverlayLifecycleTrace.recordDeferred("animation started")
         handler.post(animationRunnable)
     }
 
     private fun stopAnimation() {
+        requireMainThread("stopAnimation")
+        val wasRunning = animationRunning
+        animationRunning = false
         handler.removeCallbacks(animationRunnable)
         mouthView?.setMouthOpenRatio(0f)
         frameIndex = 0
+        if (wasRunning) {
+            OverlayLifecycleTrace.recordDeferred("animation stopped")
+        }
+    }
+
+    private fun renderSnapshotOnMain(snapshot: UniversalStateSnapshot) {
+        requireMainThread("renderSnapshotOnMain")
+        if (mouthView == null) return
+        currentState = snapshot.state
+        characterEngine?.bind(snapshot)
+    }
+
+    private fun cleanupOverlayOnMain() {
+        requireMainThread("cleanupOverlayOnMain")
+        stopAnimation()
+        mouthView?.let { view -> runCatching { windowManager?.removeView(view) } }
+        OverlayLifecycleTrace.record("overlay view removed")
+        mouthView = null
+        characterEngine = null
+        windowManager = null
+        isRunning = false
+        OverlayLifecycleTrace.setAlive(false)
+    }
+
+    private fun requireMainThread(operation: String) {
+        check(Looper.myLooper() == Looper.getMainLooper()) {
+            "$operation must run on the main thread"
+        }
     }
 
     companion object {

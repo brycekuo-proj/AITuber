@@ -17,6 +17,12 @@ object OverlayLifecycleTrace {
     }
 
     @Synchronized
+    fun recordDeferred(step: String) {
+        if (trace.size == CAPACITY) trace.removeFirst()
+        trace.addLast("${elapsedRealtime()} | $step")
+    }
+
+    @Synchronized
     fun setAlive(alive: Boolean) {
         overlayAlive = if (alive) "ENABLED" else "DISABLED"
         publishLocked()
