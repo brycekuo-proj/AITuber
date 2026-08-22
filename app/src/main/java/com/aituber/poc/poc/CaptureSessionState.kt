@@ -6,6 +6,7 @@ import com.aituber.poc.state.PlaybackProbeSnapshot
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 import com.aituber.poc.state.VisualMotionSnapshot
+import com.aituber.poc.state.VisualizerProbeSnapshot
 import java.util.concurrent.CopyOnWriteArraySet
 
 object CaptureSessionState {
@@ -39,7 +40,8 @@ object CaptureSessionState {
         currentSnapshot = snapshot.copy(
             playbackProbe = currentSnapshot.playbackProbe,
             accessibilityProbe = currentSnapshot.accessibilityProbe,
-            visualMotion = currentSnapshot.visualMotion
+            visualMotion = currentSnapshot.visualMotion,
+            visualizerProbe = currentSnapshot.visualizerProbe
         )
         listeners.forEach { listener -> listener(currentSnapshot) }
     }
@@ -56,6 +58,11 @@ object CaptureSessionState {
 
     fun updateVisualMotion(snapshot: VisualMotionSnapshot) {
         currentSnapshot = currentSnapshot.copy(visualMotion = snapshot)
+        listeners.forEach { listener -> listener(currentSnapshot) }
+    }
+
+    fun updateVisualizerProbe(snapshot: VisualizerProbeSnapshot) {
+        currentSnapshot = currentSnapshot.copy(visualizerProbe = snapshot)
         listeners.forEach { listener -> listener(currentSnapshot) }
     }
 

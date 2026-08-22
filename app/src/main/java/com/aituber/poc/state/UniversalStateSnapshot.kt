@@ -10,5 +10,6 @@ data class UniversalStateSnapshot(
     val diagnostics: CaptureDiagnostics = CaptureDiagnostics.empty(),
     val playbackProbe: PlaybackProbeSnapshot = PlaybackProbeSnapshot.empty(),
     val accessibilityProbe: AccessibilityProbeSnapshot = AccessibilityProbeSnapshot.empty(),
-    val visualMotion: VisualMotionSnapshot = VisualMotionSnapshot.empty()
+    val visualMotion: VisualMotionSnapshot = VisualMotionSnapshot.empty(),
+    val visualizerProbe: VisualizerProbeSnapshot = VisualizerProbeSnapshot.empty()
 )

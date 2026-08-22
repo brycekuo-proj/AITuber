@@ -23,6 +23,7 @@ import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.poc.ChatGptTarget
 import com.aituber.poc.poc.DetectionMethod
+import com.aituber.poc.poc.VisualizerAudioProbe
 import com.aituber.poc.poc.VisualMotionProbeService
 import com.aituber.poc.state.CombinedPlaybackRecordingEvent
 import com.aituber.poc.state.FineGrainedVoiceEvent
@@ -31,12 +32,15 @@ import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 import com.aituber.poc.state.VisualMotionMetrics
 import com.aituber.poc.state.VisualMotionPhaseSummary
+import com.aituber.poc.state.VisualizerPhaseSummary
+import com.aituber.poc.state.VisualizerWaveformMetrics
 
 class MainActivity : Activity() {
     private val projectionRequestCode = 1001
     private val visualProjectionRequestCode = 1003
     private val visualTestProjectionRequestCode = 1004
     private val permissionRequestCode = 1002
+    private val visualizerPermissionRequestCode = 1005
 
     private lateinit var universalStateValue: TextView
     private lateinit var voiceSessionValue: TextView
@@ -134,6 +138,22 @@ class MainActivity : Activity() {
     private lateinit var aiQuietRatioValue: TextView
     private lateinit var aiUserRatioValue: TextView
     private lateinit var visualMotionHistoryValue: TextView
+    private lateinit var visualizerInitStatusValue: TextView
+    private lateinit var visualizerEnabledValue: TextView
+    private lateinit var visualizerCaptureSizeValue: TextView
+    private lateinit var visualizerCaptureRateValue: TextView
+    private lateinit var visualizerCallbackCountValue: TextView
+    private lateinit var visualizerCurrentRmsValue: TextView
+    private lateinit var visualizerCurrentPeakValue: TextView
+    private lateinit var visualizerCurrentActivityValue: TextView
+    private lateinit var visualizerOutputMixStatusValue: TextView
+    private lateinit var visualizerCurrentPhaseValue: TextView
+    private lateinit var visualizerQuietSummaryValue: TextView
+    private lateinit var visualizerUserSummaryValue: TextView
+    private lateinit var visualizerAiSummaryValue: TextView
+    private lateinit var visualizerAiQuietRatioValue: TextView
+    private lateinit var visualizerAiUserRatioValue: TextView
+    private lateinit var visualizerHistoryValue: TextView
 
     private var diagnosticsExpanded = false
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
@@ -195,12 +215,21 @@ class MainActivity : Activity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != permissionRequestCode) return
-
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            requestPlaybackCapture()
-        } else {
-            publishLocal(CaptureStatus.RECORD_AUDIO_DENIED)
+        when (requestCode) {
+            permissionRequestCode -> {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    requestPlaybackCapture()
+                } else {
+                    publishLocal(CaptureStatus.RECORD_AUDIO_DENIED)
+                }
+            }
+            visualizerPermissionRequestCode -> {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    VisualizerAudioProbe.startThirtySecondTest()
+                } else {
+                    publishLocal(CaptureStatus.RECORD_AUDIO_DENIED)
+                }
+            }
         }
     }
 
@@ -267,6 +296,16 @@ class MainActivity : Activity() {
         root.addView(Button(this).apply {
             text = "START 30S VISUAL TEST"
             setOnClickListener { requestVisualMotionProbe(automatedTest = true) }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "START 30S VISUALIZER TEST"
+            setOnClickListener { startVisualizerTest() }
+        }, buttonLayoutParams())
+
+        root.addView(Button(this).apply {
+            text = "STOP VISUALIZER TEST"
+            setOnClickListener { VisualizerAudioProbe.stop() }
         }, buttonLayoutParams())
 
         root.addView(Button(this).apply {
@@ -408,6 +447,23 @@ class MainActivity : Activity() {
         aiQuietRatioValue = addDiagnosticField(root, "AI / QUIET Ratios")
         aiUserRatioValue = addDiagnosticField(root, "AI / USER Ratios")
         visualMotionHistoryValue = addLogField(root, "Visual Motion History")
+        root.addView(sectionTitle("Visualizer Output Mix Probe"))
+        visualizerInitStatusValue = addDiagnosticField(root, "Visualizer Init Status")
+        visualizerEnabledValue = addDiagnosticField(root, "Visualizer Enabled")
+        visualizerCaptureSizeValue = addDiagnosticField(root, "Capture Size")
+        visualizerCaptureRateValue = addDiagnosticField(root, "Capture Rate")
+        visualizerCallbackCountValue = addDiagnosticField(root, "Waveform Callback Count")
+        visualizerCurrentRmsValue = addDiagnosticField(root, "Current RMS")
+        visualizerCurrentPeakValue = addDiagnosticField(root, "Current Peak")
+        visualizerCurrentActivityValue = addDiagnosticField(root, "Current Activity Ratio")
+        visualizerOutputMixStatusValue = addDiagnosticField(root, "Output Mix Signal Status")
+        visualizerCurrentPhaseValue = addDiagnosticField(root, "Current Test Phase")
+        visualizerQuietSummaryValue = addDiagnosticField(root, "QUIET RMS Avg / Peak")
+        visualizerUserSummaryValue = addDiagnosticField(root, "USER RMS Avg / Peak")
+        visualizerAiSummaryValue = addDiagnosticField(root, "AI RMS Avg / Peak")
+        visualizerAiQuietRatioValue = addDiagnosticField(root, "AI / QUIET RMS+Peak Ratio")
+        visualizerAiUserRatioValue = addDiagnosticField(root, "AI / USER RMS+Peak Ratio")
+        visualizerHistoryValue = addLogField(root, "Visualizer History")
         centerHistoryValue = addLogField(root, "Center History")
         topDynamicCandidateNodesValue = addLogField(root, "Top 10 Dynamic Candidate Nodes")
         topCandidateSnapshotHistoryValue = addLogField(root, "Top Candidate Snapshot History")
@@ -556,6 +612,14 @@ class MainActivity : Activity() {
         startActivityForResult(manager.createScreenCaptureIntent(), requestCode)
     }
 
+    private fun startVisualizerTest() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), visualizerPermissionRequestCode)
+            return
+        }
+        VisualizerAudioProbe.startThirtySecondTest()
+    }
+
     private fun startVisualMotionService(resultCode: Int, data: Intent, automatedTest: Boolean) {
         val intent = Intent(this, VisualMotionProbeService::class.java).apply {
             action = if (automatedTest) {
@@ -692,6 +756,26 @@ class MainActivity : Activity() {
             visualMotionHistoryValue.text = snapshot.visualMotion.history.takeLast(100).joinToString("\n") { sample ->
                 "${sample.elapsedTimestampMs} | ${sample.phase} | ${compactMetrics(sample.metrics)} | excluded=${sample.excludedFromSummary}"
             }.ifBlank { "n/a" }
+            visualizerInitStatusValue.text = snapshot.visualizerProbe.initStatus
+            visualizerEnabledValue.text = snapshot.visualizerProbe.enabled
+            visualizerCaptureSizeValue.text = snapshot.visualizerProbe.captureSize.toString()
+            visualizerCaptureRateValue.text = snapshot.visualizerProbe.captureRate.toString()
+            visualizerCallbackCountValue.text = snapshot.visualizerProbe.waveformCallbackCount.toString()
+            visualizerCurrentRmsValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.rms)
+            visualizerCurrentPeakValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.peak)
+            visualizerCurrentActivityValue.text = "%.3f".format(snapshot.visualizerProbe.currentMetrics.activityRatio)
+            visualizerOutputMixStatusValue.text = snapshot.visualizerProbe.outputMixSignalStatus
+            visualizerCurrentPhaseValue.text = snapshot.visualizerProbe.currentTestPhase
+            visualizerQuietSummaryValue.text = compactVisualizerSummary(snapshot.visualizerProbe.quietSummary)
+            visualizerUserSummaryValue.text = compactVisualizerSummary(snapshot.visualizerProbe.userSummary)
+            visualizerAiSummaryValue.text = compactVisualizerSummary(snapshot.visualizerProbe.aiSummary)
+            visualizerAiQuietRatioValue.text =
+                "rms=${"%.2f".format(snapshot.visualizerProbe.aiQuietRmsRatio)} peak=${"%.2f".format(snapshot.visualizerProbe.aiQuietPeakRatio)}"
+            visualizerAiUserRatioValue.text =
+                "rms=${"%.2f".format(snapshot.visualizerProbe.aiUserRmsRatio)} peak=${"%.2f".format(snapshot.visualizerProbe.aiUserPeakRatio)}"
+            visualizerHistoryValue.text = snapshot.visualizerProbe.history.takeLast(100).joinToString("\n") { sample ->
+                "${sample.elapsedTimestampMs} | ${sample.phase} | ${compactVisualizerMetrics(sample.metrics)}"
+            }.ifBlank { "n/a" }
             accessibilityEnabledValue.text = accessibilityEnabledLabel(snapshot.accessibilityProbe.enabled)
             accessibilityObservedPackageValue.text = snapshot.accessibilityProbe.observedPackage
             accessibilityEventCountValue.text = snapshot.accessibilityProbe.eventCount.toString()
@@ -782,6 +866,20 @@ class MainActivity : Activity() {
             "p95=${"%.2f".format(highMotion)} " +
             "edge=${"%.2f".format(edge)} " +
             "color=${"%.2f".format(color)}"
+    }
+
+    private fun compactVisualizerMetrics(metrics: VisualizerWaveformMetrics): String {
+        return "rms=${"%.3f".format(metrics.rms)} " +
+            "peak=${"%.3f".format(metrics.peak)} " +
+            "activity=${"%.3f".format(metrics.activityRatio)}"
+    }
+
+    private fun compactVisualizerSummary(summary: VisualizerPhaseSummary): String {
+        return "rmsAvg=${"%.3f".format(summary.rmsAverage)} " +
+            "rmsPeak=${"%.3f".format(summary.rmsPeak)} " +
+            "peakAvg=${"%.3f".format(summary.peakAverage)} " +
+            "peakPeak=${"%.3f".format(summary.peakPeak)} " +
+            "activityAvg=${"%.3f".format(summary.activityAverage)}"
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
