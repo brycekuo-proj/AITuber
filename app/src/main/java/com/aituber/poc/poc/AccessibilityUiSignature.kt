@@ -8,6 +8,7 @@ object AccessibilityUiSignature {
         if (nodes.isEmpty()) return "empty"
         val normalized = nodes.map { node ->
             listOf(
+                "path=${node.treePath}",
                 "class=${node.className}",
                 "id=${node.viewIdResourceName}",
                 "cd=${node.contentDescription}",

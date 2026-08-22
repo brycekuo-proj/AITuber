@@ -72,25 +72,26 @@ class ChatGptAccessibilityProbeService : AccessibilityService() {
 
     private fun collectSafeMetadata(root: AccessibilityNodeInfo): List<SafeAccessibilityNodeMetadata> {
         val result = mutableListOf<SafeAccessibilityNodeMetadata>()
-        val queue = ArrayDeque<AccessibilityNodeInfo>()
-        queue.add(root)
+        val queue = ArrayDeque<Pair<AccessibilityNodeInfo, String>>()
+        queue.add(root to "0")
         while (queue.isNotEmpty()) {
-            val node = queue.removeFirst()
+            val (node, path) = queue.removeFirst()
             if (node.isVisibleToUser) {
-                result.add(node.toSafeMetadata())
+                result.add(node.toSafeMetadata(path))
                 for (index in 0 until node.childCount) {
-                    node.getChild(index)?.let { child -> queue.add(child) }
+                    node.getChild(index)?.let { child -> queue.add(child to "$path.$index") }
                 }
             }
         }
         return result
     }
 
-    private fun AccessibilityNodeInfo.toSafeMetadata(): SafeAccessibilityNodeMetadata {
+    private fun AccessibilityNodeInfo.toSafeMetadata(treePath: String): SafeAccessibilityNodeMetadata {
         val bounds = Rect()
         getBoundsInScreen(bounds)
         val textValue = text
         return SafeAccessibilityNodeMetadata(
+            treePath = treePath,
             className = className?.toString() ?: "n/a",
             viewIdResourceName = viewIdResourceName ?: "n/a",
             contentDescription = contentDescription?.toString() ?: "n/a",

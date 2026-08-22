@@ -92,6 +92,10 @@ class MainActivity : Activity() {
     private lateinit var signatureTransitionCountValue: TextView
     private lateinit var ignoredEmptyEventsValue: TextView
     private lateinit var duplicateSignatureEventsValue: TextView
+    private lateinit var trackedAccessibilityNodesValue: TextView
+    private lateinit var dynamicCandidateCountValue: TextView
+    private lateinit var topDynamicCandidateNodesValue: TextView
+    private lateinit var topCandidateSnapshotHistoryValue: TextView
     private lateinit var signatureTransitionsValue: TextView
     private lateinit var lastAccessibilityEventsValue: TextView
 
@@ -285,11 +289,15 @@ class MainActivity : Activity() {
         signatureTransitionCountValue = addDiagnosticField(root, "Signature Transition Count")
         ignoredEmptyEventsValue = addDiagnosticField(root, "Ignored Empty Events")
         duplicateSignatureEventsValue = addDiagnosticField(root, "Duplicate Signature Events")
+        trackedAccessibilityNodesValue = addDiagnosticField(root, "Tracked Accessibility Nodes")
+        dynamicCandidateCountValue = addDiagnosticField(root, "Dynamic Candidate Count")
 
         root.addView(sectionTitle("Event Log"))
         lastPlaybackEventsValue = addLogField(root, "Last 10 Playback Events")
         lastFineGrainedEventsValue = addLogField(root, "Last 20 Fine-Grained Events")
         lastCombinedEventsValue = addLogField(root, "Last 20 Combined Events")
+        topDynamicCandidateNodesValue = addLogField(root, "Top 10 Dynamic Candidate Nodes")
+        topCandidateSnapshotHistoryValue = addLogField(root, "Top Candidate Snapshot History")
         signatureTransitionsValue = addLogField(root, "Last 50 Signature Transitions")
         lastAccessibilityEventsValue = addLogField(root, "Last 30 Accessibility Events")
     }
@@ -516,6 +524,19 @@ class MainActivity : Activity() {
             signatureTransitionCountValue.text = snapshot.accessibilityProbe.signatureTransitionCount.toString()
             ignoredEmptyEventsValue.text = snapshot.accessibilityProbe.ignoredEmptyEvents.toString()
             duplicateSignatureEventsValue.text = snapshot.accessibilityProbe.duplicateSignatureEvents.toString()
+            trackedAccessibilityNodesValue.text = snapshot.accessibilityProbe.trackedAccessibilityNodes.toString()
+            dynamicCandidateCountValue.text = snapshot.accessibilityProbe.dynamicCandidateCount.toString()
+            topDynamicCandidateNodesValue.text = snapshot.accessibilityProbe.topDynamicCandidateNodes.mapIndexed { index, candidate ->
+                "#${index + 1} id=${candidate.stableId} class=${candidate.className.shortClass()} " +
+                    "bounds=[${candidate.boundsInScreen}] region=${candidate.regionHint} " +
+                    "rate=${"%.1f".format(candidate.recentChangeRatePerSecond)}/s " +
+                    "obs=${candidate.observedCount} metaΔ=${candidate.metadataChangeCount} " +
+                    "childΔ=${candidate.childCountChangeCount} boundsΔ=${candidate.boundsChangeCount} " +
+                    "stateΔ=${candidate.stateFlagChangeCount}"
+            }.joinToString("\n").ifBlank { "n/a" }
+            topCandidateSnapshotHistoryValue.text = snapshot.accessibilityProbe.topCandidateSnapshotHistory.joinToString("\n") { change ->
+                "${change.elapsedTimestampMs} | ${change.candidateId} | ${change.changedFields}"
+            }.ifBlank { "n/a" }
             signatureTransitionsValue.text = snapshot.accessibilityProbe.signatureTransitions.joinToString("\n") { transition ->
                 "${transition.elapsedTimestampMs} | ${transition.oldSignature} -> ${transition.newSignature} | " +
                     "nodes=${transition.candidateNodeCount} | ${transition.eventType.shortEventType()}"
@@ -592,4 +613,7 @@ class MainActivity : Activity() {
         .replace("VIEW_ACCESSIBILITY_FOCUSED", "A11Y_FOCUS")
         .replace("VIEW_FOCUSED", "FOCUS")
         .replace("VIEW_SELECTED", "SELECTED")
+
+    private fun String.shortClass() = replace("android.widget.", "")
+        .replace("android.view.", "")
 }

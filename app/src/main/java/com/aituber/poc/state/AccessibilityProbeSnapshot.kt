@@ -1,6 +1,7 @@
 package com.aituber.poc.state
 
 data class SafeAccessibilityNodeMetadata(
+    val treePath: String,
     val className: String,
     val viewIdResourceName: String,
     val contentDescription: String,
@@ -14,6 +15,27 @@ data class SafeAccessibilityNodeMetadata(
     val childCount: Int,
     val hasText: Boolean,
     val textLength: Int
+)
+
+data class AccessibilityCandidateNodeSummary(
+    val stableId: String,
+    val className: String,
+    val viewIdResourceName: String,
+    val boundsInScreen: String,
+    val regionHint: String,
+    val observedCount: Int,
+    val metadataChangeCount: Int,
+    val boundsChangeCount: Int,
+    val childCountChangeCount: Int,
+    val stateFlagChangeCount: Int,
+    val lastChangedElapsedMs: Long?,
+    val recentChangeRatePerSecond: Double
+)
+
+data class AccessibilityCandidateSnapshotChange(
+    val elapsedTimestampMs: Long,
+    val candidateId: String,
+    val changedFields: String
 )
 
 data class AccessibilityProbeEvent(
@@ -48,7 +70,11 @@ data class AccessibilityProbeSnapshot(
     val signatureTransitionCount: Int,
     val ignoredEmptyEvents: Int,
     val duplicateSignatureEvents: Int,
-    val signatureTransitions: List<AccessibilitySignatureTransition>
+    val signatureTransitions: List<AccessibilitySignatureTransition>,
+    val trackedAccessibilityNodes: Int,
+    val dynamicCandidateCount: Int,
+    val topDynamicCandidateNodes: List<AccessibilityCandidateNodeSummary>,
+    val topCandidateSnapshotHistory: List<AccessibilityCandidateSnapshotChange>
 ) {
     companion object {
         fun empty() = AccessibilityProbeSnapshot(
@@ -67,7 +93,11 @@ data class AccessibilityProbeSnapshot(
             signatureTransitionCount = 0,
             ignoredEmptyEvents = 0,
             duplicateSignatureEvents = 0,
-            signatureTransitions = emptyList()
+            signatureTransitions = emptyList(),
+            trackedAccessibilityNodes = 0,
+            dynamicCandidateCount = 0,
+            topDynamicCandidateNodes = emptyList(),
+            topCandidateSnapshotHistory = emptyList()
         )
     }
 }

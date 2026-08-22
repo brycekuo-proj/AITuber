@@ -50,6 +50,7 @@ class AccessibilityUiSignatureTest {
     }
 
     private fun node(
+        treePath: String = "0",
         className: String = "android.view.View",
         viewIdResourceName: String = "n/a",
         contentDescription: String = "n/a",
@@ -64,6 +65,7 @@ class AccessibilityUiSignatureTest {
         hasText: Boolean = false,
         textLength: Int = 0
     ) = SafeAccessibilityNodeMetadata(
+        treePath = treePath,
         className = className,
         viewIdResourceName = viewIdResourceName,
         contentDescription = contentDescription,

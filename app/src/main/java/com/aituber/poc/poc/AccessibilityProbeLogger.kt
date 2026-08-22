@@ -24,6 +24,7 @@ class AccessibilityProbeLogger(
     private var duplicateSignatureEvents = 0
     private val lastEvents = ArrayDeque<AccessibilityProbeEvent>(eventCapacity)
     private val signatureTransitions = ArrayDeque<AccessibilitySignatureTransition>(transitionCapacity)
+    private val candidateNodeTracker = AccessibilityCandidateNodeTracker()
 
     fun record(
         elapsedTimestampMs: Long,
@@ -59,6 +60,7 @@ class AccessibilityProbeLogger(
         }
 
         validSignatureEventCount += 1
+        candidateNodeTracker.record(elapsedTimestampMs, nodes)
         currentUiSignature = signature
         recordEvent(
             AccessibilityProbeEvent(
@@ -105,7 +107,11 @@ class AccessibilityProbeLogger(
             signatureTransitionCount = signatureTransitionCount,
             ignoredEmptyEvents = ignoredEmptyEvents,
             duplicateSignatureEvents = duplicateSignatureEvents,
-            signatureTransitions = signatureTransitions.toList()
+            signatureTransitions = signatureTransitions.toList(),
+            trackedAccessibilityNodes = candidateNodeTracker.trackedNodeCount(),
+            dynamicCandidateCount = candidateNodeTracker.dynamicCandidateCount(),
+            topDynamicCandidateNodes = candidateNodeTracker.topCandidates(),
+            topCandidateSnapshotHistory = candidateNodeTracker.topCandidateSnapshotHistory()
         )
     }
 
