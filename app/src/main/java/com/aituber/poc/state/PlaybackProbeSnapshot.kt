@@ -2,6 +2,10 @@ package com.aituber.poc.state
 
 data class PlaybackProbeSnapshot(
     val callbackStatus: String,
+    val registrationAttempted: String,
+    val registrationResult: String,
+    val callbackEventCount: Int,
+    val lastCallbackElapsedMs: Long?,
     val activePlaybackCount: Int,
     val chatGptPlaybackDetected: String,
     val chatGptPlaybackState: String,
@@ -13,7 +17,11 @@ data class PlaybackProbeSnapshot(
 ) {
     companion object {
         fun empty() = PlaybackProbeSnapshot(
-            callbackStatus = "UNAVAILABLE",
+            callbackStatus = "NOT_REGISTERED",
+            registrationAttempted = "NO",
+            registrationResult = "Not attempted",
+            callbackEventCount = 0,
+            lastCallbackElapsedMs = null,
             activePlaybackCount = 0,
             chatGptPlaybackDetected = "UNKNOWN",
             chatGptPlaybackState = "UNKNOWN",

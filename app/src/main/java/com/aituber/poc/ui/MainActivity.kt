@@ -18,6 +18,7 @@ import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
+import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.poc.ChatGptTarget
@@ -42,6 +43,10 @@ class MainActivity : Activity() {
     private lateinit var captureDiagnosticValue: TextView
     private lateinit var captureStatusValue: TextView
     private lateinit var playbackCallbackValue: TextView
+    private lateinit var registrationAttemptedValue: TextView
+    private lateinit var registrationResultValue: TextView
+    private lateinit var callbackEventCountValue: TextView
+    private lateinit var lastCallbackTimestampValue: TextView
     private lateinit var activePlaybackCountValue: TextView
     private lateinit var chatGptPlaybackDetectedValue: TextView
     private lateinit var chatGptPlaybackStateValue: TextView
@@ -55,18 +60,24 @@ class MainActivity : Activity() {
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
         renderSnapshot(snapshot)
     }
+    private var playbackProbe: AndroidPlaybackStateProbe? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
+            CaptureSessionState.updatePlaybackProbe(snapshot)
+        }
         setContentView(buildUi())
     }
 
     override fun onStart() {
         super.onStart()
         CaptureSessionState.subscribe(stateListener)
+        playbackProbe?.start()
     }
 
     override fun onStop() {
+        playbackProbe?.stop()
         CaptureSessionState.unsubscribe(stateListener)
         super.onStop()
     }
@@ -124,6 +135,10 @@ class MainActivity : Activity() {
         captureDiagnosticValue = addField(root, "Capture Diagnostic")
         captureStatusValue = addField(root, "Capture Status")
         playbackCallbackValue = addField(root, "Playback Callback")
+        registrationAttemptedValue = addField(root, "Registration Attempted")
+        registrationResultValue = addField(root, "Registration Result")
+        callbackEventCountValue = addField(root, "Callback Event Count")
+        lastCallbackTimestampValue = addField(root, "Last Callback Timestamp")
         activePlaybackCountValue = addField(root, "Active Playback Count")
         chatGptPlaybackDetectedValue = addField(root, "ChatGPT Playback Detected")
         chatGptPlaybackStateValue = addField(root, "ChatGPT Playback State")
@@ -279,6 +294,10 @@ class MainActivity : Activity() {
             captureDiagnosticValue.text = snapshot.diagnostics.diagnostic.label
             captureStatusValue.text = snapshot.captureStatus
             playbackCallbackValue.text = snapshot.playbackProbe.callbackStatus
+            registrationAttemptedValue.text = snapshot.playbackProbe.registrationAttempted
+            registrationResultValue.text = snapshot.playbackProbe.registrationResult
+            callbackEventCountValue.text = snapshot.playbackProbe.callbackEventCount.toString()
+            lastCallbackTimestampValue.text = snapshot.playbackProbe.lastCallbackElapsedMs?.let { "$it ms" } ?: "n/a"
             activePlaybackCountValue.text = snapshot.playbackProbe.activePlaybackCount.toString()
             chatGptPlaybackDetectedValue.text = snapshot.playbackProbe.chatGptPlaybackDetected
             chatGptPlaybackStateValue.text = snapshot.playbackProbe.chatGptPlaybackState

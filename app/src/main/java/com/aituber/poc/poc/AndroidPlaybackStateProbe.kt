@@ -15,12 +15,25 @@ class AndroidPlaybackStateProbe(
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private var callback: AudioManager.AudioPlaybackCallback? = null
+    private var callbackEventCount = 0
+    private var lastCallbackElapsedMs: Long? = null
 
     fun start() {
         if (callback != null) return
+        callbackEventCount = 0
+        lastCallbackElapsedMs = null
+        onSnapshot(
+            PlaybackProbeSnapshot.empty().copy(
+                callbackStatus = "REGISTERING",
+                registrationAttempted = "YES",
+                registrationResult = "Attempting registration"
+            )
+        )
 
         val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
             override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
+                callbackEventCount += 1
+                lastCallbackElapsedMs = SystemClock.elapsedRealtime()
                 publish(configs.orEmpty())
             }
         }
@@ -28,12 +41,15 @@ class AndroidPlaybackStateProbe(
 
         try {
             audioManager.registerAudioPlaybackCallback(playbackCallback, Handler(Looper.getMainLooper()))
-            publish(audioManager.activePlaybackConfigurations)
+            publish(audioManager.activePlaybackConfigurations, "Registered; no callback seen yet")
         } catch (runtime: RuntimeException) {
+            callback = null
             onSnapshot(
                 PlaybackProbeSnapshot.empty().copy(
                     callbackStatus = "UNAVAILABLE",
-                    attribution = "UNSUPPORTED"
+                    registrationAttempted = "YES",
+                    registrationResult = "Registration error: ${runtime.javaClass.simpleName}",
+                    attribution = "UNSUPPORTED - Attribution unavailable"
                 )
             )
         }
@@ -46,11 +62,18 @@ class AndroidPlaybackStateProbe(
         callback = null
     }
 
-    private fun publish(configs: List<AudioPlaybackConfiguration>) {
+    private fun publish(
+        configs: List<AudioPlaybackConfiguration>,
+        registrationResult: String = "Registered; callback received"
+    ) {
         val attributes = configs.map { config -> config.audioAttributes }
         onSnapshot(
             PlaybackProbeSnapshot(
                 callbackStatus = "AVAILABLE",
+                registrationAttempted = "YES",
+                registrationResult = registrationResult,
+                callbackEventCount = callbackEventCount,
+                lastCallbackElapsedMs = lastCallbackElapsedMs,
                 activePlaybackCount = configs.size,
                 chatGptPlaybackDetected = "UNKNOWN",
                 chatGptPlaybackState = "UNKNOWN",
