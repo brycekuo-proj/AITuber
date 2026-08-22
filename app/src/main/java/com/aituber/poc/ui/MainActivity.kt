@@ -48,6 +48,15 @@ class MainActivity : Activity() {
     private lateinit var callbackEventCountValue: TextView
     private lateinit var lastCallbackTimestampValue: TextView
     private lateinit var activePlaybackCountValue: TextView
+    private lateinit var peakActivePlaybackCountValue: TextView
+    private lateinit var activePlaybackEventsValue: TextView
+    private lateinit var playbackBecameActiveCountValue: TextView
+    private lateinit var playbackBecameInactiveCountValue: TextView
+    private lateinit var lastNonZeroActiveCountValue: TextView
+    private lateinit var lastActiveTimestampValue: TextView
+    private lateinit var lastObservedUsageWhileActiveValue: TextView
+    private lateinit var lastObservedContentTypeWhileActiveValue: TextView
+    private lateinit var lastPlaybackEventsValue: TextView
     private lateinit var chatGptPlaybackDetectedValue: TextView
     private lateinit var chatGptPlaybackStateValue: TextView
     private lateinit var lastPlaybackChangeValue: TextView
@@ -77,9 +86,15 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
-        playbackProbe?.stop()
         CaptureSessionState.unsubscribe(stateListener)
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        if (isFinishing) {
+            playbackProbe?.stop()
+        }
+        super.onDestroy()
     }
 
     @Deprecated("Used for the minimal PoC Activity result flow.")
@@ -140,6 +155,15 @@ class MainActivity : Activity() {
         callbackEventCountValue = addField(root, "Callback Event Count")
         lastCallbackTimestampValue = addField(root, "Last Callback Timestamp")
         activePlaybackCountValue = addField(root, "Active Playback Count")
+        peakActivePlaybackCountValue = addField(root, "Peak Active Playback Count")
+        activePlaybackEventsValue = addField(root, "Active Playback Events")
+        playbackBecameActiveCountValue = addField(root, "Playback Became Active Count")
+        playbackBecameInactiveCountValue = addField(root, "Playback Became Inactive Count")
+        lastNonZeroActiveCountValue = addField(root, "Last Non-zero Active Count")
+        lastActiveTimestampValue = addField(root, "Last Active Timestamp")
+        lastObservedUsageWhileActiveValue = addField(root, "Last Observed Usage While Active")
+        lastObservedContentTypeWhileActiveValue = addField(root, "Last Observed Content Type While Active")
+        lastPlaybackEventsValue = addField(root, "Last 10 Playback Events")
         chatGptPlaybackDetectedValue = addField(root, "ChatGPT Playback Detected")
         chatGptPlaybackStateValue = addField(root, "ChatGPT Playback State")
         lastPlaybackChangeValue = addField(root, "Last Playback Change")
@@ -299,6 +323,17 @@ class MainActivity : Activity() {
             callbackEventCountValue.text = snapshot.playbackProbe.callbackEventCount.toString()
             lastCallbackTimestampValue.text = snapshot.playbackProbe.lastCallbackElapsedMs?.let { "$it ms" } ?: "n/a"
             activePlaybackCountValue.text = snapshot.playbackProbe.activePlaybackCount.toString()
+            peakActivePlaybackCountValue.text = snapshot.playbackProbe.peakActivePlaybackCount.toString()
+            activePlaybackEventsValue.text = snapshot.playbackProbe.activePlaybackEvents.toString()
+            playbackBecameActiveCountValue.text = snapshot.playbackProbe.playbackBecameActiveCount.toString()
+            playbackBecameInactiveCountValue.text = snapshot.playbackProbe.playbackBecameInactiveCount.toString()
+            lastNonZeroActiveCountValue.text = snapshot.playbackProbe.lastNonZeroActiveCount.toString()
+            lastActiveTimestampValue.text = snapshot.playbackProbe.lastActiveElapsedMs?.let { "$it ms" } ?: "n/a"
+            lastObservedUsageWhileActiveValue.text = snapshot.playbackProbe.lastObservedUsageWhileActive
+            lastObservedContentTypeWhileActiveValue.text = snapshot.playbackProbe.lastObservedContentTypeWhileActive
+            lastPlaybackEventsValue.text = snapshot.playbackProbe.lastPlaybackEvents.joinToString("\n") { event ->
+                "${event.elapsedTimestampMs} ms | count=${event.activePlaybackCount} | ${event.usage} | ${event.contentType}"
+            }.ifBlank { "n/a" }
             chatGptPlaybackDetectedValue.text = snapshot.playbackProbe.chatGptPlaybackDetected
             chatGptPlaybackStateValue.text = snapshot.playbackProbe.chatGptPlaybackState
             lastPlaybackChangeValue.text = snapshot.playbackProbe.lastPlaybackChangeElapsedMs?.let { "$it ms" } ?: "n/a"

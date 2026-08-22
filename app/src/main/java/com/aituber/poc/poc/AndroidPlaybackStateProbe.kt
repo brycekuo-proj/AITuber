@@ -7,7 +7,9 @@ import android.media.AudioPlaybackConfiguration
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.PlaybackProbeSnapshot
+import kotlin.math.max
 
 class AndroidPlaybackStateProbe(
     context: Context,
@@ -17,13 +19,21 @@ class AndroidPlaybackStateProbe(
     private var callback: AudioManager.AudioPlaybackCallback? = null
     private var callbackEventCount = 0
     private var lastCallbackElapsedMs: Long? = null
+    private var lastActivePlaybackCount = 0
+    private var peakActivePlaybackCount = 0
+    private var activePlaybackEvents = 0
+    private var playbackBecameActiveCount = 0
+    private var playbackBecameInactiveCount = 0
+    private var lastNonZeroActiveCount = 0
+    private var lastActiveElapsedMs: Long? = null
+    private var lastObservedUsageWhileActive = "n/a"
+    private var lastObservedContentTypeWhileActive = "n/a"
+    private val lastPlaybackEvents = ArrayDeque<PlaybackProbeEvent>(10)
 
     fun start() {
         if (callback != null) return
-        callbackEventCount = 0
-        lastCallbackElapsedMs = null
         onSnapshot(
-            PlaybackProbeSnapshot.empty().copy(
+            currentSnapshot().copy(
                 callbackStatus = "REGISTERING",
                 registrationAttempted = "YES",
                 registrationResult = "Attempting registration"
@@ -45,7 +55,7 @@ class AndroidPlaybackStateProbe(
         } catch (runtime: RuntimeException) {
             callback = null
             onSnapshot(
-                PlaybackProbeSnapshot.empty().copy(
+                currentSnapshot().copy(
                     callbackStatus = "UNAVAILABLE",
                     registrationAttempted = "YES",
                     registrationResult = "Registration error: ${runtime.javaClass.simpleName}",
@@ -67,24 +77,73 @@ class AndroidPlaybackStateProbe(
         registrationResult: String = "Registered; callback received"
     ) {
         val attributes = configs.map { config -> config.audioAttributes }
+        val now = SystemClock.elapsedRealtime()
+        val usage = attributes.map { usageLabel(it.usage) }.distinct().joinToStringOrDefault()
+        val contentType = attributes.map { contentTypeLabel(it.contentType) }.distinct().joinToStringOrDefault()
+        val activeCount = configs.size
+
+        recordPlaybackEvent(
+            PlaybackProbeEvent(
+                elapsedTimestampMs = now,
+                activePlaybackCount = activeCount,
+                usage = usage,
+                contentType = contentType
+            )
+        )
+
+        if (activeCount > 0) {
+            activePlaybackEvents += 1
+            peakActivePlaybackCount = max(peakActivePlaybackCount, activeCount)
+            lastNonZeroActiveCount = activeCount
+            lastActiveElapsedMs = now
+            lastObservedUsageWhileActive = usage
+            lastObservedContentTypeWhileActive = contentType
+        }
+        if (lastActivePlaybackCount == 0 && activeCount > 0) {
+            playbackBecameActiveCount += 1
+        }
+        if (lastActivePlaybackCount > 0 && activeCount == 0) {
+            playbackBecameInactiveCount += 1
+        }
+        lastActivePlaybackCount = activeCount
+
         onSnapshot(
-            PlaybackProbeSnapshot(
+            currentSnapshot().copy(
                 callbackStatus = "AVAILABLE",
                 registrationAttempted = "YES",
                 registrationResult = registrationResult,
-                callbackEventCount = callbackEventCount,
-                lastCallbackElapsedMs = lastCallbackElapsedMs,
-                activePlaybackCount = configs.size,
                 chatGptPlaybackDetected = "UNKNOWN",
                 chatGptPlaybackState = "UNKNOWN",
-                lastPlaybackChangeElapsedMs = SystemClock.elapsedRealtime(),
-                observedUsage = attributes.map { usageLabel(it.usage) }.distinct().joinToStringOrDefault(),
-                observedContentType = attributes.map { contentTypeLabel(it.contentType) }.distinct().joinToStringOrDefault(),
+                lastPlaybackChangeElapsedMs = now,
+                observedUsage = usage,
+                observedContentType = contentType,
                 observedPlayerState = "UNAVAILABLE",
                 attribution = "UNSUPPORTED - Attribution unavailable"
             )
         )
     }
+
+    private fun recordPlaybackEvent(event: PlaybackProbeEvent) {
+        if (lastPlaybackEvents.size == 10) {
+            lastPlaybackEvents.removeFirst()
+        }
+        lastPlaybackEvents.addLast(event)
+    }
+
+    private fun currentSnapshot() = PlaybackProbeSnapshot.empty().copy(
+        callbackEventCount = callbackEventCount,
+        lastCallbackElapsedMs = lastCallbackElapsedMs,
+        activePlaybackCount = lastActivePlaybackCount,
+        peakActivePlaybackCount = peakActivePlaybackCount,
+        activePlaybackEvents = activePlaybackEvents,
+        playbackBecameActiveCount = playbackBecameActiveCount,
+        playbackBecameInactiveCount = playbackBecameInactiveCount,
+        lastNonZeroActiveCount = lastNonZeroActiveCount,
+        lastActiveElapsedMs = lastActiveElapsedMs,
+        lastObservedUsageWhileActive = lastObservedUsageWhileActive,
+        lastObservedContentTypeWhileActive = lastObservedContentTypeWhileActive,
+        lastPlaybackEvents = lastPlaybackEvents.toList()
+    )
 
     private fun List<String>.joinToStringOrDefault(): String {
         return if (isEmpty()) "n/a" else joinToString(", ")
