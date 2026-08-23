@@ -154,4 +154,37 @@ class MouthAmplitudeMapperTest {
         assertEquals(MouthDriveMode.PSEUDO_FALLBACK, frame.mode)
         assertEquals(null, frame.targetOpen)
     }
+
+    @Test
+    fun resolvedSpeakingDoesNotCloseMouthDrive() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.407, peak = 0.992, activityRatio = 0.9),
+            nowMs = 1_000L
+        )
+
+        assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertTrue(frame.targetOpen!! > 0.0)
+    }
+
+    @Test
+    fun resolvedIdleClosesMouthDrive() {
+        val mapper = MouthAmplitudeMapper()
+        mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.407, peak = 0.992, activityRatio = 0.9),
+            nowMs = 1_000L
+        )
+
+        val frame = mapper.evaluate(
+            UniversalAiState.IDLE,
+            VisualizerWaveformMetrics(rms = 0.407, peak = 0.992, activityRatio = 0.9),
+            nowMs = 1_100L
+        )
+
+        assertEquals(MouthDriveMode.CLOSED, frame.mode)
+        assertEquals(0.0, frame.smoothedOpen, 0.0001)
+    }
 }

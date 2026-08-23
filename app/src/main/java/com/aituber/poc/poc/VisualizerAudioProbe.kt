@@ -4,7 +4,6 @@ import android.media.audiofx.Visualizer
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
-import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.VisualizerWaveformMetrics
 
 object VisualizerAudioProbe {
@@ -87,7 +86,6 @@ object VisualizerAudioProbe {
                         )
                         accumulator.updateDetector(decision)
                         CaptureSessionState.updateVisualizerProbe(accumulator.record(elapsed, metrics))
-                        updateUniversalState(decision.state)
                         if (this@VisualizerAudioProbe.automatedTest && elapsed - now >= TEST_DURATION_MS) {
                             stop()
                         }
@@ -130,7 +128,6 @@ object VisualizerAudioProbe {
             CaptureSessionState.updateVisualizerProbe(
                 accumulator.fail("${exception::class.java.simpleName}: ${exception.message ?: "Visualizer init failed"}")
             )
-            updateUniversalState(UniversalAiState.UNKNOWN)
         }
     }
 
@@ -142,7 +139,6 @@ object VisualizerAudioProbe {
         releaseVisualizer()
         accumulator.stop()
         CaptureSessionState.updateVisualizerProbe(accumulator.snapshot())
-        updateUniversalState(UniversalAiState.IDLE)
     }
 
     private fun releaseVisualizer() {
@@ -160,18 +156,6 @@ object VisualizerAudioProbe {
         val min = range.getOrNull(0) ?: 256
         val max = range.getOrNull(1) ?: min
         return 512.coerceIn(min, max)
-    }
-
-    private fun updateUniversalState(state: UniversalAiState) {
-        val current = CaptureSessionState.current()
-        CaptureSessionState.update(
-            current.copy(
-                state = state,
-                audioLevel = null,
-                captureStatus = "Visualizer speaking detector evaluated",
-                speakingSignalSource = "Visualizer(0) waveform RMS/Peak/Activity"
-            )
-        )
     }
 
 }

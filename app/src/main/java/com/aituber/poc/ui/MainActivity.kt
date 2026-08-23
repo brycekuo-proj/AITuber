@@ -69,6 +69,16 @@ class MainActivity : Activity() {
 
     private lateinit var diagnosticsContainer: LinearLayout
     private lateinit var diagnosticsToggleButton: Button
+    private lateinit var timingVisualizerDerivedStateValue: TextView
+    private lateinit var timingVisualizerDerivedLastChangeValue: TextView
+    private lateinit var timingVisualizerLastSpeakingValue: TextView
+    private lateinit var timingResolvedUniversalStateValue: TextView
+    private lateinit var timingUniversalLastChangeValue: TextView
+    private lateinit var timingStateAuthorityValue: TextView
+    private lateinit var timingDerivedDelayValue: TextView
+    private lateinit var timingLastWriterValue: TextView
+    private lateinit var timingLastSourceValue: TextView
+    private lateinit var timingSpeakingHoldRemainingValue: TextView
     private lateinit var captureStartupTraceValue: TextView
     private lateinit var mouthPipelineDriveModeValue: TextView
     private lateinit var mouthPipelineMapperTargetValue: TextView
@@ -223,7 +233,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        playbackProbe = AndroidPlaybackStateProbe(this, CaptureSessionState::current) { snapshot ->
+        playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
             CaptureSessionState.updatePlaybackProbe(snapshot)
         }
         setContentView(buildUi())
@@ -363,6 +373,18 @@ class MainActivity : Activity() {
     }
 
     private fun addDiagnosticsFields(root: LinearLayout) {
+        root.addView(sectionTitle("State Timing / Authority"))
+        timingVisualizerDerivedStateValue = addDiagnosticField(root, "Visualizer Derived State")
+        timingVisualizerDerivedLastChangeValue = addDiagnosticField(root, "Visualizer Derived Last Change")
+        timingVisualizerLastSpeakingValue = addDiagnosticField(root, "Visualizer Last Speaking Time")
+        timingResolvedUniversalStateValue = addDiagnosticField(root, "Resolved Universal State")
+        timingUniversalLastChangeValue = addDiagnosticField(root, "Universal State Last Change")
+        timingStateAuthorityValue = addDiagnosticField(root, "State Authority")
+        timingDerivedDelayValue = addDiagnosticField(root, "Derived -> Universal Delay")
+        timingLastWriterValue = addDiagnosticField(root, "Last State Writer")
+        timingLastSourceValue = addDiagnosticField(root, "Last State Source")
+        timingSpeakingHoldRemainingValue = addDiagnosticField(root, "Speaking Hold Remaining")
+
         root.addView(sectionTitle("Mouth Render Pipeline"))
         addButton(root, "TEST MOUTH 100%") { CharacterOverlayService.testMouthFullyOpenForDebug() }
         mouthPipelineDriveModeValue = addDiagnosticField(root, "Drive Mode")
@@ -789,6 +811,16 @@ class MainActivity : Activity() {
             mouthDriveModeValue.text = mouthDrive.mode
             mouthTargetOpenValue.text = mouthDrive.targetOpen?.let { "%.3f".format(it) } ?: "n/a"
             mouthSmoothedOpenValue.text = "%.3f".format(mouthDrive.smoothedOpen)
+            timingVisualizerDerivedStateValue.text = snapshot.stateTiming.visualizerDerivedState
+            timingVisualizerDerivedLastChangeValue.text = snapshot.stateTiming.visualizerDerivedLastChangeTimeMs?.let { "$it ms" } ?: "n/a"
+            timingVisualizerLastSpeakingValue.text = snapshot.stateTiming.visualizerLastSpeakingTimeMs?.let { "$it ms" } ?: "n/a"
+            timingResolvedUniversalStateValue.text = snapshot.stateTiming.resolvedUniversalState
+            timingUniversalLastChangeValue.text = snapshot.stateTiming.universalStateLastChangeTimeMs?.let { "$it ms" } ?: "n/a"
+            timingStateAuthorityValue.text = snapshot.stateTiming.stateAuthority
+            timingDerivedDelayValue.text = snapshot.stateTiming.derivedToUniversalDelayMs?.let { "$it ms" } ?: "n/a"
+            timingLastWriterValue.text = snapshot.stateTiming.lastStateWriter
+            timingLastSourceValue.text = snapshot.stateTiming.lastStateSource
+            timingSpeakingHoldRemainingValue.text = "${snapshot.stateTiming.speakingHoldRemainingMs} ms"
             val mouthRender = MouthRenderDiagnostics.snapshot()
             mouthPipelineDriveModeValue.text = mouthRender.mouthDriveMode
             mouthPipelineMapperTargetValue.text = mouthRender.mapperTargetOpen?.let { "%.3f".format(it) } ?: "n/a"

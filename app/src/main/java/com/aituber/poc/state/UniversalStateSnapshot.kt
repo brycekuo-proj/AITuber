@@ -13,5 +13,6 @@ data class UniversalStateSnapshot(
     val visualMotion: VisualMotionSnapshot = VisualMotionSnapshot.empty(),
     val visualizerProbe: VisualizerProbeSnapshot = VisualizerProbeSnapshot.empty(),
     val captureStartupTrace: CaptureStartupTraceSnapshot = CaptureStartupTraceSnapshot.empty(),
-    val overlayLifecycle: OverlayLifecycleSnapshot = OverlayLifecycleSnapshot.empty()
+    val overlayLifecycle: OverlayLifecycleSnapshot = OverlayLifecycleSnapshot.empty(),
+    val stateTiming: StateTimingSnapshot = StateTimingSnapshot.empty()
 )

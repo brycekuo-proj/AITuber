@@ -15,12 +15,10 @@ import com.aituber.poc.state.FineGrainedVoiceEvent
 import com.aituber.poc.state.PlaybackProbeEvent
 import com.aituber.poc.state.PlaybackProbeSnapshot
 import com.aituber.poc.state.UniversalAiState
-import com.aituber.poc.state.UniversalStateSnapshot
 import kotlin.math.max
 
 class AndroidPlaybackStateProbe(
     context: Context,
-    private val currentUniversalState: () -> UniversalStateSnapshot,
     private val onSnapshot: (PlaybackProbeSnapshot) -> Unit
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
@@ -203,23 +201,6 @@ class AndroidPlaybackStateProbe(
             )
         )
 
-        val currentUniversalSnapshot = currentUniversalState()
-        val universalState = universalStateForPlaybackAndVisualizer(
-            voiceSessionActive = voiceSessionActive,
-            visualizerDerivedState = currentUniversalSnapshot.visualizerProbe.derivedSpeaking
-        )
-        CaptureSessionState.update(
-            currentUniversalSnapshot.copy(
-                state = universalState,
-                audioLevel = null,
-                captureStatus = "Playback/recording diagnostics evaluated",
-                speakingSignalSource = if (voiceSessionActive) {
-                    "Visualizer(0) waveform RMS/Peak/Activity"
-                } else {
-                    "Voice session inactive"
-                }
-            )
-        )
     }
 
     private fun publishRecording(configs: List<AudioRecordingConfiguration>) {
@@ -399,16 +380,5 @@ class AndroidPlaybackStateProbe(
             }
         }
 
-        internal fun universalStateForPlaybackAndVisualizer(
-            voiceSessionActive: Boolean,
-            visualizerDerivedState: String
-        ): UniversalAiState {
-            if (!voiceSessionActive) return UniversalAiState.IDLE
-            return when (visualizerDerivedState) {
-                UniversalAiState.SPEAKING.name -> UniversalAiState.SPEAKING
-                UniversalAiState.IDLE.name -> UniversalAiState.IDLE
-                else -> UniversalAiState.UNKNOWN
-            }
-        }
     }
 }
