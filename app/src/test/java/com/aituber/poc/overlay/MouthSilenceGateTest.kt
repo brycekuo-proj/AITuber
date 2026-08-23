@@ -29,11 +29,11 @@ class MouthSilenceGateTest {
         val gate = MouthSilenceGate()
         gate.evaluate(UniversalAiState.SPEAKING, audibleMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
-        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_030L)
+        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_019L)
 
         assertFalse(frame.audible)
         assertTrue(frame.mouthActive)
-        assertEquals(5L, frame.silenceHoldRemainingMs)
+        assertEquals(1L, frame.silenceHoldRemainingMs)
     }
 
     @Test
@@ -41,7 +41,7 @@ class MouthSilenceGateTest {
         val gate = MouthSilenceGate()
         gate.evaluate(UniversalAiState.SPEAKING, audibleMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
-        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_040L)
+        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_020L)
 
         assertFalse(frame.audible)
         assertFalse(frame.mouthActive)
@@ -49,12 +49,12 @@ class MouthSilenceGateTest {
     }
 
     @Test
-    fun defaultSilenceHoldIsThirtyFiveMilliseconds() {
+    fun defaultSilenceHoldIsTwentyMilliseconds() {
         val gate = MouthSilenceGate()
         gate.evaluate(UniversalAiState.SPEAKING, audibleMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
-        val withinHold = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_034L)
-        val afterHold = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_036L)
+        val withinHold = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_019L)
+        val afterHold = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_020L)
 
         assertTrue(withinHold.mouthActive)
         assertEquals(1L, withinHold.silenceHoldRemainingMs)

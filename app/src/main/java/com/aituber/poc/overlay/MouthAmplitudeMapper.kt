@@ -14,6 +14,8 @@ class MouthAmplitudeMapper(
     private var lastSmoothingMs: Long? = null
     private var lastRenderMs: Long? = null
     private var silenceCloseStartTimeMs: Long? = null
+    private var closedSnapCount = 0
+    private var lastClosedSnapTimeMs: Long? = null
 
     fun evaluate(
         state: UniversalAiState,
@@ -36,7 +38,10 @@ class MouthAmplitudeMapper(
                 closeMode = MouthCloseMode.CLOSED,
                 activeTimeConstantMs = 0L,
                 silenceCloseStartTimeMs = null,
-                silenceCloseDurationMs = 0L
+                silenceCloseDurationMs = 0L,
+                silenceSnapClosedThreshold = config.silenceSnapClosedThreshold,
+                closedSnapCount = closedSnapCount,
+                lastClosedSnapTimeMs = lastClosedSnapTimeMs
             )
         }
 
@@ -50,7 +55,10 @@ class MouthAmplitudeMapper(
                 closeMode = MouthCloseMode.NORMAL_RELEASE,
                 activeTimeConstantMs = config.releaseMs,
                 silenceCloseStartTimeMs = null,
-                silenceCloseDurationMs = 0L
+                silenceCloseDurationMs = 0L,
+                silenceSnapClosedThreshold = config.silenceSnapClosedThreshold,
+                closedSnapCount = closedSnapCount,
+                lastClosedSnapTimeMs = lastClosedSnapTimeMs
             )
         }
 
@@ -86,6 +94,8 @@ class MouthAmplitudeMapper(
         lastSmoothingMs = null
         lastRenderMs = null
         silenceCloseStartTimeMs = null
+        closedSnapCount = 0
+        lastClosedSnapTimeMs = null
     }
 
     private fun smoothToTarget(
@@ -103,13 +113,24 @@ class MouthAmplitudeMapper(
         }
         val alpha = 1.0 - exp(-elapsedMs.toDouble() / timeConstantMs.toDouble())
         val nextSmoothed = smoothedOpen + (targetOpen - smoothedOpen) * alpha
+        var snappedClosed = false
         smoothedOpen = nextSmoothed.coerceIn(0.0, 1.0)
+        if (
+            closeMode == MouthCloseMode.SILENCE_FAST_CLOSE &&
+            smoothedOpen > 0.0 &&
+            smoothedOpen <= config.silenceSnapClosedThreshold
+        ) {
+            smoothedOpen = 0.0
+            closedSnapCount += 1
+            lastClosedSnapTimeMs = nowMs
+            snappedClosed = true
+        }
         lastSmoothingMs = nowMs
 
         val meaningfulChange = abs(smoothedOpen - lastRenderedOpen) >= config.deadband
         val intervalReached = lastRenderMs?.let { nowMs - it >= config.renderIntervalMs } ?: true
         val firstNonZeroFrame = lastRenderMs == null && smoothedOpen > 0.0
-        val shouldRender = firstNonZeroFrame || (intervalReached && meaningfulChange)
+        val shouldRender = firstNonZeroFrame || snappedClosed || (intervalReached && meaningfulChange)
         if (shouldRender) {
             lastRenderMs = nowMs
             lastRenderedOpen = smoothedOpen
@@ -123,7 +144,10 @@ class MouthAmplitudeMapper(
             closeMode = closeMode,
             activeTimeConstantMs = timeConstantMs,
             silenceCloseStartTimeMs = fastCloseStart,
-            silenceCloseDurationMs = fastCloseStart?.let { (nowMs - it).coerceAtLeast(0L) } ?: 0L
+            silenceCloseDurationMs = fastCloseStart?.let { (nowMs - it).coerceAtLeast(0L) } ?: 0L,
+            silenceSnapClosedThreshold = config.silenceSnapClosedThreshold,
+            closedSnapCount = closedSnapCount,
+            lastClosedSnapTimeMs = lastClosedSnapTimeMs
         )
     }
 
@@ -141,7 +165,8 @@ class MouthAmplitudeMapper(
         val minSpeakingOpen: Double = 0.18,
         val attackMs: Long = 100L,
         val releaseMs: Long = 180L,
-        val silenceCloseMs: Long = 70L,
+        val silenceCloseMs: Long = 40L,
+        val silenceSnapClosedThreshold: Double = 0.12,
         val deadband: Double = 0.04,
         val renderIntervalMs: Long = 50L
     )
@@ -167,5 +192,8 @@ data class MouthDriveFrame(
     val closeMode: MouthCloseMode,
     val activeTimeConstantMs: Long,
     val silenceCloseStartTimeMs: Long?,
-    val silenceCloseDurationMs: Long
+    val silenceCloseDurationMs: Long,
+    val silenceSnapClosedThreshold: Double,
+    val closedSnapCount: Int,
+    val lastClosedSnapTimeMs: Long?
 )

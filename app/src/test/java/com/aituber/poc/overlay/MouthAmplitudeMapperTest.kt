@@ -158,7 +158,7 @@ class MouthAmplitudeMapperTest {
         assertEquals(MouthDriveMode.RMS, frame.mode)
         assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, frame.closeMode)
         assertEquals(0.0, frame.targetOpen!!, 0.0001)
-        assertEquals(70L, frame.activeTimeConstantMs)
+        assertEquals(40L, frame.activeTimeConstantMs)
     }
 
     @Test
@@ -237,7 +237,7 @@ class MouthAmplitudeMapperTest {
 
         assertEquals(0.0, frame.targetOpen!!, 0.0001)
         assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, frame.closeMode)
-        assertEquals(70L, frame.activeTimeConstantMs)
+        assertEquals(40L, frame.activeTimeConstantMs)
         assertEquals(1_150L, frame.silenceCloseStartTimeMs)
         assertEquals(0L, frame.silenceCloseDurationMs)
     }
@@ -267,6 +267,87 @@ class MouthAmplitudeMapperTest {
         assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, fastClose.closeMode)
         assertEquals(MouthCloseMode.NORMAL_RELEASE, normalRelease.closeMode)
         assertTrue(fastClose.smoothedOpen < normalRelease.smoothedOpen)
+    }
+
+    @Test
+    fun silenceFastCloseSnapsClosedBelowThreshold() {
+        val mapper = MouthAmplitudeMapper()
+        seedOpenMouth(mapper)
+        mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_190L
+        )
+
+        assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, frame.closeMode)
+        assertEquals(0.12, frame.silenceSnapClosedThreshold, 0.0001)
+        assertEquals(0.0, frame.smoothedOpen, 0.0001)
+        assertEquals(1, frame.closedSnapCount)
+        assertEquals(1_190L, frame.lastClosedSnapTimeMs)
+        assertTrue(frame.shouldRender)
+    }
+
+    @Test
+    fun normalAudibleRmsModeDoesNotSnapSmallOpenValueClosed() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.081, peak = 0.20, activityRatio = 0.10),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
+        assertTrue(frame.smoothedOpen > 0.0)
+        assertTrue(frame.smoothedOpen <= 0.12)
+        assertEquals(0, frame.closedSnapCount)
+        assertEquals(null, frame.lastClosedSnapTimeMs)
+    }
+
+    @Test
+    fun snapClosedThenAudioRecoveryUsesRmsAttackFromZero() {
+        val mapper = MouthAmplitudeMapper()
+        seedOpenMouth(mapper)
+        mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+        val snapped = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_190L
+        )
+
+        val reopened = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.30, peak = 0.80, activityRatio = 0.70),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_220L
+        )
+
+        assertEquals(0.0, snapped.smoothedOpen, 0.0001)
+        assertEquals(MouthCloseMode.NORMAL_RELEASE, reopened.closeMode)
+        assertEquals(100L, reopened.activeTimeConstantMs)
+        assertTrue(reopened.smoothedOpen > 0.0)
+        assertTrue(reopened.targetOpen!! > reopened.smoothedOpen)
     }
 
     @Test

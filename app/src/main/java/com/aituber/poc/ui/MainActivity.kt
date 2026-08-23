@@ -88,6 +88,9 @@ class MainActivity : Activity() {
     private lateinit var mouthActiveCloseTimeConstantValue: TextView
     private lateinit var silenceCloseStartTimeValue: TextView
     private lateinit var silenceCloseDurationValue: TextView
+    private lateinit var mouthClosedSnapThresholdValue: TextView
+    private lateinit var mouthClosedSnapCountValue: TextView
+    private lateinit var lastClosedSnapTimeValue: TextView
     private lateinit var mouthGateRmsValue: TextView
     private lateinit var mouthGatePeakValue: TextView
     private lateinit var mouthGateActivityValue: TextView
@@ -407,6 +410,9 @@ class MainActivity : Activity() {
         mouthActiveCloseTimeConstantValue = addDiagnosticField(root, "Mouth Active Close Time Constant")
         silenceCloseStartTimeValue = addDiagnosticField(root, "Silence Close Start Time")
         silenceCloseDurationValue = addDiagnosticField(root, "Silence Close Duration")
+        mouthClosedSnapThresholdValue = addDiagnosticField(root, "Mouth Closed Snap Threshold")
+        mouthClosedSnapCountValue = addDiagnosticField(root, "Mouth Closed Snap Count")
+        lastClosedSnapTimeValue = addDiagnosticField(root, "Last Closed Snap Time")
         mouthGateRmsValue = addDiagnosticField(root, "Mouth Gate RMS")
         mouthGatePeakValue = addDiagnosticField(root, "Mouth Gate Peak")
         mouthGateActivityValue = addDiagnosticField(root, "Mouth Gate Activity Ratio")
@@ -846,6 +852,9 @@ class MainActivity : Activity() {
             mouthActiveCloseTimeConstantValue.text = "${mouthDrive.mouthActiveCloseTimeConstantMs} ms"
             silenceCloseStartTimeValue.text = mouthDrive.silenceCloseStartTimeMs?.let { "$it ms" } ?: "n/a"
             silenceCloseDurationValue.text = "${mouthDrive.silenceCloseDurationMs} ms"
+            mouthClosedSnapThresholdValue.text = "%.3f".format(mouthDrive.mouthClosedSnapThreshold)
+            mouthClosedSnapCountValue.text = mouthDrive.mouthClosedSnapCount.toString()
+            lastClosedSnapTimeValue.text = mouthDrive.lastClosedSnapTimeMs?.let { "$it ms" } ?: "n/a"
             mouthGateRmsValue.text = "%.3f".format(mouthDrive.mouthGateRms)
             mouthGatePeakValue.text = "%.3f".format(mouthDrive.mouthGatePeak)
             mouthGateActivityValue.text = "%.3f".format(mouthDrive.mouthGateActivityRatio)
