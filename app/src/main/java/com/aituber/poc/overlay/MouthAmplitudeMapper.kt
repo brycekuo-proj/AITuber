@@ -158,18 +158,19 @@ class MouthAmplitudeMapper(
         val boosted = (rmsNormalized + (1.0 - rmsNormalized) * peakNormalized * config.peakBoostWeight)
             .coerceIn(0.0, 1.0)
         val contrast = boosted.pow(config.contrastPower).coerceIn(0.0, 1.0)
-        val saturated = if (rmsNormalized >= config.loudRmsSaturationStart) {
-            val loudnessPull = normalize(rmsNormalized, config.loudRmsSaturationStart, 1.0) * config.loudSaturationPull
-            (contrast + (1.0 - contrast) * loudnessPull).coerceIn(0.0, 1.0)
+        val acceleration = if (rmsNormalized >= config.loudRmsSaturationStart) {
+            normalize(rmsNormalized, config.loudRmsSaturationStart, 1.0) * config.loudSaturationPull
         } else {
-            contrast
-        }
-        val targetOpen = (config.minSpeakingOpen + saturated * (1.0 - config.minSpeakingOpen)).coerceIn(0.0, 1.0)
+            0.0
+        }.coerceIn(0.0, config.loudSaturationPull)
+        val accelerated = (contrast + (1.0 - contrast) * acceleration).coerceIn(0.0, 1.0)
+        val targetOpen = (config.minSpeakingOpen + accelerated * (1.0 - config.minSpeakingOpen)).coerceIn(0.0, 1.0)
         return MouthLoudnessFrame(
             rmsNormalized = rmsNormalized,
             peakNormalized = peakNormalized,
             boosted = boosted,
-            contrast = saturated,
+            contrast = contrast,
+            acceleration = acceleration,
             targetOpen = targetOpen,
             band = MouthLoudnessBand.fromTarget(targetOpen)
         )
@@ -181,15 +182,15 @@ class MouthAmplitudeMapper(
     }
 
     data class Config(
-        val rmsMin: Double = 0.06,
-        val rmsMax: Double = 0.45,
+        val rmsMin: Double = 0.08,
+        val rmsMax: Double = 0.50,
         val peakMin: Double = 0.15,
         val peakMax: Double = 0.95,
-        val peakBoostWeight: Double = 0.45,
-        val contrastPower: Double = 1.35,
-        val loudRmsSaturationStart: Double = 0.85,
-        val loudSaturationPull: Double = 0.35,
-        val minSpeakingOpen: Double = 0.05,
+        val peakBoostWeight: Double = 0.22,
+        val contrastPower: Double = 1.8,
+        val loudRmsSaturationStart: Double = 0.70,
+        val loudSaturationPull: Double = 0.75,
+        val minSpeakingOpen: Double = 0.02,
         val attackMs: Long = 100L,
         val releaseMs: Long = 180L,
         val silenceCloseMs: Long = 40L,
@@ -231,6 +232,7 @@ data class MouthLoudnessFrame(
     val peakNormalized: Double,
     val boosted: Double,
     val contrast: Double,
+    val acceleration: Double,
     val targetOpen: Double,
     val band: MouthLoudnessBand
 ) {
@@ -240,6 +242,7 @@ data class MouthLoudnessFrame(
             peakNormalized = 0.0,
             boosted = 0.0,
             contrast = 0.0,
+            acceleration = 0.0,
             targetOpen = 0.0,
             band = MouthLoudnessBand.QUIET
         )

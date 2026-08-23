@@ -78,6 +78,7 @@ class MainActivity : Activity() {
     private lateinit var timingDerivedDelayValue: TextView
     private lateinit var timingLastWriterValue: TextView
     private lateinit var timingLastSourceValue: TextView
+    private lateinit var timingSpeakingHoldValue: TextView
     private lateinit var timingSpeakingHoldRemainingValue: TextView
     private lateinit var mouthAudibleValue: TextView
     private lateinit var mouthGateStateValue: TextView
@@ -95,6 +96,7 @@ class MainActivity : Activity() {
     private lateinit var mouthPeakNormalizedValue: TextView
     private lateinit var mouthLoudnessBoostedValue: TextView
     private lateinit var mouthLoudnessContrastValue: TextView
+    private lateinit var mouthLoudnessAccelerationValue: TextView
     private lateinit var mouthLoudnessBandValue: TextView
     private lateinit var mouthGateRmsValue: TextView
     private lateinit var mouthGatePeakValue: TextView
@@ -403,6 +405,7 @@ class MainActivity : Activity() {
         timingDerivedDelayValue = addDiagnosticField(root, "Derived -> Universal Delay")
         timingLastWriterValue = addDiagnosticField(root, "Last State Writer")
         timingLastSourceValue = addDiagnosticField(root, "Last State Source")
+        timingSpeakingHoldValue = addDiagnosticField(root, "Speaking Hold ms")
         timingSpeakingHoldRemainingValue = addDiagnosticField(root, "Speaking Hold Remaining")
 
         root.addView(sectionTitle("Mouth Silence Gate"))
@@ -422,6 +425,7 @@ class MainActivity : Activity() {
         mouthPeakNormalizedValue = addDiagnosticField(root, "Peak Normalized")
         mouthLoudnessBoostedValue = addDiagnosticField(root, "Loudness Boosted")
         mouthLoudnessContrastValue = addDiagnosticField(root, "Loudness Contrast")
+        mouthLoudnessAccelerationValue = addDiagnosticField(root, "Loudness Acceleration")
         mouthLoudnessBandValue = addDiagnosticField(root, "Mouth Loudness Band")
         mouthGateRmsValue = addDiagnosticField(root, "Mouth Gate RMS")
         mouthGatePeakValue = addDiagnosticField(root, "Mouth Gate Peak")
@@ -869,6 +873,7 @@ class MainActivity : Activity() {
             mouthPeakNormalizedValue.text = "%.3f".format(mouthDrive.mouthPeakNormalized)
             mouthLoudnessBoostedValue.text = "%.3f".format(mouthDrive.mouthLoudnessBoosted)
             mouthLoudnessContrastValue.text = "%.3f".format(mouthDrive.mouthLoudnessContrast)
+            mouthLoudnessAccelerationValue.text = "%.3f".format(mouthDrive.mouthLoudnessAcceleration)
             mouthLoudnessBandValue.text = mouthDrive.mouthLoudnessBand
             mouthGateRmsValue.text = "%.3f".format(mouthDrive.mouthGateRms)
             mouthGatePeakValue.text = "%.3f".format(mouthDrive.mouthGatePeak)
@@ -882,6 +887,7 @@ class MainActivity : Activity() {
             timingDerivedDelayValue.text = snapshot.stateTiming.derivedToUniversalDelayMs?.let { "$it ms" } ?: "n/a"
             timingLastWriterValue.text = snapshot.stateTiming.lastStateWriter
             timingLastSourceValue.text = snapshot.stateTiming.lastStateSource
+            timingSpeakingHoldValue.text = "${snapshot.stateTiming.speakingHoldMs} ms"
             timingSpeakingHoldRemainingValue.text = "${snapshot.stateTiming.speakingHoldRemainingMs} ms"
             val mouthRender = MouthRenderDiagnostics.snapshot()
             mouthPipelineDriveModeValue.text = mouthRender.mouthDriveMode

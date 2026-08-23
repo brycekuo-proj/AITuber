@@ -10,6 +10,7 @@ data class StateTimingSnapshot(
     val derivedToUniversalDelayMs: Long?,
     val lastStateWriter: String,
     val lastStateSource: String,
+    val speakingHoldMs: Long,
     val speakingHoldRemainingMs: Long
 ) {
     companion object {
@@ -23,6 +24,7 @@ data class StateTimingSnapshot(
             derivedToUniversalDelayMs = null,
             lastStateWriter = "n/a",
             lastStateSource = "n/a",
+            speakingHoldMs = 100L,
             speakingHoldRemainingMs = 0L
         )
     }

@@ -5,7 +5,7 @@ import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.VisualizerProbeSnapshot
 
 class UniversalStateResolver(
-    private val speakingHoldMs: Long = 300L
+    private val speakingHoldMs: Long = 100L
 ) {
     private var currentState = UniversalAiState.UNKNOWN
     private var lastUniversalChangeMs: Long? = null
@@ -65,6 +65,7 @@ class UniversalStateResolver(
             derivedToUniversalDelayMs = derivedToUniversalDelay(),
             lastStateWriter = lastWriter,
             lastStateSource = lastSource,
+            speakingHoldMs = speakingHoldMs,
             speakingHoldRemainingMs = speakingHoldRemaining(input.nowMs)
         )
         return Result(

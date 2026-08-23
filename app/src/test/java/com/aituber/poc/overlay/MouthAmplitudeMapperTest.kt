@@ -20,7 +20,7 @@ class MouthAmplitudeMapperTest {
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
         assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
-        assertTrue(frame.targetOpen!! in 0.05..0.20)
+        assertTrue(frame.targetOpen!! in 0.02..0.15)
         assertEquals(MouthLoudnessBand.QUIET, frame.loudness.band)
     }
 
@@ -30,7 +30,7 @@ class MouthAmplitudeMapperTest {
 
         val frame = mapper.evaluate(
             UniversalAiState.SPEAKING,
-            VisualizerWaveformMetrics(rms = 0.29, peak = 0.45, activityRatio = 0.40),
+            VisualizerWaveformMetrics(rms = 0.35, peak = 0.80, activityRatio = 0.60),
             nowMs = 1_000L
         )
 
@@ -76,8 +76,8 @@ class MouthAmplitudeMapperTest {
             frame = mapper.evaluate(UniversalAiState.SPEAKING, metrics, nowMs = 1_005L + index * 5L)
         }
 
-        assertTrue(frame.targetOpen!! in 0.65..0.70)
-        assertTrue(frame.smoothedOpen > 0.45)
+        assertTrue(frame.targetOpen!! in 0.35..0.40)
+        assertTrue(frame.smoothedOpen > 0.20)
     }
 
     @Test
@@ -219,8 +219,8 @@ class MouthAmplitudeMapperTest {
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
         assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
-        assertTrue(frame.targetOpen!! >= 0.05)
-        assertTrue(frame.targetOpen!! < 0.10)
+        assertTrue(frame.targetOpen!! >= 0.02)
+        assertTrue(frame.targetOpen!! < 0.05)
         assertEquals(100L, frame.activeTimeConstantMs)
     }
 
@@ -236,7 +236,7 @@ class MouthAmplitudeMapperTest {
             nowMs = 1_000L
         )
 
-        assertTrue(frame.targetOpen!! in 0.05..0.20)
+        assertTrue(frame.targetOpen!! in 0.02..0.15)
         assertEquals(MouthLoudnessBand.QUIET, frame.loudness.band)
     }
 
@@ -259,13 +259,13 @@ class MouthAmplitudeMapperTest {
             nowMs = 1_100L
         )
 
-        assertTrue(low.targetOpen!! in 0.15..0.35)
-        assertTrue(normal.targetOpen!! in 0.45..0.70)
+        assertTrue(low.targetOpen!! in 0.02..0.10)
+        assertTrue(normal.targetOpen!! in 0.25..0.40)
         assertTrue(low.targetOpen < normal.targetOpen)
     }
 
     @Test
-    fun highRmsAndHighPeakProducesVeryLargeMouth() {
+    fun highRmsAndHighPeakProducesLargeMouth() {
         val mapper = MouthAmplitudeMapper()
 
         val frame = mapper.evaluate(
@@ -276,8 +276,8 @@ class MouthAmplitudeMapperTest {
             nowMs = 1_000L
         )
 
-        assertTrue(frame.targetOpen!! >= 0.85)
-        assertEquals(MouthLoudnessBand.VERY_LOUD, frame.loudness.band)
+        assertTrue(frame.targetOpen!! >= 0.70)
+        assertEquals(MouthLoudnessBand.LOUD, frame.loudness.band)
     }
 
     @Test
@@ -292,7 +292,8 @@ class MouthAmplitudeMapperTest {
             nowMs = 1_000L
         )
 
-        assertEquals(1.0, frame.targetOpen!!, 0.0001)
+        assertTrue(frame.targetOpen!! >= 0.90)
+        assertEquals(MouthLoudnessBand.VERY_LOUD, frame.loudness.band)
     }
 
     @Test
@@ -308,7 +309,39 @@ class MouthAmplitudeMapperTest {
         )
 
         assertTrue(frame.loudness.peakNormalized > 0.99)
-        assertTrue(frame.targetOpen!! < 0.50)
+        assertTrue(frame.targetOpen!! < 0.35)
+    }
+
+    @Test
+    fun lowNormalHighTargetsHaveClearSpacing() {
+        val mapper = MouthAmplitudeMapper()
+        val low = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.12, peak = 0.25, activityRatio = 0.20),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        ).targetOpen!!
+        val normal = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.30, peak = 0.80, activityRatio = 0.60),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_100L
+        ).targetOpen!!
+        val high = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.42, peak = 0.95, activityRatio = 0.80),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_200L
+        ).targetOpen!!
+
+        assertTrue(low <= 0.10)
+        assertTrue(normal in 0.35..0.60)
+        assertTrue(high >= 0.80)
+        assertTrue(normal - low >= 0.25)
+        assertTrue(high - normal >= 0.25)
     }
 
     @Test
@@ -479,7 +512,7 @@ class MouthAmplitudeMapperTest {
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
         assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
-        assertTrue(frame.targetOpen!! > 0.55)
+        assertTrue(frame.targetOpen!! > 0.35)
         assertEquals(null, frame.silenceCloseStartTimeMs)
     }
 
