@@ -29,9 +29,9 @@ class Live2DNativeBridge(
         return runCatching { nativeOnSurfaceCreated() }.getOrDefault(false)
     }
 
-    fun onSurfaceChanged(width: Int, height: Int) {
-        if (!initialized) return
-        runCatching { nativeOnSurfaceChanged(width, height) }
+    fun onSurfaceChanged(width: Int, height: Int): Boolean {
+        if (!initialized) return false
+        return runCatching { nativeOnSurfaceChanged(width, height) }.getOrDefault(false)
     }
 
     fun drawFrame() {
@@ -63,7 +63,7 @@ class Live2DNativeBridge(
 
     private external fun nativeInitialize(assetManager: AssetManager, modelAssetDir: String): Boolean
     private external fun nativeOnSurfaceCreated(): Boolean
-    private external fun nativeOnSurfaceChanged(width: Int, height: Int)
+    private external fun nativeOnSurfaceChanged(width: Int, height: Int): Boolean
     private external fun nativeSetMouthOpen(value: Float)
     private external fun nativeOnDrawFrame()
     private external fun nativeRelease()

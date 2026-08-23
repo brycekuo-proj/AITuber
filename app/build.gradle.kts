@@ -73,8 +73,14 @@ if (live2dEnabled) {
         include("*.model3.json", "*.moc3", "Haru.2048/**")
         into(layout.buildDirectory.dir("generated/live2dAssets/live2d/Haru"))
     }
+    val stageLive2DShaderAssets by tasks.registering(Sync::class) {
+        from("$live2dSdkDir/Framework/src/Rendering/OpenGL/Shaders/StandardES")
+        include("*.vert", "*.frag")
+        into(layout.buildDirectory.dir("generated/live2dAssets/live2d/framework/shaders"))
+    }
     tasks.named("preBuild") {
         dependsOn(stageLive2DModelAssets)
+        dependsOn(stageLive2DShaderAssets)
     }
 }
 

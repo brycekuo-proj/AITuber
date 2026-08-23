@@ -94,7 +94,12 @@ class Live2DOverlayView(
 
         override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
             if (initialized) {
-                bridge.onSurfaceChanged(width, height)
+                if (!bridge.onSurfaceChanged(width, height)) {
+                    val error = bridge.snapshot().lastError.ifBlank { "LIVE2D_SURFACE_RESIZE_OR_MODEL_LOAD_FAILED" }
+                    post { onRuntimeFailure(error) }
+                    publishDiagnostics()
+                    return
+                }
                 publishDiagnostics()
             }
         }
