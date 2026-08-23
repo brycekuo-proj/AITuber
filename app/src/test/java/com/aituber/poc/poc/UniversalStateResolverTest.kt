@@ -51,6 +51,17 @@ class UniversalStateResolverTest {
     }
 
     @Test
+    fun defaultUniversalSpeakingHoldRemainsThreeHundredMs() {
+        val resolver = UniversalStateResolver()
+        resolver.resolve(input(visualizerDerivedState = UniversalAiState.SPEAKING, now = 1_000L))
+
+        val result = resolver.resolve(input(visualizerDerivedState = UniversalAiState.IDLE, now = 1_200L))
+
+        assertEquals(UniversalAiState.SPEAKING, result.state)
+        assertEquals(100L, result.timing.speakingHoldRemainingMs)
+    }
+
+    @Test
     fun visualizerIdleAfterHoldReturnsIdle() {
         val resolver = UniversalStateResolver(speakingHoldMs = 300L)
         resolver.resolve(input(visualizerDerivedState = UniversalAiState.SPEAKING, now = 1_000L))

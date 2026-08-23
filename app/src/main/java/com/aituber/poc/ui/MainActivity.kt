@@ -79,6 +79,14 @@ class MainActivity : Activity() {
     private lateinit var timingLastWriterValue: TextView
     private lateinit var timingLastSourceValue: TextView
     private lateinit var timingSpeakingHoldRemainingValue: TextView
+    private lateinit var mouthAudibleValue: TextView
+    private lateinit var mouthGateStateValue: TextView
+    private lateinit var mouthLastAudibleTimeValue: TextView
+    private lateinit var mouthSilenceDurationValue: TextView
+    private lateinit var mouthSilenceHoldRemainingValue: TextView
+    private lateinit var mouthGateRmsValue: TextView
+    private lateinit var mouthGatePeakValue: TextView
+    private lateinit var mouthGateActivityValue: TextView
     private lateinit var captureStartupTraceValue: TextView
     private lateinit var mouthPipelineDriveModeValue: TextView
     private lateinit var mouthPipelineMapperTargetValue: TextView
@@ -384,6 +392,16 @@ class MainActivity : Activity() {
         timingLastWriterValue = addDiagnosticField(root, "Last State Writer")
         timingLastSourceValue = addDiagnosticField(root, "Last State Source")
         timingSpeakingHoldRemainingValue = addDiagnosticField(root, "Speaking Hold Remaining")
+
+        root.addView(sectionTitle("Mouth Silence Gate"))
+        mouthAudibleValue = addDiagnosticField(root, "Mouth Audible")
+        mouthGateStateValue = addDiagnosticField(root, "Mouth Gate State")
+        mouthLastAudibleTimeValue = addDiagnosticField(root, "Mouth Last Audible Time")
+        mouthSilenceDurationValue = addDiagnosticField(root, "Mouth Silence Duration")
+        mouthSilenceHoldRemainingValue = addDiagnosticField(root, "Mouth Silence Hold Remaining")
+        mouthGateRmsValue = addDiagnosticField(root, "Mouth Gate RMS")
+        mouthGatePeakValue = addDiagnosticField(root, "Mouth Gate Peak")
+        mouthGateActivityValue = addDiagnosticField(root, "Mouth Gate Activity Ratio")
 
         root.addView(sectionTitle("Mouth Render Pipeline"))
         addButton(root, "TEST MOUTH 100%") { CharacterOverlayService.testMouthFullyOpenForDebug() }
@@ -811,6 +829,14 @@ class MainActivity : Activity() {
             mouthDriveModeValue.text = mouthDrive.mode
             mouthTargetOpenValue.text = mouthDrive.targetOpen?.let { "%.3f".format(it) } ?: "n/a"
             mouthSmoothedOpenValue.text = "%.3f".format(mouthDrive.smoothedOpen)
+            mouthAudibleValue.text = mouthDrive.mouthAudible
+            mouthGateStateValue.text = mouthDrive.mouthGateState
+            mouthLastAudibleTimeValue.text = mouthDrive.mouthLastAudibleTimeMs?.let { "$it ms" } ?: "n/a"
+            mouthSilenceDurationValue.text = mouthDrive.mouthSilenceDurationMs?.let { "$it ms" } ?: "n/a"
+            mouthSilenceHoldRemainingValue.text = "${mouthDrive.mouthSilenceHoldRemainingMs} ms"
+            mouthGateRmsValue.text = "%.3f".format(mouthDrive.mouthGateRms)
+            mouthGatePeakValue.text = "%.3f".format(mouthDrive.mouthGatePeak)
+            mouthGateActivityValue.text = "%.3f".format(mouthDrive.mouthGateActivityRatio)
             timingVisualizerDerivedStateValue.text = snapshot.stateTiming.visualizerDerivedState
             timingVisualizerDerivedLastChangeValue.text = snapshot.stateTiming.visualizerDerivedLastChangeTimeMs?.let { "$it ms" } ?: "n/a"
             timingVisualizerLastSpeakingValue.text = snapshot.stateTiming.visualizerLastSpeakingTimeMs?.let { "$it ms" } ?: "n/a"

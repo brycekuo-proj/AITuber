@@ -142,17 +142,59 @@ class MouthAmplitudeMapperTest {
     }
 
     @Test
-    fun zeroMetricsWhileSpeakingUsesPseudoFallback() {
+    fun healthyZeroMetricsWhileSpeakingClosesInsteadOfPseudoFallback() {
         val mapper = MouthAmplitudeMapper()
 
         val frame = mapper.evaluate(
             UniversalAiState.SPEAKING,
             VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertEquals(0.0, frame.targetOpen!!, 0.0001)
+    }
+
+    @Test
+    fun visualizerUnavailableWhileSpeakingUsesPseudoFallback() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = false,
             nowMs = 1_000L
         )
 
         assertEquals(MouthDriveMode.PSEUDO_FALLBACK, frame.mode)
         assertEquals(null, frame.targetOpen)
+    }
+
+    @Test
+    fun speakingWithMouthInactiveReleasesTowardZeroWithoutChangingStateInput() {
+        val mapper = MouthAmplitudeMapper()
+        mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.407, peak = 0.992, activityRatio = 0.9),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_100L
+        )
+
+        assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertEquals(0.0, frame.targetOpen!!, 0.0001)
+        assertTrue(frame.smoothedOpen >= 0.0)
     }
 
     @Test

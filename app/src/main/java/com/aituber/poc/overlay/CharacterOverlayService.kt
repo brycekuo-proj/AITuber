@@ -21,6 +21,7 @@ class CharacterOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val animationFrames = floatArrayOf(0.08f, 0.35f, 0.85f, 0.45f, 0.12f, 0.70f, 1.00f, 0.25f)
     private val amplitudeMapper = MouthAmplitudeMapper()
+    private val silenceGate = MouthSilenceGate()
     private var frameIndex = 0
     private var mouthView: MouthOverlayView? = null
     private var characterEngine: CharacterEngine? = null
@@ -148,6 +149,7 @@ class CharacterOverlayService : Service() {
         requireMainThread("cleanupOverlayOnMain")
         stopAnimation()
         amplitudeMapper.reset()
+        silenceGate.reset()
         MouthDriveDiagnostics.reset()
         MouthRenderDiagnostics.reset()
         mouthView?.let { view -> runCatching { windowManager?.removeView(view) } }
@@ -167,13 +169,24 @@ class CharacterOverlayService : Service() {
     }
 
     private fun applyMouthAmplitude(snapshot: UniversalStateSnapshot) {
+        val nowMs = SystemClock.elapsedRealtime()
+        val visualizerAvailable = snapshot.visualizerProbe.enabled == "YES" &&
+            snapshot.visualizerProbe.waveformCallbackCount > 0L
+        val gateFrame = silenceGate.evaluate(
+            universalState = snapshot.state,
+            metrics = snapshot.visualizerProbe.currentMetrics,
+            visualizerAvailable = visualizerAvailable,
+            nowMs = nowMs
+        )
         val frame = amplitudeMapper.evaluate(
             state = snapshot.state,
             metrics = snapshot.visualizerProbe.currentMetrics,
-            nowMs = SystemClock.elapsedRealtime()
+            mouthActive = gateFrame.mouthActive,
+            visualizerAvailable = visualizerAvailable,
+            nowMs = nowMs
         )
         mouthDriveMode = frame.mode
-        MouthDriveDiagnostics.update(frame.mode, frame.targetOpen, frame.smoothedOpen)
+        MouthDriveDiagnostics.update(frame.mode, frame.targetOpen, frame.smoothedOpen, gateFrame)
         MouthRenderDiagnostics.recordMapper(frame.mode, frame.targetOpen, frame.smoothedOpen)
         MouthRenderDiagnostics.recordOverlaySnapshot(
             state = snapshot.state,

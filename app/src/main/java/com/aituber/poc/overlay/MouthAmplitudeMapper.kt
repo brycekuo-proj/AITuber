@@ -17,6 +17,8 @@ class MouthAmplitudeMapper(
     fun evaluate(
         state: UniversalAiState,
         metrics: VisualizerWaveformMetrics,
+        mouthActive: Boolean = true,
+        visualizerAvailable: Boolean = true,
         nowMs: Long
     ): MouthDriveFrame {
         if (state != UniversalAiState.SPEAKING) {
@@ -32,7 +34,7 @@ class MouthAmplitudeMapper(
             )
         }
 
-        if (!metrics.hasUsableAmplitude(config.usableAmplitudeFloor)) {
+        if (!visualizerAvailable) {
             return MouthDriveFrame(
                 mode = MouthDriveMode.PSEUDO_FALLBACK,
                 targetOpen = null,
@@ -41,11 +43,26 @@ class MouthAmplitudeMapper(
             )
         }
 
+        if (!mouthActive) {
+            return smoothToTarget(MouthDriveMode.RMS, targetOpen = 0.0, nowMs = nowMs)
+        }
+
         val raw = max(
             normalize(metrics.rms, config.rmsMin, config.rmsMax),
             normalize(metrics.peak, config.peakMin, config.peakMax) * config.peakWeight
         ).coerceIn(0.0, 1.0)
         val targetOpen = (config.minSpeakingOpen + raw * (1.0 - config.minSpeakingOpen)).coerceIn(0.0, 1.0)
+        return smoothToTarget(MouthDriveMode.RMS, targetOpen, nowMs)
+    }
+
+    fun reset() {
+        smoothedOpen = 0.0
+        lastRenderedOpen = 0.0
+        lastSmoothingMs = null
+        lastRenderMs = null
+    }
+
+    private fun smoothToTarget(mode: MouthDriveMode, targetOpen: Double, nowMs: Long): MouthDriveFrame {
         val previousTime = lastSmoothingMs ?: nowMs - config.renderIntervalMs
         val elapsedMs = (nowMs - previousTime).coerceAtLeast(1L)
         val timeConstantMs = if (targetOpen >= smoothedOpen) config.attackMs else config.releaseMs
@@ -63,27 +80,16 @@ class MouthAmplitudeMapper(
             lastRenderedOpen = smoothedOpen
         }
         return MouthDriveFrame(
-            mode = MouthDriveMode.RMS,
+            mode = mode,
             targetOpen = targetOpen,
             smoothedOpen = smoothedOpen,
             shouldRender = shouldRender
         )
     }
 
-    fun reset() {
-        smoothedOpen = 0.0
-        lastRenderedOpen = 0.0
-        lastSmoothingMs = null
-        lastRenderMs = null
-    }
-
     private fun normalize(value: Double, low: Double, high: Double): Double {
         if (high <= low) return 0.0
         return ((value - low) / (high - low)).coerceIn(0.0, 1.0)
-    }
-
-    private fun VisualizerWaveformMetrics.hasUsableAmplitude(floor: Double): Boolean {
-        return rms > floor || peak > floor || activityRatio > floor
     }
 
     data class Config(
@@ -96,8 +102,7 @@ class MouthAmplitudeMapper(
         val attackMs: Long = 100L,
         val releaseMs: Long = 180L,
         val deadband: Double = 0.04,
-        val renderIntervalMs: Long = 50L,
-        val usableAmplitudeFloor: Double = 0.001
+        val renderIntervalMs: Long = 50L
     )
 }
 

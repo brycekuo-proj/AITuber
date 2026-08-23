@@ -19,6 +19,20 @@ class UiRefreshSchedulerTest {
     }
 
     @Test
+    fun rapidAudioUpdatesDoNotBypassRefreshThrottle() {
+        val harness = Harness()
+
+        repeat(100) { value ->
+            harness.scheduler.submit(value)
+            harness.advanceBy(5L)
+        }
+        harness.drainDue()
+
+        assertEquals(1, harness.rendered.size)
+        assertEquals(99, harness.rendered.last())
+    }
+
+    @Test
     fun latestValueWinsAcrossThrottleWindow() {
         val harness = Harness()
 
