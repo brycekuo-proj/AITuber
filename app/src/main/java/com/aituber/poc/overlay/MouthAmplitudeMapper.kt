@@ -4,7 +4,7 @@ import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.VisualizerWaveformMetrics
 import kotlin.math.abs
 import kotlin.math.exp
-import kotlin.math.max
+import kotlin.math.pow
 
 class MouthAmplitudeMapper(
     private val config: Config = Config()
@@ -41,7 +41,8 @@ class MouthAmplitudeMapper(
                 silenceCloseDurationMs = 0L,
                 silenceSnapClosedThreshold = config.silenceSnapClosedThreshold,
                 closedSnapCount = closedSnapCount,
-                lastClosedSnapTimeMs = lastClosedSnapTimeMs
+                lastClosedSnapTimeMs = lastClosedSnapTimeMs,
+                loudness = MouthLoudnessFrame.empty()
             )
         }
 
@@ -58,7 +59,8 @@ class MouthAmplitudeMapper(
                 silenceCloseDurationMs = 0L,
                 silenceSnapClosedThreshold = config.silenceSnapClosedThreshold,
                 closedSnapCount = closedSnapCount,
-                lastClosedSnapTimeMs = lastClosedSnapTimeMs
+                lastClosedSnapTimeMs = lastClosedSnapTimeMs,
+                loudness = MouthLoudnessFrame.empty()
             )
         }
 
@@ -74,17 +76,14 @@ class MouthAmplitudeMapper(
             )
         }
 
-        val raw = max(
-            normalize(metrics.rms, config.rmsMin, config.rmsMax),
-            normalize(metrics.peak, config.peakMin, config.peakMax) * config.peakWeight
-        ).coerceIn(0.0, 1.0)
-        val targetOpen = (config.minSpeakingOpen + raw * (1.0 - config.minSpeakingOpen)).coerceIn(0.0, 1.0)
+        val loudness = mapLoudness(metrics)
         silenceCloseStartTimeMs = null
         return smoothToTarget(
             mode = MouthDriveMode.RMS,
-            targetOpen = targetOpen,
+            targetOpen = loudness.targetOpen,
             nowMs = nowMs,
-            closeMode = MouthCloseMode.NORMAL_RELEASE
+            closeMode = MouthCloseMode.NORMAL_RELEASE,
+            loudness = loudness
         )
     }
 
@@ -102,7 +101,8 @@ class MouthAmplitudeMapper(
         mode: MouthDriveMode,
         targetOpen: Double,
         nowMs: Long,
-        closeMode: MouthCloseMode
+        closeMode: MouthCloseMode,
+        loudness: MouthLoudnessFrame = MouthLoudnessFrame.empty()
     ): MouthDriveFrame {
         val previousTime = lastSmoothingMs ?: nowMs - config.renderIntervalMs
         val elapsedMs = (nowMs - previousTime).coerceAtLeast(1L)
@@ -147,7 +147,31 @@ class MouthAmplitudeMapper(
             silenceCloseDurationMs = fastCloseStart?.let { (nowMs - it).coerceAtLeast(0L) } ?: 0L,
             silenceSnapClosedThreshold = config.silenceSnapClosedThreshold,
             closedSnapCount = closedSnapCount,
-            lastClosedSnapTimeMs = lastClosedSnapTimeMs
+            lastClosedSnapTimeMs = lastClosedSnapTimeMs,
+            loudness = loudness
+        )
+    }
+
+    private fun mapLoudness(metrics: VisualizerWaveformMetrics): MouthLoudnessFrame {
+        val rmsNormalized = normalize(metrics.rms, config.rmsMin, config.rmsMax)
+        val peakNormalized = normalize(metrics.peak, config.peakMin, config.peakMax)
+        val boosted = (rmsNormalized + (1.0 - rmsNormalized) * peakNormalized * config.peakBoostWeight)
+            .coerceIn(0.0, 1.0)
+        val contrast = boosted.pow(config.contrastPower).coerceIn(0.0, 1.0)
+        val saturated = if (rmsNormalized >= config.loudRmsSaturationStart) {
+            val loudnessPull = normalize(rmsNormalized, config.loudRmsSaturationStart, 1.0) * config.loudSaturationPull
+            (contrast + (1.0 - contrast) * loudnessPull).coerceIn(0.0, 1.0)
+        } else {
+            contrast
+        }
+        val targetOpen = (config.minSpeakingOpen + saturated * (1.0 - config.minSpeakingOpen)).coerceIn(0.0, 1.0)
+        return MouthLoudnessFrame(
+            rmsNormalized = rmsNormalized,
+            peakNormalized = peakNormalized,
+            boosted = boosted,
+            contrast = saturated,
+            targetOpen = targetOpen,
+            band = MouthLoudnessBand.fromTarget(targetOpen)
         )
     }
 
@@ -157,12 +181,15 @@ class MouthAmplitudeMapper(
     }
 
     data class Config(
-        val rmsMin: Double = 0.08,
-        val rmsMax: Double = 0.50,
-        val peakMin: Double = 0.20,
+        val rmsMin: Double = 0.06,
+        val rmsMax: Double = 0.45,
+        val peakMin: Double = 0.15,
         val peakMax: Double = 0.95,
-        val peakWeight: Double = 0.65,
-        val minSpeakingOpen: Double = 0.18,
+        val peakBoostWeight: Double = 0.45,
+        val contrastPower: Double = 1.35,
+        val loudRmsSaturationStart: Double = 0.85,
+        val loudSaturationPull: Double = 0.35,
+        val minSpeakingOpen: Double = 0.05,
         val attackMs: Long = 100L,
         val releaseMs: Long = 180L,
         val silenceCloseMs: Long = 40L,
@@ -195,5 +222,46 @@ data class MouthDriveFrame(
     val silenceCloseDurationMs: Long,
     val silenceSnapClosedThreshold: Double,
     val closedSnapCount: Int,
-    val lastClosedSnapTimeMs: Long?
+    val lastClosedSnapTimeMs: Long?,
+    val loudness: MouthLoudnessFrame
 )
+
+data class MouthLoudnessFrame(
+    val rmsNormalized: Double,
+    val peakNormalized: Double,
+    val boosted: Double,
+    val contrast: Double,
+    val targetOpen: Double,
+    val band: MouthLoudnessBand
+) {
+    companion object {
+        fun empty() = MouthLoudnessFrame(
+            rmsNormalized = 0.0,
+            peakNormalized = 0.0,
+            boosted = 0.0,
+            contrast = 0.0,
+            targetOpen = 0.0,
+            band = MouthLoudnessBand.QUIET
+        )
+    }
+}
+
+enum class MouthLoudnessBand {
+    QUIET,
+    LOW,
+    NORMAL,
+    LOUD,
+    VERY_LOUD;
+
+    companion object {
+        fun fromTarget(targetOpen: Double): MouthLoudnessBand {
+            return when {
+                targetOpen < 0.20 -> QUIET
+                targetOpen < 0.40 -> LOW
+                targetOpen < 0.65 -> NORMAL
+                targetOpen < 0.85 -> LOUD
+                else -> VERY_LOUD
+            }
+        }
+    }
+}

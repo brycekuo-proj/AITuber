@@ -20,7 +20,8 @@ class MouthAmplitudeMapperTest {
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
         assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
-        assertTrue(frame.targetOpen!! in 0.18..0.35)
+        assertTrue(frame.targetOpen!! in 0.05..0.20)
+        assertEquals(MouthLoudnessBand.QUIET, frame.loudness.band)
     }
 
     @Test
@@ -34,7 +35,8 @@ class MouthAmplitudeMapperTest {
         )
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
-        assertTrue(frame.targetOpen!! in 0.45..0.70)
+        assertTrue(frame.targetOpen!! in 0.40..0.65)
+        assertEquals(MouthLoudnessBand.NORMAL, frame.loudness.band)
     }
 
     @Test
@@ -74,7 +76,7 @@ class MouthAmplitudeMapperTest {
             frame = mapper.evaluate(UniversalAiState.SPEAKING, metrics, nowMs = 1_005L + index * 5L)
         }
 
-        assertTrue(frame.targetOpen!! in 0.70..0.73)
+        assertTrue(frame.targetOpen!! in 0.65..0.70)
         assertTrue(frame.smoothedOpen > 0.45)
     }
 
@@ -217,9 +219,114 @@ class MouthAmplitudeMapperTest {
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
         assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
-        assertTrue(frame.targetOpen!! >= 0.18)
-        assertTrue(frame.targetOpen!! < 0.19)
+        assertTrue(frame.targetOpen!! >= 0.05)
+        assertTrue(frame.targetOpen!! < 0.10)
         assertEquals(100L, frame.activeTimeConstantMs)
+    }
+
+    @Test
+    fun quietAudibleRmsProducesSmallMouth() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.061, peak = 0.16, activityRatio = 0.12),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertTrue(frame.targetOpen!! in 0.05..0.20)
+        assertEquals(MouthLoudnessBand.QUIET, frame.loudness.band)
+    }
+
+    @Test
+    fun lowRmsProducesLowerTargetThanNormalRms() {
+        val mapper = MouthAmplitudeMapper()
+
+        val low = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.12, peak = 0.25, activityRatio = 0.20),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+        val normal = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.26, peak = 0.65, activityRatio = 0.50),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_100L
+        )
+
+        assertTrue(low.targetOpen!! in 0.15..0.35)
+        assertTrue(normal.targetOpen!! in 0.45..0.70)
+        assertTrue(low.targetOpen < normal.targetOpen)
+    }
+
+    @Test
+    fun highRmsAndHighPeakProducesVeryLargeMouth() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.40, peak = 0.95, activityRatio = 0.80),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertTrue(frame.targetOpen!! >= 0.85)
+        assertEquals(MouthLoudnessBand.VERY_LOUD, frame.loudness.band)
+    }
+
+    @Test
+    fun veryHighRmsCanApproachMaximumMouth() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.45, peak = 0.95, activityRatio = 0.90),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertEquals(1.0, frame.targetOpen!!, 0.0001)
+    }
+
+    @Test
+    fun lowRmsWithHighTransientPeakDoesNotForceMaximumMouth() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.07, peak = 0.99, activityRatio = 0.90),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertTrue(frame.loudness.peakNormalized > 0.99)
+        assertTrue(frame.targetOpen!! < 0.50)
+    }
+
+    @Test
+    fun targetOpenGenerallyIncreasesWithRms() {
+        val mapper = MouthAmplitudeMapper()
+        val targets = listOf(0.07, 0.12, 0.26, 0.35, 0.45).mapIndexed { index, rms ->
+            mapper.evaluate(
+                UniversalAiState.SPEAKING,
+                VisualizerWaveformMetrics(rms = rms, peak = 0.60, activityRatio = 0.50),
+                mouthActive = true,
+                visualizerAvailable = true,
+                nowMs = 1_000L + index * 100L
+            ).targetOpen!!
+        }
+
+        targets.zipWithNext().forEach { (previous, next) ->
+            assertTrue(next >= previous)
+        }
     }
 
     @Test

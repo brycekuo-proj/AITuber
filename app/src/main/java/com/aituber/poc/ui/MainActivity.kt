@@ -91,6 +91,11 @@ class MainActivity : Activity() {
     private lateinit var mouthClosedSnapThresholdValue: TextView
     private lateinit var mouthClosedSnapCountValue: TextView
     private lateinit var lastClosedSnapTimeValue: TextView
+    private lateinit var mouthRmsNormalizedValue: TextView
+    private lateinit var mouthPeakNormalizedValue: TextView
+    private lateinit var mouthLoudnessBoostedValue: TextView
+    private lateinit var mouthLoudnessContrastValue: TextView
+    private lateinit var mouthLoudnessBandValue: TextView
     private lateinit var mouthGateRmsValue: TextView
     private lateinit var mouthGatePeakValue: TextView
     private lateinit var mouthGateActivityValue: TextView
@@ -413,6 +418,11 @@ class MainActivity : Activity() {
         mouthClosedSnapThresholdValue = addDiagnosticField(root, "Mouth Closed Snap Threshold")
         mouthClosedSnapCountValue = addDiagnosticField(root, "Mouth Closed Snap Count")
         lastClosedSnapTimeValue = addDiagnosticField(root, "Last Closed Snap Time")
+        mouthRmsNormalizedValue = addDiagnosticField(root, "RMS Normalized")
+        mouthPeakNormalizedValue = addDiagnosticField(root, "Peak Normalized")
+        mouthLoudnessBoostedValue = addDiagnosticField(root, "Loudness Boosted")
+        mouthLoudnessContrastValue = addDiagnosticField(root, "Loudness Contrast")
+        mouthLoudnessBandValue = addDiagnosticField(root, "Mouth Loudness Band")
         mouthGateRmsValue = addDiagnosticField(root, "Mouth Gate RMS")
         mouthGatePeakValue = addDiagnosticField(root, "Mouth Gate Peak")
         mouthGateActivityValue = addDiagnosticField(root, "Mouth Gate Activity Ratio")
@@ -855,6 +865,11 @@ class MainActivity : Activity() {
             mouthClosedSnapThresholdValue.text = "%.3f".format(mouthDrive.mouthClosedSnapThreshold)
             mouthClosedSnapCountValue.text = mouthDrive.mouthClosedSnapCount.toString()
             lastClosedSnapTimeValue.text = mouthDrive.lastClosedSnapTimeMs?.let { "$it ms" } ?: "n/a"
+            mouthRmsNormalizedValue.text = "%.3f".format(mouthDrive.mouthRmsNormalized)
+            mouthPeakNormalizedValue.text = "%.3f".format(mouthDrive.mouthPeakNormalized)
+            mouthLoudnessBoostedValue.text = "%.3f".format(mouthDrive.mouthLoudnessBoosted)
+            mouthLoudnessContrastValue.text = "%.3f".format(mouthDrive.mouthLoudnessContrast)
+            mouthLoudnessBandValue.text = mouthDrive.mouthLoudnessBand
             mouthGateRmsValue.text = "%.3f".format(mouthDrive.mouthGateRms)
             mouthGatePeakValue.text = "%.3f".format(mouthDrive.mouthGatePeak)
             mouthGateActivityValue.text = "%.3f".format(mouthDrive.mouthGateActivityRatio)
