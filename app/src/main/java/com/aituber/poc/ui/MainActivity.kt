@@ -10,6 +10,9 @@ import android.graphics.Typeface
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.View
 import android.widget.Button
@@ -206,8 +209,15 @@ class MainActivity : Activity() {
 
     private var diagnosticsExpanded = false
     private var pendingVisualizerAutomatedTest = true
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private val uiRefreshScheduler = UiRefreshScheduler(
+        postToUiDelayed = { block, delayMs -> uiHandler.postDelayed({ block() }, delayMs) },
+        nowMs = { SystemClock.elapsedRealtime() },
+        refreshIntervalMs = 150L,
+        render = ::renderSnapshotOnUi
+    )
     private val stateListener: (UniversalStateSnapshot) -> Unit = { snapshot ->
-        renderSnapshot(snapshot)
+        uiRefreshScheduler.submit(snapshot)
     }
     private var playbackProbe: AndroidPlaybackStateProbe? = null
 
@@ -231,6 +241,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        uiRefreshScheduler.destroy()
+        uiHandler.removeCallbacksAndMessages(null)
         playbackProbe?.stop()
         super.onDestroy()
     }
@@ -758,8 +770,7 @@ class MainActivity : Activity() {
         stopService(Intent(this, CharacterOverlayService::class.java))
     }
 
-    private fun renderSnapshot(snapshot: UniversalStateSnapshot) {
-        runOnUiThread {
+    private fun renderSnapshotOnUi(snapshot: UniversalStateSnapshot) {
             universalStateValue.text = snapshot.state.name
             voiceSessionValue.text = activeLabel(snapshot.playbackProbe.voiceSessionActive)
             playbackActiveValue.text = activeLabel(snapshot.playbackProbe.playbackSessionActive)
@@ -964,7 +975,6 @@ class MainActivity : Activity() {
                 val ignored = if (event.ignored) " | ignored" else ""
                 "${event.elapsedTimestampMs} | ${event.eventType.shortEventType()} | sig=${event.uiSignature} | nodes=${event.candidateNodeCount}$ignored"
             }.ifBlank { "n/a" }
-        }
     }
 
     private fun accessibilityEnabledLabel(serviceSnapshotValue: String): String {

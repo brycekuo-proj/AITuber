@@ -10,6 +10,7 @@ class MouthAmplitudeMapper(
     private val config: Config = Config()
 ) {
     private var smoothedOpen = 0.0
+    private var lastRenderedOpen = 0.0
     private var lastSmoothingMs: Long? = null
     private var lastRenderMs: Long? = null
 
@@ -20,6 +21,7 @@ class MouthAmplitudeMapper(
     ): MouthDriveFrame {
         if (state != UniversalAiState.SPEAKING) {
             smoothedOpen = 0.0
+            lastRenderedOpen = 0.0
             lastSmoothingMs = nowMs
             lastRenderMs = nowMs
             return MouthDriveFrame(
@@ -49,16 +51,16 @@ class MouthAmplitudeMapper(
         val timeConstantMs = if (targetOpen >= smoothedOpen) config.attackMs else config.releaseMs
         val alpha = 1.0 - exp(-elapsedMs.toDouble() / timeConstantMs.toDouble())
         val nextSmoothed = smoothedOpen + (targetOpen - smoothedOpen) * alpha
-        smoothedOpen = if (abs(nextSmoothed - smoothedOpen) < config.deadband) {
-            smoothedOpen
-        } else {
-            nextSmoothed.coerceIn(0.0, 1.0)
-        }
+        smoothedOpen = nextSmoothed.coerceIn(0.0, 1.0)
         lastSmoothingMs = nowMs
 
-        val shouldRender = lastRenderMs?.let { nowMs - it >= config.renderIntervalMs } ?: true
+        val meaningfulChange = abs(smoothedOpen - lastRenderedOpen) >= config.deadband
+        val intervalReached = lastRenderMs?.let { nowMs - it >= config.renderIntervalMs } ?: true
+        val firstNonZeroFrame = lastRenderMs == null && smoothedOpen > 0.0
+        val shouldRender = firstNonZeroFrame || (intervalReached && meaningfulChange)
         if (shouldRender) {
             lastRenderMs = nowMs
+            lastRenderedOpen = smoothedOpen
         }
         return MouthDriveFrame(
             mode = MouthDriveMode.RMS,
@@ -70,6 +72,7 @@ class MouthAmplitudeMapper(
 
     fun reset() {
         smoothedOpen = 0.0
+        lastRenderedOpen = 0.0
         lastSmoothingMs = null
         lastRenderMs = null
     }

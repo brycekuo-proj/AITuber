@@ -31,6 +31,8 @@ class CharacterOverlayService : Service() {
 
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
+        postToMainDelayed = { block, delayMs -> handler.postDelayed({ block() }, delayMs) },
+        nowMs = { SystemClock.elapsedRealtime() },
         isMainThread = { Looper.myLooper() == Looper.getMainLooper() },
         trace = OverlayLifecycleTrace::recordDeferred,
         renderOnMain = ::renderSnapshotOnMain,

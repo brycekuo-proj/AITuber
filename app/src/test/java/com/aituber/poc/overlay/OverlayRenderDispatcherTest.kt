@@ -20,7 +20,7 @@ class OverlayRenderDispatcherTest {
         callbackFinished.await()
 
         assertEquals(0, harness.renderedStates.size)
-        assertEquals(1, harness.posted.size)
+        assertEquals(1, harness.postedCount)
         assertTrue(harness.trace.any { it.startsWith("state callback received thread=") })
         assertTrue(harness.trace.contains("state render posted"))
     }
@@ -30,7 +30,7 @@ class OverlayRenderDispatcherTest {
         val harness = DispatcherHarness()
 
         harness.dispatcher.onState(snapshot(UniversalAiState.SPEAKING))
-        harness.drainPosted()
+        harness.drainDue()
 
         assertEquals(listOf(UniversalAiState.SPEAKING), harness.renderedStates)
         assertEquals(1, harness.startAnimationCount)
@@ -43,21 +43,21 @@ class OverlayRenderDispatcherTest {
 
         harness.dispatcher.onState(snapshot(UniversalAiState.SPEAKING))
         harness.dispatcher.destroy()
-        harness.drainPosted()
+        harness.drainDue()
 
         assertEquals(0, harness.renderedStates.size)
         assertEquals(0, harness.startAnimationCount)
     }
 
     @Test
-    fun repeatedSpeakingUpdatesDoNotStartMultipleAnimationLoops() {
+    fun repeatedSpeakingUpdatesAreCoalescedAndDoNotStartMultipleAnimationLoops() {
         val harness = DispatcherHarness()
 
         harness.dispatcher.onState(snapshot(UniversalAiState.SPEAKING))
         harness.dispatcher.onState(snapshot(UniversalAiState.SPEAKING))
-        harness.drainPosted()
+        harness.drainDue()
 
-        assertEquals(2, harness.renderedStates.size)
+        assertEquals(1, harness.renderedStates.size)
         assertEquals(1, harness.startAnimationCount)
     }
 
@@ -66,9 +66,10 @@ class OverlayRenderDispatcherTest {
         val harness = DispatcherHarness()
 
         harness.dispatcher.onState(snapshot(UniversalAiState.SPEAKING))
-        harness.drainPosted()
+        harness.drainDue()
         harness.dispatcher.onState(snapshot(UniversalAiState.IDLE))
-        harness.drainPosted()
+        harness.advanceBy(50L)
+        harness.drainDue()
 
         assertEquals(
             listOf(UniversalAiState.SPEAKING, UniversalAiState.IDLE),
@@ -78,15 +79,45 @@ class OverlayRenderDispatcherTest {
         assertEquals(1, harness.stopAnimationCount)
     }
 
+    @Test
+    fun rapidUpdatesDoNotProduceOneRenderPerSnapshot() {
+        val harness = DispatcherHarness()
+
+        repeat(1000) {
+            harness.dispatcher.onState(snapshot(UniversalAiState.SPEAKING))
+        }
+        harness.drainDue()
+
+        assertEquals(1, harness.renderedStates.size)
+        assertTrue(harness.postedCount < 10)
+    }
+
+    @Test
+    fun latestSnapshotWins() {
+        val harness = DispatcherHarness()
+
+        harness.dispatcher.onState(snapshot(UniversalAiState.IDLE))
+        harness.dispatcher.onState(snapshot(UniversalAiState.SPEAKING))
+        harness.dispatcher.onState(snapshot(UniversalAiState.UNKNOWN))
+        harness.drainDue()
+
+        assertEquals(listOf(UniversalAiState.UNKNOWN), harness.renderedStates)
+    }
+
     private class DispatcherHarness {
-        val posted = mutableListOf<() -> Unit>()
+        private val posted = mutableListOf<ScheduledBlock>()
         val trace = mutableListOf<String>()
         val renderedStates = mutableListOf<UniversalAiState>()
         var startAnimationCount = 0
         var stopAnimationCount = 0
+        var nowMs = 1_000L
+        val postedCount: Int
+            get() = posted.size
 
         val dispatcher = OverlayRenderDispatcher(
-            postToMain = { block -> posted.add(block) },
+            postToMain = { block -> posted.add(ScheduledBlock(nowMs, block)) },
+            postToMainDelayed = { block, delayMs -> posted.add(ScheduledBlock(nowMs + delayMs, block)) },
+            nowMs = { nowMs },
             isMainThread = { true },
             trace = { step -> trace.add(step) },
             renderOnMain = { snapshot -> renderedStates.add(snapshot.state) },
@@ -94,12 +125,21 @@ class OverlayRenderDispatcherTest {
             stopAnimationOnMain = { stopAnimationCount += 1 }
         )
 
-        fun drainPosted() {
-            val pending = posted.toList()
-            posted.clear()
-            pending.forEach { it.invoke() }
+        fun advanceBy(deltaMs: Long) {
+            nowMs += deltaMs
+        }
+
+        fun drainDue() {
+            val pending = posted.filter { it.runAtMs <= nowMs }
+            posted.removeAll(pending)
+            pending.forEach { it.block.invoke() }
         }
     }
+
+    private data class ScheduledBlock(
+        val runAtMs: Long,
+        val block: () -> Unit
+    )
 
     private fun snapshot(state: UniversalAiState) = UniversalStateSnapshot(
         targetApp = "ChatGPT (com.openai.chatgpt)",
