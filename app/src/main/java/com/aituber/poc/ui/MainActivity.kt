@@ -144,6 +144,8 @@ class MainActivity : Activity() {
     private lateinit var live2dDisplayOffsetXValue: TextView
     private lateinit var live2dDisplayOffsetYValue: TextView
     private lateinit var live2dViewportSizeValue: TextView
+    private lateinit var live2dBottomSafeZonePercentValue: TextView
+    private lateinit var live2dBottomSafeZonePxValue: TextView
     private lateinit var live2dTextureCountValue: TextView
     private lateinit var live2dTexturesLoadedValue: TextView
     private lateinit var live2dLastTexturePathValue: TextView
@@ -511,6 +513,8 @@ class MainActivity : Activity() {
         live2dDisplayOffsetXValue = addDiagnosticField(root, "Live2D Display Offset X")
         live2dDisplayOffsetYValue = addDiagnosticField(root, "Live2D Display Offset Y")
         live2dViewportSizeValue = addDiagnosticField(root, "Live2D Viewport Size")
+        live2dBottomSafeZonePercentValue = addDiagnosticField(root, "Live2D Bottom Safe Zone %")
+        live2dBottomSafeZonePxValue = addDiagnosticField(root, "Live2D Bottom Safe Zone px")
         live2dTextureCountValue = addDiagnosticField(root, "Live2D Texture Count")
         live2dTexturesLoadedValue = addDiagnosticField(root, "Live2D Textures Loaded")
         live2dLastTexturePathValue = addDiagnosticField(root, "Last Texture Path")
@@ -1014,6 +1018,8 @@ class MainActivity : Activity() {
             live2dDisplayOffsetXValue.text = character.live2dDisplayOffsetX.toString()
             live2dDisplayOffsetYValue.text = character.live2dDisplayOffsetY.toString()
             live2dViewportSizeValue.text = "${character.live2dViewportWidth} x ${character.live2dViewportHeight}"
+            live2dBottomSafeZonePercentValue.text = "%.1f".format(character.live2dBottomSafeZonePercent)
+            live2dBottomSafeZonePxValue.text = character.live2dBottomSafeZonePx.toString()
             live2dTextureCountValue.text = character.live2dTextureCount.toString()
             live2dTexturesLoadedValue.text = character.live2dTexturesLoaded.toString()
             live2dLastTexturePathValue.text = character.live2dLastTexturePath

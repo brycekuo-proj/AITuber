@@ -122,7 +122,9 @@ class CharacterOverlayService : Service() {
                 offsetX = placement.offsetX,
                 offsetY = placement.offsetY,
                 viewportWidth = placement.width,
-                viewportHeight = placement.height
+                viewportHeight = placement.height,
+                bottomSafeZoneFraction = placement.bottomSafeZoneFraction,
+                bottomSafeZonePx = placement.bottomSafeZonePx
             )
         }
         return WindowManager.LayoutParams(

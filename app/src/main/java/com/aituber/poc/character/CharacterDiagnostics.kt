@@ -93,14 +93,18 @@ object CharacterDiagnostics {
         offsetX: Int,
         offsetY: Int,
         viewportWidth: Int,
-        viewportHeight: Int
+        viewportHeight: Int,
+        bottomSafeZoneFraction: Float,
+        bottomSafeZonePx: Int
     ) {
         current = current.copy(
             live2dDisplayScale = displayScale.toDouble(),
             live2dDisplayOffsetX = offsetX,
             live2dDisplayOffsetY = offsetY,
             live2dViewportWidth = viewportWidth,
-            live2dViewportHeight = viewportHeight
+            live2dViewportHeight = viewportHeight,
+            live2dBottomSafeZonePercent = bottomSafeZoneFraction.toDouble() * 100.0,
+            live2dBottomSafeZonePx = bottomSafeZonePx
         )
     }
 
@@ -152,6 +156,8 @@ data class CharacterDiagnosticsSnapshot(
     val live2dDisplayOffsetY: Int,
     val live2dViewportWidth: Int,
     val live2dViewportHeight: Int,
+    val live2dBottomSafeZonePercent: Double,
+    val live2dBottomSafeZonePx: Int,
     val live2dTextureCount: Int,
     val live2dTexturesLoaded: Int,
     val live2dLastTexturePath: String,
@@ -190,6 +196,8 @@ data class CharacterDiagnosticsSnapshot(
             live2dDisplayOffsetY = 0,
             live2dViewportWidth = 0,
             live2dViewportHeight = 0,
+            live2dBottomSafeZonePercent = 0.0,
+            live2dBottomSafeZonePx = 0,
             live2dTextureCount = 0,
             live2dTexturesLoaded = 0,
             live2dLastTexturePath = "n/a",
