@@ -25,23 +25,24 @@ class MouthSilenceGateTest {
     }
 
     @Test
-    fun speakingSilenceWithinHoldRemainsTemporarilyActive() {
+    fun speakingSilenceImmediatelyBecomesInactive() {
         val gate = MouthSilenceGate()
         gate.evaluate(UniversalAiState.SPEAKING, audibleMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
-        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_019L)
+        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_001L)
 
         assertFalse(frame.audible)
-        assertTrue(frame.mouthActive)
-        assertEquals(1L, frame.silenceHoldRemainingMs)
+        assertFalse(frame.mouthActive)
+        assertEquals(MouthGateState.SILENT, frame.gateState)
+        assertEquals(0L, frame.silenceHoldRemainingMs)
     }
 
     @Test
-    fun speakingSilenceAfterHoldBecomesSilent() {
+    fun quietAtSameTimestampAsLastAudibleBecomesSilent() {
         val gate = MouthSilenceGate()
         gate.evaluate(UniversalAiState.SPEAKING, audibleMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
-        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_020L)
+        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
         assertFalse(frame.audible)
         assertFalse(frame.mouthActive)
@@ -49,17 +50,14 @@ class MouthSilenceGateTest {
     }
 
     @Test
-    fun defaultSilenceHoldIsTwentyMilliseconds() {
+    fun defaultSilenceHoldIsZeroMilliseconds() {
         val gate = MouthSilenceGate()
         gate.evaluate(UniversalAiState.SPEAKING, audibleMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
-        val withinHold = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_019L)
-        val afterHold = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_020L)
+        val frame = gate.evaluate(UniversalAiState.SPEAKING, quietMetrics(), visualizerAvailable = true, nowMs = 1_000L)
 
-        assertTrue(withinHold.mouthActive)
-        assertEquals(1L, withinHold.silenceHoldRemainingMs)
-        assertFalse(afterHold.mouthActive)
-        assertEquals(0L, afterHold.silenceHoldRemainingMs)
+        assertFalse(frame.mouthActive)
+        assertEquals(0L, frame.silenceHoldRemainingMs)
     }
 
     @Test
