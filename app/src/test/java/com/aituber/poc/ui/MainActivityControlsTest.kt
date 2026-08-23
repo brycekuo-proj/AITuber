@@ -20,6 +20,8 @@ class MainActivityControlsTest {
         assertTrue(MainActivity.primaryControlLabels.contains("STOP"))
         assertTrue(MainActivity.primaryControlLabels.contains("ENABLE MOUTH OVERLAY"))
         assertTrue(MainActivity.primaryControlLabels.contains("DISABLE MOUTH OVERLAY"))
+        assertTrue(MainActivity.primaryControlLabels.contains("USE MINIMAL MOUTH"))
+        assertTrue(MainActivity.primaryControlLabels.contains("USE LIVE2D"))
         assertTrue(MainActivity.primaryControlLabels.contains("SHOW DIAGNOSTICS"))
     }
 }

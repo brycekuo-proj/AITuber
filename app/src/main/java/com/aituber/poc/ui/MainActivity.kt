@@ -21,6 +21,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.character.CharacterDiagnostics
+import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
@@ -128,13 +129,19 @@ class MainActivity : Activity() {
     private lateinit var characterMouthInputValue: TextView
     private lateinit var characterMouthOutputValue: TextView
     private lateinit var live2dAvailableValue: TextView
+    private lateinit var live2dRuntimeLoadedValue: TextView
+    private lateinit var live2dCoreLoadedValue: TextView
     private lateinit var live2dModelLoadedValue: TextView
     private lateinit var live2dModelNameValue: TextView
     private lateinit var live2dMouthParameterIdValue: TextView
+    private lateinit var live2dInputMouthOpenValue: TextView
     private lateinit var live2dMouthParameterValue: TextView
     private lateinit var live2dMouthParameterStatusValue: TextView
     private lateinit var live2dRenderFpsValue: TextView
+    private lateinit var live2dNativeFrameCountValue: TextView
+    private lateinit var live2dSurfaceSizeValue: TextView
     private lateinit var live2dFallbackReasonValue: TextView
+    private lateinit var live2dLastErrorValue: TextView
     private lateinit var startButtonClickCountValue: TextView
     private lateinit var projectionRequestCountValue: TextView
     private lateinit var projectionResultOkCountValue: TextView
@@ -393,6 +400,8 @@ class MainActivity : Activity() {
         }
         addButton(root, primaryControlLabels[3]) { enableMouthOverlay() }
         addButton(root, primaryControlLabels[4]) { disableMouthOverlay() }
+        addButton(root, primaryControlLabels[5]) { setCharacterMode(CharacterMode.MINIMAL_MOUTH) }
+        addButton(root, primaryControlLabels[6]) { setCharacterMode(CharacterMode.LIVE2D) }
 
         diagnosticsToggleButton = Button(this).apply {
             text = "SHOW DIAGNOSTICS"
@@ -474,13 +483,19 @@ class MainActivity : Activity() {
         characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
         characterMouthOutputValue = addDiagnosticField(root, "Mouth Parameter Output")
         live2dAvailableValue = addDiagnosticField(root, "Live2D Available")
+        live2dRuntimeLoadedValue = addDiagnosticField(root, "Live2D Runtime Loaded")
+        live2dCoreLoadedValue = addDiagnosticField(root, "Cubism Core Loaded")
         live2dModelLoadedValue = addDiagnosticField(root, "Live2D Model Loaded")
         live2dModelNameValue = addDiagnosticField(root, "Live2D Model Name")
         live2dMouthParameterIdValue = addDiagnosticField(root, "Live2D Mouth Parameter ID")
+        live2dInputMouthOpenValue = addDiagnosticField(root, "Input Mouth Open")
         live2dMouthParameterValue = addDiagnosticField(root, "Live2D Mouth Parameter Value")
         live2dMouthParameterStatusValue = addDiagnosticField(root, "Live2D Mouth Parameter")
         live2dRenderFpsValue = addDiagnosticField(root, "Live2D Render FPS")
+        live2dNativeFrameCountValue = addDiagnosticField(root, "Native Frame Count")
+        live2dSurfaceSizeValue = addDiagnosticField(root, "Live2D Surface Size")
         live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
+        live2dLastErrorValue = addDiagnosticField(root, "Last Live2D Error")
 
         root.addView(sectionTitle("Capture Startup Trace"))
         captureStartupTraceValue = addLogField(root, "Capture Startup Trace")
@@ -867,6 +882,15 @@ class MainActivity : Activity() {
         stopService(Intent(this, CharacterOverlayService::class.java))
     }
 
+    private fun setCharacterMode(mode: CharacterMode) {
+        CharacterOverlayService.requestedCharacterMode = mode
+        OverlayLifecycleTrace.record("character mode requested ${mode.name}")
+        if (CharacterOverlayService.isRunning) {
+            stopService(Intent(this, CharacterOverlayService::class.java))
+            uiHandler.postDelayed({ enableMouthOverlay() }, 150L)
+        }
+    }
+
     private fun renderSnapshotOnUi(snapshot: UniversalStateSnapshot) {
             universalStateValue.text = snapshot.state.name
             voiceSessionValue.text = activeLabel(snapshot.playbackProbe.voiceSessionActive)
@@ -945,13 +969,19 @@ class MainActivity : Activity() {
             characterMouthInputValue.text = "%.3f".format(character.mouthParameterInput)
             characterMouthOutputValue.text = "%.3f".format(character.mouthParameterOutput)
             live2dAvailableValue.text = character.live2dAvailable
+            live2dRuntimeLoadedValue.text = character.live2dRuntimeLoaded
+            live2dCoreLoadedValue.text = character.live2dCoreLoaded
             live2dModelLoadedValue.text = character.live2dModelLoaded
             live2dModelNameValue.text = character.live2dModelName
             live2dMouthParameterIdValue.text = character.live2dMouthParameterId
+            live2dInputMouthOpenValue.text = "%.3f".format(character.live2dInputMouthOpen)
             live2dMouthParameterValue.text = character.live2dMouthParameterValue?.let { "%.3f".format(it) } ?: "n/a"
             live2dMouthParameterStatusValue.text = character.live2dMouthParameterStatus
             live2dRenderFpsValue.text = "%.1f".format(character.live2dRenderFps)
+            live2dNativeFrameCountValue.text = character.live2dNativeFrameCount.toString()
+            live2dSurfaceSizeValue.text = "${character.live2dSurfaceWidth} x ${character.live2dSurfaceHeight}"
             live2dFallbackReasonValue.text = character.live2dFallbackReason
+            live2dLastErrorValue.text = character.live2dLastError
 
             captureStartupTraceValue.text = snapshot.captureStartupTrace.trace.joinToString("\n").ifBlank { "n/a" }
             startButtonClickCountValue.text = snapshot.captureStartupTrace.startButtonClickCount.toString()
@@ -1252,6 +1282,8 @@ class MainActivity : Activity() {
             "OPEN OVERLAY PERMISSION",
             "ENABLE MOUTH OVERLAY",
             "DISABLE MOUTH OVERLAY",
+            "USE MINIMAL MOUTH",
+            "USE LIVE2D",
             "SHOW DIAGNOSTICS"
         )
 

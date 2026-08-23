@@ -1,0 +1,91 @@
+package com.aituber.poc.character.live2d
+
+import android.content.Context
+import android.content.res.AssetManager
+import com.aituber.poc.BuildConfig
+
+class Live2DNativeBridge(
+    private val modelAssetDir: String = BuildConfig.LIVE2D_MODEL_ASSET_DIR
+) {
+    @Volatile
+    private var initialized = false
+
+    val available: Boolean
+        get() = libraryLoaded
+
+    fun initialize(context: Context): Boolean {
+        if (!libraryLoaded) return false
+        return runCatching {
+            initialized = nativeInitialize(context.assets, modelAssetDir)
+            initialized
+        }.getOrElse {
+            lastLoadError = it.message ?: it::class.java.simpleName
+            false
+        }
+    }
+
+    fun onSurfaceCreated(): Boolean {
+        if (!initialized) return false
+        return runCatching { nativeOnSurfaceCreated() }.getOrDefault(false)
+    }
+
+    fun onSurfaceChanged(width: Int, height: Int) {
+        if (!initialized) return
+        runCatching { nativeOnSurfaceChanged(width, height) }
+    }
+
+    fun drawFrame() {
+        if (!initialized) return
+        runCatching { nativeOnDrawFrame() }
+    }
+
+    fun setMouthOpen(value: Float): Boolean {
+        if (!initialized) return false
+        return runCatching {
+            nativeSetMouthOpen(value.coerceIn(0f, 1f))
+            true
+        }.getOrDefault(false)
+    }
+
+    fun release() {
+        if (!initialized) return
+        runCatching { nativeRelease() }
+        initialized = false
+    }
+
+    fun snapshot(): Live2DNativeSnapshot {
+        if (!libraryLoaded) {
+            return Live2DNativeSnapshot.unavailable(lastLoadError ?: "LIVE2D_NATIVE_LIBRARY_NOT_LOADED")
+        }
+        return runCatching { nativeSnapshot() }
+            .getOrElse { Live2DNativeSnapshot.unavailable(it.message ?: it::class.java.simpleName) }
+    }
+
+    private external fun nativeInitialize(assetManager: AssetManager, modelAssetDir: String): Boolean
+    private external fun nativeOnSurfaceCreated(): Boolean
+    private external fun nativeOnSurfaceChanged(width: Int, height: Int)
+    private external fun nativeSetMouthOpen(value: Float)
+    private external fun nativeOnDrawFrame()
+    private external fun nativeRelease()
+    private external fun nativeSnapshot(): Live2DNativeSnapshot
+
+    companion object {
+        @Volatile
+        private var lastLoadError: String? = null
+
+        val libraryLoaded: Boolean by lazy {
+            if (!BuildConfig.LIVE2D_ENABLED) {
+                lastLoadError = "LIVE2D_DISABLED_BY_LOCAL_CONFIGURATION"
+                false
+            } else {
+                runCatching {
+                    System.loadLibrary("aituber_live2d")
+                    true
+                }.getOrElse {
+                    lastLoadError = it.message ?: it::class.java.simpleName
+                    false
+                }
+            }
+        }
+    }
+}

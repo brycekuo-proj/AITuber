@@ -9,14 +9,23 @@ class Live2DCharacterAdapter(
     private val modelConfig: Live2DModelConfig = Live2DModelConfig(),
     private val sdkAvailable: Boolean = false,
     private val parameterSink: Live2DParameterSink? = null,
-    private val renderFps: Double = 0.0
+    private val renderFps: Double = 0.0,
+    private val nativeView: Live2DOverlayView? = null
 ) : CharacterAdapter {
     override val characterId = "live2d-character-adapter"
 
     val available: Boolean
-        get() = sdkAvailable && parameterSink != null
+        get() = (sdkAvailable && parameterSink != null) || nativeView?.initialized == true
 
     override fun render(frame: CharacterParameterFrame) {
+        val view = nativeView
+        if (view != null && view.initialized) {
+            val clampedFrame = frame.clamped()
+            view.setMouthOpenRatio(clampedFrame.mouthOpen)
+            view.publishDiagnostics()
+            return
+        }
+
         val sink = parameterSink
         if (!sdkAvailable || sink == null) {
             CharacterDiagnostics.recordLive2D(unavailableSnapshot("SDK_OR_MODEL_NOT_CONFIGURED"))
@@ -39,6 +48,31 @@ class Live2DCharacterAdapter(
     }
 
     fun diagnosticsSnapshot(): Live2DDiagnosticsSnapshot {
+        val view = nativeView
+        if (view != null && view.initialized) {
+            val native = view.bridge.snapshot()
+            return Live2DDiagnosticsSnapshot(
+                available = true,
+                runtimeLoaded = native.runtimeLoaded,
+                coreLoaded = native.coreLoaded,
+                modelLoaded = native.modelLoaded,
+                modelName = native.modelName,
+                mouthParameterId = native.mouthParameterId,
+                mouthParameterValue = native.appliedMouthOpen,
+                inputMouthOpen = native.inputMouthOpen,
+                renderFps = native.renderFps,
+                nativeFrameCount = native.nativeFrameCount,
+                surfaceWidth = native.surfaceWidth,
+                surfaceHeight = native.surfaceHeight,
+                fallbackReason = native.lastError.ifBlank { "n/a" },
+                mouthParameterStatus = if (native.mouthParameterFound) {
+                    Live2DParameterStatus.APPLIED.name
+                } else {
+                    Live2DParameterStatus.NOT_FOUND.name
+                },
+                lastError = native.lastError.ifBlank { "n/a" }
+            )
+        }
         return if (available) {
             Live2DDiagnosticsSnapshot(
                 available = true,
@@ -57,12 +91,15 @@ class Live2DCharacterAdapter(
 
     private fun unavailableSnapshot(reason: String) = Live2DDiagnosticsSnapshot(
         available = false,
+        runtimeLoaded = false,
+        coreLoaded = false,
         modelLoaded = false,
         modelName = modelConfig.modelName,
         mouthParameterId = modelConfig.mouthParameterId,
         mouthParameterValue = null,
         renderFps = 0.0,
         fallbackReason = reason,
-        mouthParameterStatus = Live2DParameterStatus.UNAVAILABLE.name
+        mouthParameterStatus = Live2DParameterStatus.UNAVAILABLE.name,
+        lastError = reason
     )
 }

@@ -1,0 +1,509 @@
+#include <jni.h>
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
+#include <android/log.h>
+#include <GLES2/gl2.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include <CubismDefaultParameterId.hpp>
+#include <CubismFramework.hpp>
+#include <CubismModelSettingJson.hpp>
+#include <ICubismAllocator.hpp>
+#include <Id/CubismIdManager.hpp>
+#include <Math/CubismMatrix44.hpp>
+#include <Model/CubismUserModel.hpp>
+#include <Rendering/OpenGL/CubismRenderer_OpenGLES2.hpp>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+namespace {
+
+using namespace Live2D::Cubism::Framework;
+
+constexpr const char* kLogTag = "AITuberLive2D";
+constexpr const char* kDefaultModelAssetDir = "live2d/Haru";
+constexpr const char* kDefaultModelName = "Haru";
+constexpr const char* kDefaultModelJson = "Haru.model3.json";
+constexpr const char* kMouthParameterId = "ParamMouthOpenY";
+
+class AituberCubismAllocator : public ICubismAllocator {
+public:
+    void* Allocate(const csmSizeType size) override {
+        return std::malloc(size);
+    }
+
+    void Deallocate(void* memory) override {
+        std::free(memory);
+    }
+
+    void* AllocateAligned(const csmSizeType size, const csmUint32 alignment) override {
+        const size_t offset = alignment - 1 + sizeof(void*);
+        void* allocation = Allocate(size + static_cast<csmUint32>(offset));
+        if (!allocation) return nullptr;
+
+        size_t alignedAddress = reinterpret_cast<size_t>(allocation) + sizeof(void*);
+        const size_t shift = alignedAddress % alignment;
+        if (shift) {
+            alignedAddress += alignment - shift;
+        }
+
+        void** preamble = reinterpret_cast<void**>(alignedAddress);
+        preamble[-1] = allocation;
+        return reinterpret_cast<void*>(alignedAddress);
+    }
+
+    void DeallocateAligned(void* alignedMemory) override {
+        if (!alignedMemory) return;
+        void** preamble = static_cast<void**>(alignedMemory);
+        Deallocate(preamble[-1]);
+    }
+};
+
+class SmokeModel : public CubismUserModel {
+public:
+    CubismModel* model() { return _model; }
+    CubismModelMatrix* matrix() { return _modelMatrix; }
+};
+
+struct RuntimeStatus {
+    bool runtimeLoaded = false;
+    bool coreLoaded = false;
+    bool modelLoaded = false;
+    bool mouthParameterFound = false;
+    float inputMouthOpen = 0.0f;
+    float appliedMouthOpen = 0.0f;
+    double renderFps = 0.0;
+    long frameCount = 0;
+    int surfaceWidth = 0;
+    int surfaceHeight = 0;
+    std::string modelName = kDefaultModelName;
+    std::string mouthParameterId = kMouthParameterId;
+    std::string lastError;
+};
+
+struct Runtime {
+    AAssetManager* assetManager = nullptr;
+    std::string modelAssetDir = kDefaultModelAssetDir;
+    std::unique_ptr<SmokeModel> model;
+    std::unique_ptr<CubismModelSettingJson> modelSetting;
+    std::vector<GLuint> textures;
+    const CubismId* mouthId = nullptr;
+    RuntimeStatus status;
+    long lastFpsFrame = 0;
+    double lastFpsMs = 0.0;
+};
+
+AituberCubismAllocator g_allocator;
+std::mutex g_mutex;
+std::unique_ptr<Runtime> g_runtime;
+bool g_frameworkStarted = false;
+bool g_frameworkInitialized = false;
+
+double nowMs() {
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<double>(ts.tv_sec) * 1000.0 + static_cast<double>(ts.tv_nsec) / 1000000.0;
+}
+
+void logInfo(const std::string& message) {
+    __android_log_print(ANDROID_LOG_INFO, kLogTag, "%s", message.c_str());
+}
+
+void logError(const std::string& message) {
+    __android_log_print(ANDROID_LOG_ERROR, kLogTag, "%s", message.c_str());
+}
+
+std::string joinAssetPath(const std::string& dir, const std::string& file) {
+    if (dir.empty()) return file;
+    if (dir[dir.size() - 1] == '/') return dir + file;
+    return dir + "/" + file;
+}
+
+bool readAsset(AAssetManager* manager, const std::string& path, std::vector<unsigned char>& out, std::string& error) {
+    if (!manager) {
+        error = "AssetManager unavailable";
+        return false;
+    }
+    AAsset* asset = AAssetManager_open(manager, path.c_str(), AASSET_MODE_BUFFER);
+    if (!asset) {
+        error = "Asset not found: " + path;
+        return false;
+    }
+    const off_t length = AAsset_getLength(asset);
+    if (length <= 0) {
+        AAsset_close(asset);
+        error = "Asset empty: " + path;
+        return false;
+    }
+    out.resize(static_cast<size_t>(length));
+    const int read = AAsset_read(asset, out.data(), static_cast<size_t>(length));
+    AAsset_close(asset);
+    if (read != length) {
+        error = "Asset read failed: " + path;
+        return false;
+    }
+    return true;
+}
+
+bool ensureFramework(Runtime& runtime) {
+    if (!g_frameworkStarted) {
+        CubismFramework::Option option;
+        option.LogFunction = [](const char* message) {
+            __android_log_print(ANDROID_LOG_INFO, kLogTag, "%s", message);
+        };
+        option.LoggingLevel = CubismFramework::Option::LogLevel_Warning;
+        if (!CubismFramework::StartUp(&g_allocator, &option)) {
+            runtime.status.lastError = "CubismFramework StartUp failed";
+            return false;
+        }
+        g_frameworkStarted = true;
+    }
+    if (!g_frameworkInitialized) {
+        CubismFramework::Initialize();
+        g_frameworkInitialized = true;
+    }
+    runtime.status.runtimeLoaded = true;
+    runtime.status.coreLoaded = true;
+    return true;
+}
+
+void releaseTextures(Runtime& runtime) {
+    if (!runtime.textures.empty()) {
+        glDeleteTextures(static_cast<GLsizei>(runtime.textures.size()), runtime.textures.data());
+        runtime.textures.clear();
+    }
+}
+
+bool loadTexture(Runtime& runtime, const std::string& path, GLuint& textureId, std::string& error) {
+    std::vector<unsigned char> png;
+    if (!readAsset(runtime.assetManager, path, png, error)) {
+        return false;
+    }
+
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    stbi_uc* pixels = stbi_load_from_memory(
+        png.data(),
+        static_cast<int>(png.size()),
+        &width,
+        &height,
+        &channels,
+        STBI_rgb_alpha
+    );
+    if (!pixels || width <= 0 || height <= 0) {
+        if (pixels) stbi_image_free(pixels);
+        error = "PNG decode failed: " + path;
+        return false;
+    }
+
+    glGenTextures(1, &textureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    stbi_image_free(pixels);
+    return true;
+}
+
+bool loadModel(Runtime& runtime) {
+    if (!ensureFramework(runtime)) {
+        return false;
+    }
+
+    releaseTextures(runtime);
+    runtime.model.reset(new SmokeModel());
+    runtime.modelSetting.reset();
+    runtime.mouthId = nullptr;
+
+    std::string error;
+    std::vector<unsigned char> modelJson;
+    const std::string modelJsonPath = joinAssetPath(runtime.modelAssetDir, kDefaultModelJson);
+    if (!readAsset(runtime.assetManager, modelJsonPath, modelJson, error)) {
+        runtime.status.lastError = error;
+        return false;
+    }
+
+    runtime.modelSetting.reset(new CubismModelSettingJson(
+        reinterpret_cast<const csmByte*>(modelJson.data()),
+        static_cast<csmSizeInt>(modelJson.size())
+    ));
+
+    const char* mocFile = runtime.modelSetting->GetModelFileName();
+    if (!mocFile || std::strlen(mocFile) == 0) {
+        runtime.status.lastError = "model3.json has no moc file";
+        return false;
+    }
+    std::vector<unsigned char> moc;
+    if (!readAsset(runtime.assetManager, joinAssetPath(runtime.modelAssetDir, mocFile), moc, error)) {
+        runtime.status.lastError = error;
+        return false;
+    }
+
+    runtime.model->LoadModel(
+        reinterpret_cast<const csmByte*>(moc.data()),
+        static_cast<csmSizeInt>(moc.size())
+    );
+    if (!runtime.model->model()) {
+        runtime.status.lastError = "Cubism model load failed";
+        return false;
+    }
+
+    csmMap<csmString, csmFloat32> layout;
+    runtime.modelSetting->GetLayoutMap(layout);
+    if (runtime.model->matrix()) {
+        runtime.model->matrix()->SetupFromLayout(layout);
+        runtime.model->matrix()->SetHeight(2.0f);
+        runtime.model->matrix()->TranslateY(-0.1f);
+    }
+    runtime.model->model()->SaveParameters();
+
+    runtime.model->CreateRenderer(
+        static_cast<csmUint32>(std::max(runtime.status.surfaceWidth, 1)),
+        static_cast<csmUint32>(std::max(runtime.status.surfaceHeight, 1))
+    );
+    auto* renderer = runtime.model->GetRenderer<Rendering::CubismRenderer_OpenGLES2>();
+    if (!renderer) {
+        runtime.status.lastError = "OpenGL renderer creation failed";
+        return false;
+    }
+    renderer->IsPremultipliedAlpha(true);
+
+    const csmInt32 textureCount = runtime.modelSetting->GetTextureCount();
+    for (csmInt32 i = 0; i < textureCount; i++) {
+        const char* textureFile = runtime.modelSetting->GetTextureFileName(i);
+        if (!textureFile || std::strlen(textureFile) == 0) continue;
+        GLuint textureId = 0;
+        if (!loadTexture(runtime, joinAssetPath(runtime.modelAssetDir, textureFile), textureId, error)) {
+            runtime.status.lastError = error;
+            return false;
+        }
+        runtime.textures.push_back(textureId);
+        renderer->BindTexture(static_cast<csmUint32>(i), textureId);
+    }
+
+    runtime.mouthId = CubismFramework::GetIdManager()->GetId(kMouthParameterId);
+    const csmInt32 mouthIndex = runtime.model->model()->GetParameterIndex(runtime.mouthId);
+    const bool found = mouthIndex >= 0 && mouthIndex < runtime.model->model()->GetParameterCount();
+    runtime.status.mouthParameterFound = found;
+    runtime.status.modelLoaded = true;
+    runtime.status.lastError = found ? "" : "ParamMouthOpenY not found";
+    logInfo("Live2D model loaded");
+    return true;
+}
+
+RuntimeStatus copyStatusLocked() {
+    if (!g_runtime) {
+        RuntimeStatus empty;
+        empty.lastError = "Runtime not initialized";
+        return empty;
+    }
+    return g_runtime->status;
+}
+
+void throwIfNeeded(JNIEnv* env, const std::string& message) {
+    if (message.empty()) return;
+    jclass exceptionClass = env->FindClass("java/lang/IllegalStateException");
+    if (exceptionClass) {
+        env->ThrowNew(exceptionClass, message.c_str());
+    }
+}
+
+jstring toJString(JNIEnv* env, const std::string& value) {
+    return env->NewStringUTF(value.c_str());
+}
+
+} // namespace
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeInitialize(
+    JNIEnv* env,
+    jobject,
+    jobject assetManager,
+    jstring modelAssetDir
+) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    const char* modelDirChars = env->GetStringUTFChars(modelAssetDir, nullptr);
+    std::string modelDir = modelDirChars ? modelDirChars : kDefaultModelAssetDir;
+    env->ReleaseStringUTFChars(modelAssetDir, modelDirChars);
+
+    AAssetManager* manager = AAssetManager_fromJava(env, assetManager);
+    if (!manager) {
+        g_runtime.reset(new Runtime());
+        g_runtime->status.lastError = "AAssetManager_fromJava failed";
+        return JNI_FALSE;
+    }
+
+    g_runtime.reset(new Runtime());
+    g_runtime->assetManager = manager;
+    g_runtime->modelAssetDir = modelDir.empty() ? kDefaultModelAssetDir : modelDir;
+    g_runtime->status.modelName = kDefaultModelName;
+    g_runtime->status.mouthParameterId = kMouthParameterId;
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnSurfaceCreated(JNIEnv*, jobject) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_runtime) return JNI_FALSE;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    const bool loaded = loadModel(*g_runtime);
+    return loaded ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnSurfaceChanged(
+    JNIEnv*,
+    jobject,
+    jint width,
+    jint height
+) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_runtime) return;
+    g_runtime->status.surfaceWidth = width;
+    g_runtime->status.surfaceHeight = height;
+    glViewport(0, 0, width, height);
+    if (g_runtime->model) {
+        g_runtime->model->DeleteRenderer();
+        g_runtime->model->CreateRenderer(static_cast<csmUint32>(std::max(width, 1)), static_cast<csmUint32>(std::max(height, 1)));
+        auto* renderer = g_runtime->model->GetRenderer<Rendering::CubismRenderer_OpenGLES2>();
+        if (renderer) {
+            renderer->IsPremultipliedAlpha(true);
+            for (csmUint32 i = 0; i < g_runtime->textures.size(); i++) {
+                renderer->BindTexture(i, g_runtime->textures[i]);
+            }
+        }
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetMouthOpen(
+    JNIEnv*,
+    jobject,
+    jfloat value
+) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_runtime) return;
+    const float clamped = std::max(0.0f, std::min(1.0f, value));
+    g_runtime->status.inputMouthOpen = clamped;
+    if (!g_runtime->model || !g_runtime->model->model() || !g_runtime->mouthId) return;
+    const csmInt32 index = g_runtime->model->model()->GetParameterIndex(g_runtime->mouthId);
+    if (index >= 0 && index < g_runtime->model->model()->GetParameterCount()) {
+        g_runtime->model->model()->SetParameterValue(index, clamped, 1.0f);
+        g_runtime->status.appliedMouthOpen = clamped;
+        g_runtime->status.mouthParameterFound = true;
+    } else {
+        g_runtime->status.mouthParameterFound = false;
+        g_runtime->status.lastError = "ParamMouthOpenY not found";
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEnv*, jobject) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_runtime || !g_runtime->model || !g_runtime->model->model()) {
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        return;
+    }
+
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearDepthf(1.0f);
+
+    auto* model = g_runtime->model->model();
+    model->LoadParameters();
+    if (g_runtime->mouthId) {
+        const csmInt32 index = model->GetParameterIndex(g_runtime->mouthId);
+        if (index >= 0 && index < model->GetParameterCount()) {
+            model->SetParameterValue(index, g_runtime->status.inputMouthOpen, 1.0f);
+            g_runtime->status.appliedMouthOpen = g_runtime->status.inputMouthOpen;
+            g_runtime->status.mouthParameterFound = true;
+        }
+    }
+    model->SaveParameters();
+    model->Update();
+
+    CubismMatrix44 projection;
+    const int width = std::max(g_runtime->status.surfaceWidth, 1);
+    const int height = std::max(g_runtime->status.surfaceHeight, 1);
+    const float aspect = static_cast<float>(width) / static_cast<float>(height);
+    projection.Scale(1.0f / aspect, 1.0f);
+    if (g_runtime->model->matrix()) {
+        projection.MultiplyByMatrix(g_runtime->model->matrix());
+    }
+
+    auto* renderer = g_runtime->model->GetRenderer<Rendering::CubismRenderer_OpenGLES2>();
+    if (renderer) {
+        renderer->SetMvpMatrix(&projection);
+        renderer->DrawModel();
+    }
+
+    g_runtime->status.frameCount += 1;
+    const double currentMs = nowMs();
+    if (g_runtime->lastFpsMs == 0.0) {
+        g_runtime->lastFpsMs = currentMs;
+        g_runtime->lastFpsFrame = g_runtime->status.frameCount;
+    } else if (currentMs - g_runtime->lastFpsMs >= 1000.0) {
+        const long frames = g_runtime->status.frameCount - g_runtime->lastFpsFrame;
+        g_runtime->status.renderFps = static_cast<double>(frames) * 1000.0 / (currentMs - g_runtime->lastFpsMs);
+        g_runtime->lastFpsMs = currentMs;
+        g_runtime->lastFpsFrame = g_runtime->status.frameCount;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeRelease(JNIEnv*, jobject) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (g_runtime) {
+        releaseTextures(*g_runtime);
+        g_runtime->model.reset();
+        g_runtime->modelSetting.reset();
+        g_runtime.reset();
+    }
+}
+
+extern "C" JNIEXPORT jobject JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    RuntimeStatus status = copyStatusLocked();
+    jclass clazz = env->FindClass("com/aituber/poc/character/live2d/Live2DNativeSnapshot");
+    if (!clazz) return nullptr;
+    jmethodID ctor = env->GetMethodID(
+        clazz,
+        "<init>",
+        "(ZZZZFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"
+    );
+    if (!ctor) return nullptr;
+    return env->NewObject(
+        clazz,
+        ctor,
+        static_cast<jboolean>(status.runtimeLoaded),
+        static_cast<jboolean>(status.coreLoaded),
+        static_cast<jboolean>(status.modelLoaded),
+        static_cast<jboolean>(status.mouthParameterFound),
+        status.inputMouthOpen,
+        status.appliedMouthOpen,
+        status.renderFps,
+        static_cast<jlong>(status.frameCount),
+        static_cast<jint>(status.surfaceWidth),
+        static_cast<jint>(status.surfaceHeight),
+        toJString(env, status.modelName),
+        toJString(env, status.mouthParameterId),
+        toJString(env, status.lastError)
+    );
+}

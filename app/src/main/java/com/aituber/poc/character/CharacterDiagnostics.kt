@@ -38,13 +38,20 @@ object CharacterDiagnostics {
     fun recordLive2D(snapshot: Live2DDiagnosticsSnapshot) {
         current = current.copy(
             live2dAvailable = if (snapshot.available) "YES" else "NO",
+            live2dRuntimeLoaded = if (snapshot.runtimeLoaded) "YES" else "NO",
+            live2dCoreLoaded = if (snapshot.coreLoaded) "YES" else "NO",
             live2dModelLoaded = if (snapshot.modelLoaded) "YES" else "NO",
             live2dModelName = snapshot.modelName,
             live2dMouthParameterId = snapshot.mouthParameterId,
             live2dMouthParameterValue = snapshot.mouthParameterValue?.toDouble(),
+            live2dInputMouthOpen = snapshot.inputMouthOpen.toDouble(),
             live2dRenderFps = snapshot.renderFps,
+            live2dNativeFrameCount = snapshot.nativeFrameCount,
+            live2dSurfaceWidth = snapshot.surfaceWidth,
+            live2dSurfaceHeight = snapshot.surfaceHeight,
             live2dFallbackReason = snapshot.fallbackReason,
-            live2dMouthParameterStatus = snapshot.mouthParameterStatus
+            live2dMouthParameterStatus = snapshot.mouthParameterStatus,
+            live2dLastError = snapshot.lastError
         )
     }
 
@@ -67,13 +74,20 @@ data class CharacterDiagnosticsSnapshot(
     val mouthParameterInput: Double,
     val mouthParameterOutput: Double,
     val live2dAvailable: String,
+    val live2dRuntimeLoaded: String,
+    val live2dCoreLoaded: String,
     val live2dModelLoaded: String,
     val live2dModelName: String,
     val live2dMouthParameterId: String,
     val live2dMouthParameterValue: Double?,
+    val live2dInputMouthOpen: Double,
     val live2dRenderFps: Double,
+    val live2dNativeFrameCount: Long,
+    val live2dSurfaceWidth: Int,
+    val live2dSurfaceHeight: Int,
     val live2dFallbackReason: String,
     val live2dMouthParameterStatus: String,
+    val live2dLastError: String,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
@@ -84,13 +98,20 @@ data class CharacterDiagnosticsSnapshot(
             mouthParameterInput = 0.0,
             mouthParameterOutput = 0.0,
             live2dAvailable = "NO",
+            live2dRuntimeLoaded = "NO",
+            live2dCoreLoaded = "NO",
             live2dModelLoaded = "NO",
             live2dModelName = "n/a",
             live2dMouthParameterId = "ParamMouthOpenY",
             live2dMouthParameterValue = null,
+            live2dInputMouthOpen = 0.0,
             live2dRenderFps = 0.0,
+            live2dNativeFrameCount = 0L,
+            live2dSurfaceWidth = 0,
+            live2dSurfaceHeight = 0,
             live2dFallbackReason = "LIVE2D_DISABLED",
             live2dMouthParameterStatus = "UNAVAILABLE",
+            live2dLastError = "n/a",
             lastFrameTimestampMs = null
         )
     }
@@ -98,13 +119,20 @@ data class CharacterDiagnosticsSnapshot(
 
 data class Live2DDiagnosticsSnapshot(
     val available: Boolean,
+    val runtimeLoaded: Boolean = available,
+    val coreLoaded: Boolean = available,
     val modelLoaded: Boolean,
     val modelName: String,
     val mouthParameterId: String,
     val mouthParameterValue: Float?,
+    val inputMouthOpen: Float = mouthParameterValue ?: 0f,
     val renderFps: Double,
+    val nativeFrameCount: Long = 0L,
+    val surfaceWidth: Int = 0,
+    val surfaceHeight: Int = 0,
     val fallbackReason: String,
-    val mouthParameterStatus: String
+    val mouthParameterStatus: String,
+    val lastError: String = "n/a"
 )
 
 enum class CharacterMode {

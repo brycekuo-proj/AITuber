@@ -10,11 +10,14 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import com.aituber.poc.character.CharacterAdapterFactory
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterEngine
 import com.aituber.poc.character.CharacterMode
+import com.aituber.poc.character.live2d.Live2DCharacterAdapter
+import com.aituber.poc.character.live2d.Live2DOverlayView
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -26,6 +29,8 @@ class CharacterOverlayService : Service() {
     private val silenceGate = MouthSilenceGate()
     private var frameIndex = 0
     private var mouthView: MouthOverlayView? = null
+    private var live2dView: Live2DOverlayView? = null
+    private var overlayView: View? = null
     private var characterEngine: CharacterEngine? = null
     private var windowManager: WindowManager? = null
     private var currentState = UniversalAiState.UNKNOWN
@@ -70,9 +75,8 @@ class CharacterOverlayService : Service() {
         isRunning = true
         OverlayLifecycleTrace.setAlive(true)
 
-        val view = MouthOverlayView(this)
-        mouthView = view
-        val selection = CharacterAdapterFactory.create(requestedCharacterMode, view)
+        val overlaySelection = createOverlaySelection()
+        val selection = overlaySelection.selection
         CharacterDiagnostics.configure(
             requestedMode = selection.requestedMode,
             activeAdapterId = selection.adapter.characterId,
@@ -80,7 +84,8 @@ class CharacterOverlayService : Service() {
         )
         characterEngine = CharacterEngine(selection.adapter)
         windowManager = getSystemService(WindowManager::class.java)
-        windowManager?.addView(view, overlayLayoutParams())
+        overlayView = overlaySelection.view
+        windowManager?.addView(overlaySelection.view, overlayLayoutParams(overlaySelection.live2dActive))
         OverlayLifecycleTrace.record("overlay view attached")
         CaptureSessionState.subscribe(stateListener)
         OverlayLifecycleTrace.record("overlay subscribed to state")
@@ -103,9 +108,9 @@ class CharacterOverlayService : Service() {
         super.onDestroy()
     }
 
-    private fun overlayLayoutParams() = WindowManager.LayoutParams(
-        180,
-        90,
+    private fun overlayLayoutParams(live2dActive: Boolean) = WindowManager.LayoutParams(
+        if (live2dActive) 360 else 180,
+        if (live2dActive) 520 else 90,
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -119,7 +124,74 @@ class CharacterOverlayService : Service() {
     ).apply {
         gravity = Gravity.TOP or Gravity.END
         x = 32
-        y = 220
+        y = if (live2dActive) 180 else 220
+    }
+
+    private fun createOverlaySelection(): OverlaySelection {
+        if (requestedCharacterMode == CharacterMode.LIVE2D) {
+            val live2d = Live2DOverlayView(this) { reason ->
+                fallbackToMinimalMouthOnMain("LIVE2D_RUNTIME_FAILURE: $reason")
+            }
+            val live2dAdapter = Live2DCharacterAdapter(nativeView = live2d)
+            if (live2dAdapter.available) {
+                live2dView = live2d
+                mouthView = null
+                return OverlaySelection(
+                    view = live2d,
+                    live2dActive = true,
+                    selection = CharacterAdapterFactory.create(
+                        requestedMode = CharacterMode.LIVE2D,
+                        mouthView = fallbackMouthView(),
+                        live2dAdapter = live2dAdapter
+                    )
+                )
+            }
+            live2d.release()
+            OverlayLifecycleTrace.record("Live2D unavailable, fallback to minimal mouth")
+        }
+
+        val minimal = MouthOverlayView(this)
+        mouthView = minimal
+        live2dView = null
+        return OverlaySelection(
+            view = minimal,
+            live2dActive = false,
+            selection = CharacterAdapterFactory.create(
+                requestedMode = requestedCharacterMode,
+                mouthView = minimal,
+                live2dAdapter = Live2DCharacterAdapter(sdkAvailable = false)
+            )
+        )
+    }
+
+    private fun fallbackMouthView(): MouthOverlayView {
+        return mouthView ?: MouthOverlayView(this)
+    }
+
+    private fun fallbackToMinimalMouthOnMain(reason: String) {
+        requireMainThread("fallbackToMinimalMouthOnMain")
+        OverlayLifecycleTrace.record(reason)
+        val oldView = overlayView
+        live2dView?.release()
+        oldView?.let { runCatching { windowManager?.removeView(it) } }
+
+        val minimal = MouthOverlayView(this)
+        mouthView = minimal
+        live2dView = null
+        overlayView = minimal
+        val selection = CharacterAdapterFactory.create(
+            requestedMode = CharacterMode.LIVE2D,
+            mouthView = minimal,
+            live2dAdapter = Live2DCharacterAdapter(sdkAvailable = false)
+        )
+        CharacterDiagnostics.configure(
+            requestedMode = selection.requestedMode,
+            activeAdapterId = selection.adapter.characterId,
+            fallbackReason = reason
+        )
+        characterEngine = CharacterEngine(selection.adapter)
+        windowManager?.addView(minimal, overlayLayoutParams(live2dActive = false))
+        renderSnapshotOnMain(CaptureSessionState.current())
     }
 
     private fun ensureAnimation() {
@@ -160,9 +232,12 @@ class CharacterOverlayService : Service() {
         MouthDriveDiagnostics.reset()
         MouthRenderDiagnostics.reset()
         CharacterDiagnostics.reset()
-        mouthView?.let { view -> runCatching { windowManager?.removeView(view) } }
+        live2dView?.release()
+        overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
+        live2dView = null
+        overlayView = null
         characterEngine = null
         windowManager = null
         isRunning = false
@@ -239,14 +314,14 @@ class CharacterOverlayService : Service() {
 
     private fun runMouthFullyOpenTest() {
         handler.post {
-            if (mouthView == null) return@post
+            if (characterEngine == null) return@post
             val openStep = MouthDebugFullOpenTest.forcedOpenStep()
             stopAnimation(closeMouth = false)
             mouthView?.render(openStep.state)
-            mouthView?.setMouthOpenRatio(openStep.ratio ?: 0f)
+            characterEngine?.bind(CaptureSessionState.current(), openStep.ratio ?: 0f)
             MouthRenderDiagnostics.recordMapper(MouthDriveMode.RMS, openStep.ratio?.toDouble(), openStep.ratio?.toDouble() ?: 0.0)
             handler.postDelayed({
-                if (mouthView == null) return@postDelayed
+                if (characterEngine == null) return@postDelayed
                 val restoreStep = MouthDebugFullOpenTest.restoreStep(CaptureSessionState.current().state)
                 mouthView?.render(restoreStep.state)
                 renderSnapshotOnMain(CaptureSessionState.current())
@@ -254,3 +329,9 @@ class CharacterOverlayService : Service() {
         }
     }
 }
+
+private data class OverlaySelection(
+    val view: View,
+    val live2dActive: Boolean,
+    val selection: com.aituber.poc.character.CharacterAdapterSelection
+)

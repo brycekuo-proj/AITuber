@@ -33,6 +33,26 @@ class CharacterAdapterFactoryTest {
         assertEquals("LIVE2D_UNAVAILABLE_FALLBACK_MINIMAL_MOUTH", selection.fallbackReason)
     }
 
+    @Test
+    fun live2dAvailableUsesLive2dAdapter() {
+        val live2d = Live2DCharacterAdapter(
+            sdkAvailable = true,
+            parameterSink = object : com.aituber.poc.character.live2d.Live2DParameterSink {
+                override fun setParameter(parameterId: String, value: Float): Boolean = true
+            }
+        )
+
+        val selection = CharacterAdapterFactory.create(
+            requestedMode = CharacterMode.LIVE2D,
+            mouthView = FakeMouthView(),
+            live2dAdapter = live2d
+        )
+
+        assertEquals(CharacterMode.LIVE2D, selection.requestedMode)
+        assertTrue(selection.adapter is Live2DCharacterAdapter)
+        assertEquals("n/a", selection.fallbackReason)
+    }
+
     private class FakeMouthView : MouthViewPort {
         override fun render(nextState: UniversalAiState) = Unit
         override fun setMouthOpenRatio(ratio: Float) = Unit

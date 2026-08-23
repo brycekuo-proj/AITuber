@@ -2,6 +2,7 @@ package com.aituber.poc.character.live2d
 
 import com.aituber.poc.character.CharacterParameterFrame
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class Live2DParameterBridgeTest {
@@ -65,6 +66,17 @@ class Live2DParameterBridgeTest {
         assertEquals(false, diagnostics.available)
         assertEquals(false, diagnostics.modelLoaded)
         assertEquals("ParamMouthOpenY", diagnostics.mouthParameterId)
+    }
+
+    @Test
+    fun live2dAdapterAppliesCharacterParameterFrameToMouthParameter() {
+        val sink = FakeSink()
+        val adapter = Live2DCharacterAdapter(sdkAvailable = true, parameterSink = sink)
+
+        adapter.render(frame(0.62f))
+
+        assertEquals(0.62f, sink.values["ParamMouthOpenY"]!!, 0.0001f)
+        assertTrue(adapter.diagnosticsSnapshot().available)
     }
 
     private fun frame(mouthOpen: Float) = CharacterParameterFrame(

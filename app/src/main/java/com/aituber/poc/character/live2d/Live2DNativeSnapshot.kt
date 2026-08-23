@@ -1,0 +1,35 @@
+package com.aituber.poc.character.live2d
+
+data class Live2DNativeSnapshot(
+    val runtimeLoaded: Boolean,
+    val coreLoaded: Boolean,
+    val modelLoaded: Boolean,
+    val mouthParameterFound: Boolean,
+    val inputMouthOpen: Float,
+    val appliedMouthOpen: Float,
+    val renderFps: Double,
+    val nativeFrameCount: Long,
+    val surfaceWidth: Int,
+    val surfaceHeight: Int,
+    val modelName: String,
+    val mouthParameterId: String,
+    val lastError: String
+) {
+    companion object {
+        fun unavailable(reason: String) = Live2DNativeSnapshot(
+            runtimeLoaded = false,
+            coreLoaded = false,
+            modelLoaded = false,
+            mouthParameterFound = false,
+            inputMouthOpen = 0f,
+            appliedMouthOpen = 0f,
+            renderFps = 0.0,
+            nativeFrameCount = 0L,
+            surfaceWidth = 0,
+            surfaceHeight = 0,
+            modelName = "Haru",
+            mouthParameterId = "ParamMouthOpenY",
+            lastError = reason
+        )
+    }
+}
