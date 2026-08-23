@@ -95,10 +95,14 @@ object CharacterDiagnostics {
         viewportWidth: Int,
         viewportHeight: Int,
         anchor: String,
+        rightMarginFraction: Float,
+        rightMarginPx: Int,
         topSafeMarginFraction: Float,
         topSafeMarginPx: Int,
         bottomSafeZoneFraction: Float,
-        bottomSafeZonePx: Int
+        bottomSafeZonePx: Int,
+        touchPassthrough: Boolean,
+        windowTouchable: Boolean
     ) {
         current = current.copy(
             live2dDisplayScale = displayScale.toDouble(),
@@ -107,10 +111,14 @@ object CharacterDiagnostics {
             live2dViewportWidth = viewportWidth,
             live2dViewportHeight = viewportHeight,
             live2dAnchor = anchor,
+            live2dRightMarginPercent = rightMarginFraction.toDouble() * 100.0,
+            live2dRightMarginPx = rightMarginPx,
             live2dTopSafeMarginPercent = topSafeMarginFraction.toDouble() * 100.0,
             live2dTopSafeMarginPx = topSafeMarginPx,
             live2dBottomSafeZonePercent = bottomSafeZoneFraction.toDouble() * 100.0,
-            live2dBottomSafeZonePx = bottomSafeZonePx
+            live2dBottomSafeZonePx = bottomSafeZonePx,
+            live2dTouchPassthrough = if (touchPassthrough) "YES" else "NO",
+            live2dWindowTouchable = if (windowTouchable) "YES" else "NO"
         )
     }
 
@@ -163,10 +171,14 @@ data class CharacterDiagnosticsSnapshot(
     val live2dViewportWidth: Int,
     val live2dViewportHeight: Int,
     val live2dAnchor: String,
+    val live2dRightMarginPercent: Double,
+    val live2dRightMarginPx: Int,
     val live2dTopSafeMarginPercent: Double,
     val live2dTopSafeMarginPx: Int,
     val live2dBottomSafeZonePercent: Double,
     val live2dBottomSafeZonePx: Int,
+    val live2dTouchPassthrough: String,
+    val live2dWindowTouchable: String,
     val live2dTextureCount: Int,
     val live2dTexturesLoaded: Int,
     val live2dLastTexturePath: String,
@@ -206,10 +218,14 @@ data class CharacterDiagnosticsSnapshot(
             live2dViewportWidth = 0,
             live2dViewportHeight = 0,
             live2dAnchor = "n/a",
+            live2dRightMarginPercent = 0.0,
+            live2dRightMarginPx = 0,
             live2dTopSafeMarginPercent = 0.0,
             live2dTopSafeMarginPx = 0,
             live2dBottomSafeZonePercent = 0.0,
             live2dBottomSafeZonePx = 0,
+            live2dTouchPassthrough = "n/a",
+            live2dWindowTouchable = "n/a",
             live2dTextureCount = 0,
             live2dTexturesLoaded = 0,
             live2dLastTexturePath = "n/a",

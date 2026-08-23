@@ -112,7 +112,12 @@ class CharacterOverlayService : Service() {
     private fun overlayLayoutParams(live2dActive: Boolean): WindowManager.LayoutParams {
         val placement = if (live2dActive) {
             val metrics = resources.displayMetrics
-            Live2DOverlayPlacement.compute(metrics.widthPixels, metrics.heightPixels)
+            Live2DOverlayPlacement.compute(
+                screenWidth = metrics.widthPixels,
+                screenHeight = metrics.heightPixels,
+                systemTopInsetPx = systemTopInsetPx(),
+                topInsetMarginPx = (8f * metrics.density).toInt()
+            )
         } else {
             null
         }
@@ -124,10 +129,14 @@ class CharacterOverlayService : Service() {
                 viewportWidth = placement.width,
                 viewportHeight = placement.height,
                 anchor = placement.anchor,
+                rightMarginFraction = placement.rightMarginFraction,
+                rightMarginPx = placement.rightMarginPx,
                 topSafeMarginFraction = placement.topSafeMarginFraction,
                 topSafeMarginPx = placement.topSafeMarginPx,
                 bottomSafeZoneFraction = placement.bottomSafeZoneFraction,
-                bottomSafeZonePx = placement.bottomSafeZonePx
+                bottomSafeZonePx = placement.bottomSafeZonePx,
+                touchPassthrough = OverlayWindowConfig.TOUCH_PASSTHROUGH,
+                windowTouchable = false
             )
         }
         return WindowManager.LayoutParams(
@@ -139,15 +148,22 @@ class CharacterOverlayService : Service() {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE
             },
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            OverlayWindowConfig.flags(),
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.END
+            gravity = if (placement != null) {
+                Gravity.TOP or Gravity.START
+            } else {
+                Gravity.TOP or Gravity.END
+            }
             x = placement?.offsetX ?: 32
             y = placement?.offsetY ?: 220
         }
+    }
+
+    private fun systemTopInsetPx(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
     }
 
     private fun createOverlaySelection(): OverlaySelection {
