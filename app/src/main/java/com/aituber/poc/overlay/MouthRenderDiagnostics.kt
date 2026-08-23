@@ -56,10 +56,10 @@ object MouthRenderDiagnostics {
     }
 
     @Synchronized
-    fun recordAdapterRender(state: UniversalAiState, lastRatio: Float?) {
+    fun recordAdapterRender(speaking: Boolean, lastRatio: Float?) {
         current = current.copy(
             adapterRenderCount = current.adapterRenderCount + 1,
-            adapterLastState = state.name,
+            adapterLastState = if (speaking) UniversalAiState.SPEAKING.name else UniversalAiState.IDLE.name,
             adapterLastMouthRatio = lastRatio?.toDouble(),
             lastRenderTimestampMs = nowMs(),
             renderThread = Thread.currentThread().name

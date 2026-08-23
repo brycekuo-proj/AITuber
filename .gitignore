@@ -33,3 +33,9 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Optional local Live2D SDK/model files. Do not commit licensed SDK binaries or models.
+app/libs/live2d/*
+!app/libs/live2d/.gitkeep
+app/src/main/assets/live2d/*
+!app/src/main/assets/live2d/.gitkeep

@@ -20,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
+import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
@@ -121,6 +122,19 @@ class MainActivity : Activity() {
     private lateinit var mouthPipelineLastDrawTimeValue: TextView
     private lateinit var mouthPipelineRenderThreadValue: TextView
     private lateinit var mouthPipelineDrawThreadValue: TextView
+    private lateinit var characterModeValue: TextView
+    private lateinit var activeCharacterAdapterValue: TextView
+    private lateinit var characterFrameCountValue: TextView
+    private lateinit var characterMouthInputValue: TextView
+    private lateinit var characterMouthOutputValue: TextView
+    private lateinit var live2dAvailableValue: TextView
+    private lateinit var live2dModelLoadedValue: TextView
+    private lateinit var live2dModelNameValue: TextView
+    private lateinit var live2dMouthParameterIdValue: TextView
+    private lateinit var live2dMouthParameterValue: TextView
+    private lateinit var live2dMouthParameterStatusValue: TextView
+    private lateinit var live2dRenderFpsValue: TextView
+    private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var startButtonClickCountValue: TextView
     private lateinit var projectionRequestCountValue: TextView
     private lateinit var projectionResultOkCountValue: TextView
@@ -452,6 +466,21 @@ class MainActivity : Activity() {
         mouthPipelineLastDrawTimeValue = addDiagnosticField(root, "Last Draw Time")
         mouthPipelineRenderThreadValue = addDiagnosticField(root, "Render Thread")
         mouthPipelineDrawThreadValue = addDiagnosticField(root, "Draw Thread")
+
+        root.addView(sectionTitle("Character Engine"))
+        characterModeValue = addDiagnosticField(root, "Character Mode")
+        activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
+        characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
+        characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
+        characterMouthOutputValue = addDiagnosticField(root, "Mouth Parameter Output")
+        live2dAvailableValue = addDiagnosticField(root, "Live2D Available")
+        live2dModelLoadedValue = addDiagnosticField(root, "Live2D Model Loaded")
+        live2dModelNameValue = addDiagnosticField(root, "Live2D Model Name")
+        live2dMouthParameterIdValue = addDiagnosticField(root, "Live2D Mouth Parameter ID")
+        live2dMouthParameterValue = addDiagnosticField(root, "Live2D Mouth Parameter Value")
+        live2dMouthParameterStatusValue = addDiagnosticField(root, "Live2D Mouth Parameter")
+        live2dRenderFpsValue = addDiagnosticField(root, "Live2D Render FPS")
+        live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
 
         root.addView(sectionTitle("Capture Startup Trace"))
         captureStartupTraceValue = addLogField(root, "Capture Startup Trace")
@@ -909,6 +938,20 @@ class MainActivity : Activity() {
             mouthPipelineLastDrawTimeValue.text = mouthRender.lastDrawTimestampMs?.toString() ?: "n/a"
             mouthPipelineRenderThreadValue.text = mouthRender.renderThread
             mouthPipelineDrawThreadValue.text = mouthRender.drawThread
+            val character = CharacterDiagnostics.snapshot()
+            characterModeValue.text = character.characterMode
+            activeCharacterAdapterValue.text = character.activeCharacterAdapter
+            characterFrameCountValue.text = character.characterFrameCount.toString()
+            characterMouthInputValue.text = "%.3f".format(character.mouthParameterInput)
+            characterMouthOutputValue.text = "%.3f".format(character.mouthParameterOutput)
+            live2dAvailableValue.text = character.live2dAvailable
+            live2dModelLoadedValue.text = character.live2dModelLoaded
+            live2dModelNameValue.text = character.live2dModelName
+            live2dMouthParameterIdValue.text = character.live2dMouthParameterId
+            live2dMouthParameterValue.text = character.live2dMouthParameterValue?.let { "%.3f".format(it) } ?: "n/a"
+            live2dMouthParameterStatusValue.text = character.live2dMouthParameterStatus
+            live2dRenderFpsValue.text = "%.1f".format(character.live2dRenderFps)
+            live2dFallbackReasonValue.text = character.live2dFallbackReason
 
             captureStartupTraceValue.text = snapshot.captureStartupTrace.trace.joinToString("\n").ifBlank { "n/a" }
             startButtonClickCountValue.text = snapshot.captureStartupTrace.startButtonClickCount.toString()

@@ -1,6 +1,7 @@
 package com.aituber.poc.overlay
 
 import com.aituber.poc.character.MinimalMouthCharacterAdapter
+import com.aituber.poc.character.CharacterParameterFrame
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 import com.aituber.poc.state.VisualizerWaveformMetrics
@@ -47,7 +48,7 @@ class MouthRenderDiagnosticsTest {
         MouthRenderDiagnostics.recordMapper(MouthDriveMode.RMS, targetOpen = 0.7, smoothedOpen = 0.52)
         val adapter = MinimalMouthCharacterAdapter(FakeMouthView())
 
-        adapter.render(snapshot(UniversalAiState.SPEAKING))
+        adapter.render(CharacterParameterFrame(mouthOpen = 0.52f, speaking = true))
         val diagnostics = MouthRenderDiagnostics.snapshot()
 
         assertEquals(1L, diagnostics.adapterRenderCount)

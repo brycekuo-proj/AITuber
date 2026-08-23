@@ -11,8 +11,10 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
+import com.aituber.poc.character.CharacterAdapterFactory
+import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterEngine
-import com.aituber.poc.character.MinimalMouthCharacterAdapter
+import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -48,7 +50,8 @@ class CharacterOverlayService : Service() {
     private val animationRunnable = object : Runnable {
         override fun run() {
             if (!animationRunning || currentState != UniversalAiState.SPEAKING || mouthView == null) return
-            mouthView?.setMouthOpenRatio(animationFrames[frameIndex % animationFrames.size])
+            MouthRenderDiagnostics.recordCharacterEngineRender()
+            characterEngine?.bind(CaptureSessionState.current(), animationFrames[frameIndex % animationFrames.size])
             frameIndex += 1
             handler.postDelayed(this, 185L)
         }
@@ -69,7 +72,13 @@ class CharacterOverlayService : Service() {
 
         val view = MouthOverlayView(this)
         mouthView = view
-        characterEngine = CharacterEngine(MinimalMouthCharacterAdapter(view))
+        val selection = CharacterAdapterFactory.create(requestedCharacterMode, view)
+        CharacterDiagnostics.configure(
+            requestedMode = selection.requestedMode,
+            activeAdapterId = selection.adapter.characterId,
+            fallbackReason = selection.fallbackReason
+        )
+        characterEngine = CharacterEngine(selection.adapter)
         windowManager = getSystemService(WindowManager::class.java)
         windowManager?.addView(view, overlayLayoutParams())
         OverlayLifecycleTrace.record("overlay view attached")
@@ -140,8 +149,6 @@ class CharacterOverlayService : Service() {
         requireMainThread("renderSnapshotOnMain")
         if (mouthView == null) return
         currentState = snapshot.state
-        MouthRenderDiagnostics.recordCharacterEngineRender()
-        characterEngine?.bind(snapshot)
         applyMouthAmplitude(snapshot)
     }
 
@@ -152,6 +159,7 @@ class CharacterOverlayService : Service() {
         silenceGate.reset()
         MouthDriveDiagnostics.reset()
         MouthRenderDiagnostics.reset()
+        CharacterDiagnostics.reset()
         mouthView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
@@ -198,11 +206,16 @@ class CharacterOverlayService : Service() {
             MouthDriveMode.RMS -> {
                 stopAnimation(closeMouth = false)
                 if (frame.shouldRender) {
-                    mouthView?.setMouthOpenRatio(frame.smoothedOpen.toFloat())
+                    MouthRenderDiagnostics.recordCharacterEngineRender()
+                    characterEngine?.bind(snapshot, frame.smoothedOpen.toFloat())
                 }
             }
             MouthDriveMode.PSEUDO_FALLBACK -> ensureAnimation()
-            MouthDriveMode.CLOSED -> stopAnimation()
+            MouthDriveMode.CLOSED -> {
+                stopAnimation(closeMouth = false)
+                MouthRenderDiagnostics.recordCharacterEngineRender()
+                characterEngine?.bind(snapshot, 0f)
+            }
         }
     }
 
@@ -212,6 +225,9 @@ class CharacterOverlayService : Service() {
         @Volatile
         var isRunning: Boolean = false
             private set
+
+        @Volatile
+        var requestedCharacterMode: CharacterMode = CharacterMode.MINIMAL_MOUTH
 
         @Volatile
         private var activeService: CharacterOverlayService? = null

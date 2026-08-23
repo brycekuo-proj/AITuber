@@ -15,8 +15,6 @@ import com.aituber.poc.R
 import com.aituber.poc.aiadapter.AiAdapter
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.aiadapter.PlaybackCaptureAiAdapter
-import com.aituber.poc.character.CharacterEngine
-import com.aituber.poc.character.DebugCharacterAdapter
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 
@@ -27,7 +25,6 @@ class CaptureSessionService : Service() {
     private var mediaProjectionCallback: MediaProjection.Callback? = null
     private var adapter: AiAdapter? = null
     private var playbackProbe: AndroidPlaybackStateProbe? = null
-    private lateinit var characterEngine: CharacterEngine
     private var foregroundStarted = false
     private var stopping = false
 
@@ -35,9 +32,6 @@ class CaptureSessionService : Service() {
         super.onCreate()
         isRunning = true
         CaptureStartupTrace.serviceOnCreate()
-        characterEngine = CharacterEngine(DebugCharacterAdapter { snapshot ->
-            CaptureSessionState.update(snapshot)
-        })
         playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
             CaptureSessionState.updatePlaybackProbe(snapshot)
         }
@@ -136,7 +130,7 @@ class CaptureSessionService : Service() {
             targetLabel = ChatGptTarget.label
         )
         CaptureStartupTrace.record("PlaybackCaptureAiAdapter start requested")
-        adapter?.start { snapshot -> characterEngine.bind(snapshot) }
+        adapter?.start { snapshot -> CaptureSessionState.update(snapshot) }
     }
 
     private fun stopCapture(status: String) {
@@ -167,7 +161,7 @@ class CaptureSessionService : Service() {
     }
 
     private fun publish(status: String) {
-        characterEngine.bind(
+        CaptureSessionState.update(
             UniversalStateSnapshot(
                 targetApp = ChatGptTarget.label,
                 detectionMethod = DetectionMethod.PLAYBACK_CAPTURE.label,
