@@ -7,15 +7,38 @@ object CharacterDiagnostics {
     private var current = CharacterDiagnosticsSnapshot.empty()
 
     @Synchronized
+    fun recordRequestedMode(
+        requestedMode: CharacterMode,
+        overlayRunning: Boolean
+    ) {
+        current = current.copy(
+            characterMode = requestedMode.name,
+            activeCharacterAdapter = if (overlayRunning) current.activeCharacterAdapter else "none",
+            live2dLifecycleState = if (requestedMode == CharacterMode.LIVE2D) {
+                if (overlayRunning) "REQUESTED" else "REQUESTED_OVERLAY_DISABLED"
+            } else {
+                "DISABLED"
+            },
+            live2dFallbackReason = if (requestedMode == CharacterMode.LIVE2D) {
+                if (overlayRunning) "WAITING_FOR_SURFACE" else "WAITING_FOR_OVERLAY"
+            } else {
+                "n/a"
+            }
+        )
+    }
+
+    @Synchronized
     fun configure(
         requestedMode: CharacterMode,
         activeAdapterId: String,
-        fallbackReason: String
+        fallbackReason: String,
+        live2dLifecycleState: String = if (requestedMode == CharacterMode.LIVE2D) "WAITING_FOR_SURFACE" else "DISABLED"
     ) {
         current = current.copy(
             characterMode = requestedMode.name,
             activeCharacterAdapter = activeAdapterId,
-            live2dFallbackReason = fallbackReason
+            live2dFallbackReason = fallbackReason,
+            live2dLifecycleState = live2dLifecycleState
         )
     }
 
@@ -56,13 +79,27 @@ object CharacterDiagnostics {
             live2dGlTextureIds = snapshot.glTextureIds,
             live2dFallbackReason = snapshot.fallbackReason,
             live2dMouthParameterStatus = snapshot.mouthParameterStatus,
-            live2dLastError = snapshot.lastError
+            live2dLastError = snapshot.lastError,
+            live2dLifecycleState = snapshot.lifecycleState
         )
     }
 
     @Synchronized
-    fun reset() {
-        current = CharacterDiagnosticsSnapshot.empty()
+    fun reset(requestedMode: CharacterMode = CharacterMode.MINIMAL_MOUTH) {
+        current = CharacterDiagnosticsSnapshot.empty().copy(
+            characterMode = requestedMode.name,
+            activeCharacterAdapter = "none",
+            live2dLifecycleState = if (requestedMode == CharacterMode.LIVE2D) {
+                "REQUESTED_OVERLAY_DISABLED"
+            } else {
+                "DISABLED"
+            },
+            live2dFallbackReason = if (requestedMode == CharacterMode.LIVE2D) {
+                "WAITING_FOR_OVERLAY"
+            } else {
+                "LIVE2D_DISABLED"
+            }
+        )
     }
 
     fun snapshot(): CharacterDiagnosticsSnapshot = current
@@ -95,6 +132,7 @@ data class CharacterDiagnosticsSnapshot(
     val live2dLastTexturePath: String,
     val live2dLastTextureError: String,
     val live2dGlTextureIds: String,
+    val live2dLifecycleState: String,
     val live2dFallbackReason: String,
     val live2dMouthParameterStatus: String,
     val live2dLastError: String,
@@ -124,6 +162,7 @@ data class CharacterDiagnosticsSnapshot(
             live2dLastTexturePath = "n/a",
             live2dLastTextureError = "n/a",
             live2dGlTextureIds = "[]",
+            live2dLifecycleState = "DISABLED",
             live2dFallbackReason = "LIVE2D_DISABLED",
             live2dMouthParameterStatus = "UNAVAILABLE",
             live2dLastError = "n/a",
@@ -150,6 +189,7 @@ data class Live2DDiagnosticsSnapshot(
     val lastTexturePath: String = "n/a",
     val lastTextureError: String = "n/a",
     val glTextureIds: String = "[]",
+    val lifecycleState: String = "DISABLED",
     val fallbackReason: String,
     val mouthParameterStatus: String,
     val lastError: String = "n/a"

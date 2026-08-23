@@ -145,6 +145,7 @@ class MainActivity : Activity() {
     private lateinit var live2dLastTexturePathValue: TextView
     private lateinit var live2dLastTextureErrorValue: TextView
     private lateinit var live2dGlTextureIdsValue: TextView
+    private lateinit var live2dLifecycleStateValue: TextView
     private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var live2dLastErrorValue: TextView
     private lateinit var startButtonClickCountValue: TextView
@@ -482,7 +483,7 @@ class MainActivity : Activity() {
         mouthPipelineDrawThreadValue = addDiagnosticField(root, "Draw Thread")
 
         root.addView(sectionTitle("Character Engine"))
-        characterModeValue = addDiagnosticField(root, "Character Mode")
+        characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
         characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
@@ -504,6 +505,7 @@ class MainActivity : Activity() {
         live2dLastTexturePathValue = addDiagnosticField(root, "Last Texture Path")
         live2dLastTextureErrorValue = addDiagnosticField(root, "Last Texture Error")
         live2dGlTextureIdsValue = addDiagnosticField(root, "GL Texture IDs")
+        live2dLifecycleStateValue = addDiagnosticField(root, "Live2D Lifecycle State")
         live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
         live2dLastErrorValue = addDiagnosticField(root, "Last Live2D Error")
 
@@ -894,6 +896,10 @@ class MainActivity : Activity() {
 
     private fun setCharacterMode(mode: CharacterMode) {
         CharacterOverlayService.requestedCharacterMode = mode
+        CharacterDiagnostics.recordRequestedMode(
+            requestedMode = mode,
+            overlayRunning = CharacterOverlayService.isRunning
+        )
         OverlayLifecycleTrace.record("character mode requested ${mode.name}")
         if (CharacterOverlayService.isRunning) {
             stopService(Intent(this, CharacterOverlayService::class.java))
@@ -995,6 +1001,7 @@ class MainActivity : Activity() {
             live2dLastTexturePathValue.text = character.live2dLastTexturePath
             live2dLastTextureErrorValue.text = character.live2dLastTextureError
             live2dGlTextureIdsValue.text = character.live2dGlTextureIds
+            live2dLifecycleStateValue.text = character.live2dLifecycleState
             live2dFallbackReasonValue.text = character.live2dFallbackReason
             live2dLastErrorValue.text = character.live2dLastError
 

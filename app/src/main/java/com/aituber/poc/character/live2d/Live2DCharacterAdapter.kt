@@ -69,6 +69,12 @@ class Live2DCharacterAdapter(
                 lastTexturePath = native.lastTexturePath,
                 lastTextureError = native.lastTextureError,
                 glTextureIds = native.glTextureIds,
+                lifecycleState = when {
+                    native.modelLoaded -> "READY"
+                    native.lastError.isNotBlank() -> "FAILED"
+                    native.runtimeLoaded -> "INITIALIZING"
+                    else -> "WAITING_FOR_SURFACE"
+                },
                 fallbackReason = native.lastError.ifBlank { "n/a" },
                 mouthParameterStatus = if (native.mouthParameterFound) {
                     Live2DParameterStatus.APPLIED.name
@@ -86,6 +92,7 @@ class Live2DCharacterAdapter(
                 mouthParameterId = modelConfig.mouthParameterId,
                 mouthParameterValue = null,
                 renderFps = renderFps,
+                lifecycleState = "READY",
                 fallbackReason = "n/a",
                 mouthParameterStatus = "READY"
             )

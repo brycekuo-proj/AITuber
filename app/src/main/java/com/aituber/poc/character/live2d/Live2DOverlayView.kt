@@ -70,6 +70,7 @@ class Live2DOverlayView(
                 lastTexturePath = snapshot.lastTexturePath,
                 lastTextureError = snapshot.lastTextureError,
                 glTextureIds = snapshot.glTextureIds,
+                lifecycleState = lifecycleState(snapshot),
                 fallbackReason = if (snapshot.lastError.isBlank()) "n/a" else snapshot.lastError,
                 mouthParameterStatus = if (snapshot.mouthParameterFound) {
                     Live2DParameterStatus.APPLIED.name
@@ -79,6 +80,14 @@ class Live2DOverlayView(
                 lastError = snapshot.lastError.ifBlank { "n/a" }
             )
         )
+    }
+
+    private fun lifecycleState(snapshot: Live2DNativeSnapshot): String {
+        if (!initialized) return "DISABLED"
+        if (snapshot.lastError.isNotBlank() && !snapshot.modelLoaded) return "FAILED"
+        if (snapshot.modelLoaded) return "READY"
+        if (snapshot.runtimeLoaded) return "INITIALIZING"
+        return "WAITING_FOR_SURFACE"
     }
 
     private inner class Renderer : GLSurfaceView.Renderer {

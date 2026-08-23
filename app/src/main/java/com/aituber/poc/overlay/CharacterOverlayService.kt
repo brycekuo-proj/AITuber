@@ -80,7 +80,8 @@ class CharacterOverlayService : Service() {
         CharacterDiagnostics.configure(
             requestedMode = selection.requestedMode,
             activeAdapterId = selection.adapter.characterId,
-            fallbackReason = selection.fallbackReason
+            fallbackReason = selection.fallbackReason,
+            live2dLifecycleState = overlaySelection.live2dLifecycleState
         )
         characterEngine = CharacterEngine(selection.adapter)
         windowManager = getSystemService(WindowManager::class.java)
@@ -139,6 +140,7 @@ class CharacterOverlayService : Service() {
                 return OverlaySelection(
                     view = live2d,
                     live2dActive = true,
+                    live2dLifecycleState = "WAITING_FOR_SURFACE",
                     selection = CharacterAdapterFactory.create(
                         requestedMode = CharacterMode.LIVE2D,
                         mouthView = fallbackMouthView(),
@@ -156,6 +158,7 @@ class CharacterOverlayService : Service() {
         return OverlaySelection(
             view = minimal,
             live2dActive = false,
+            live2dLifecycleState = if (requestedCharacterMode == CharacterMode.LIVE2D) "FAILED" else "DISABLED",
             selection = CharacterAdapterFactory.create(
                 requestedMode = requestedCharacterMode,
                 mouthView = minimal,
@@ -187,7 +190,8 @@ class CharacterOverlayService : Service() {
         CharacterDiagnostics.configure(
             requestedMode = selection.requestedMode,
             activeAdapterId = selection.adapter.characterId,
-            fallbackReason = reason
+            fallbackReason = reason,
+            live2dLifecycleState = "FAILED"
         )
         characterEngine = CharacterEngine(selection.adapter)
         windowManager?.addView(minimal, overlayLayoutParams(live2dActive = false))
@@ -219,7 +223,7 @@ class CharacterOverlayService : Service() {
 
     private fun renderSnapshotOnMain(snapshot: UniversalStateSnapshot) {
         requireMainThread("renderSnapshotOnMain")
-        if (mouthView == null) return
+        if (characterEngine == null) return
         currentState = snapshot.state
         applyMouthAmplitude(snapshot)
     }
@@ -231,7 +235,7 @@ class CharacterOverlayService : Service() {
         silenceGate.reset()
         MouthDriveDiagnostics.reset()
         MouthRenderDiagnostics.reset()
-        CharacterDiagnostics.reset()
+        CharacterDiagnostics.reset(requestedMode = requestedCharacterMode)
         live2dView?.release()
         overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
@@ -333,5 +337,6 @@ class CharacterOverlayService : Service() {
 private data class OverlaySelection(
     val view: View,
     val live2dActive: Boolean,
+    val live2dLifecycleState: String,
     val selection: com.aituber.poc.character.CharacterAdapterSelection
 )
