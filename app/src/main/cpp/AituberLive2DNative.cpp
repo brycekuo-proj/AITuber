@@ -10,6 +10,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -86,8 +87,13 @@ struct RuntimeStatus {
     long frameCount = 0;
     int surfaceWidth = 0;
     int surfaceHeight = 0;
+    int textureCount = 0;
+    int texturesLoaded = 0;
     std::string modelName = kDefaultModelName;
     std::string mouthParameterId = kMouthParameterId;
+    std::string lastTexturePath = "n/a";
+    std::string lastTextureError = "n/a";
+    std::string glTextureIds = "[]";
     std::string lastError;
 };
 
@@ -123,6 +129,13 @@ void logInfo(const std::string& message) {
 
 void logError(const std::string& message) {
     __android_log_print(ANDROID_LOG_ERROR, kLogTag, "%s", message.c_str());
+}
+
+std::string glErrorToString(const GLenum error) {
+    if (error == GL_NO_ERROR) return "GL_NO_ERROR";
+    std::ostringstream stream;
+    stream << "GL_ERROR_0x" << std::hex << error;
+    return stream.str();
 }
 
 std::string joinAssetPath(const std::string& dir, const std::string& file) {
@@ -238,8 +251,10 @@ void releaseTextures(Runtime& runtime) {
 }
 
 bool loadTexture(Runtime& runtime, const std::string& path, GLuint& textureId, std::string& error) {
+    runtime.status.lastTexturePath = path;
     std::vector<unsigned char> png;
     if (!readAsset(runtime.assetManager, path, png, error)) {
+        runtime.status.lastTextureError = error;
         return false;
     }
 
@@ -257,19 +272,62 @@ bool loadTexture(Runtime& runtime, const std::string& path, GLuint& textureId, s
     if (!pixels || width <= 0 || height <= 0) {
         if (pixels) stbi_image_free(pixels);
         error = "PNG decode failed: " + path;
+        runtime.status.lastTextureError = error;
         return false;
     }
 
     glGenTextures(1, &textureId);
+    if (textureId == 0) {
+        stbi_image_free(pixels);
+        error = "glGenTextures returned 0: " + glErrorToString(glGetError());
+        runtime.status.lastTextureError = error;
+        return false;
+    }
+
     glBindTexture(GL_TEXTURE_2D, textureId);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    const GLenum uploadError = glGetError();
+    if (uploadError != GL_NO_ERROR) {
+        glDeleteTextures(1, &textureId);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        stbi_image_free(pixels);
+        error = "glTexImage2D failed for " + path + ": " + glErrorToString(uploadError);
+        runtime.status.lastTextureError = error;
+        textureId = 0;
+        return false;
+    }
+    glGenerateMipmap(GL_TEXTURE_2D);
+    const GLenum mipmapError = glGetError();
+    if (mipmapError != GL_NO_ERROR) {
+        glDeleteTextures(1, &textureId);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        stbi_image_free(pixels);
+        error = "glGenerateMipmap failed for " + path + ": " + glErrorToString(mipmapError);
+        runtime.status.lastTextureError = error;
+        textureId = 0;
+        return false;
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
     stbi_image_free(pixels);
+    runtime.status.lastTextureError = "n/a";
     return true;
+}
+
+std::string textureIdsToString(const std::vector<GLuint>& textureIds) {
+    std::ostringstream stream;
+    stream << "[";
+    for (size_t i = 0; i < textureIds.size(); i++) {
+        if (i > 0) stream << ",";
+        stream << textureIds[i];
+    }
+    stream << "]";
+    return stream.str();
 }
 
 bool loadModel(Runtime& runtime) {
@@ -280,6 +338,11 @@ bool loadModel(Runtime& runtime) {
     releaseTextures(runtime);
     runtime.status.modelLoaded = false;
     runtime.status.mouthParameterFound = false;
+    runtime.status.textureCount = 0;
+    runtime.status.texturesLoaded = 0;
+    runtime.status.lastTexturePath = "n/a";
+    runtime.status.lastTextureError = "n/a";
+    runtime.status.glTextureIds = "[]";
     runtime.model.reset(new SmokeModel());
     runtime.modelSetting.reset();
     runtime.mouthId = nullptr;
@@ -335,19 +398,24 @@ bool loadModel(Runtime& runtime) {
         runtime.status.lastError = "OpenGL renderer creation failed";
         return false;
     }
-    renderer->IsPremultipliedAlpha(true);
+    renderer->IsPremultipliedAlpha(false);
 
     const csmInt32 textureCount = runtime.modelSetting->GetTextureCount();
+    runtime.status.textureCount = textureCount;
     for (csmInt32 i = 0; i < textureCount; i++) {
         const char* textureFile = runtime.modelSetting->GetTextureFileName(i);
         if (!textureFile || std::strlen(textureFile) == 0) continue;
         GLuint textureId = 0;
-        if (!loadTexture(runtime, joinAssetPath(runtime.modelAssetDir, textureFile), textureId, error)) {
+        const std::string texturePath = joinAssetPath(runtime.modelAssetDir, textureFile);
+        if (!loadTexture(runtime, texturePath, textureId, error)) {
             runtime.status.lastError = error;
             return false;
         }
         runtime.textures.push_back(textureId);
         renderer->BindTexture(static_cast<csmUint32>(i), textureId);
+        runtime.status.texturesLoaded = static_cast<int>(runtime.textures.size());
+        runtime.status.glTextureIds = textureIdsToString(runtime.textures);
+        logInfo("Bound Live2D texture index=" + std::to_string(i) + " id=" + std::to_string(textureId) + " path=" + texturePath);
     }
 
     runtime.mouthId = CubismFramework::GetIdManager()->GetId(kMouthParameterId);
@@ -358,6 +426,17 @@ bool loadModel(Runtime& runtime) {
     runtime.status.lastError = found ? "" : "ParamMouthOpenY not found";
     logInfo("Live2D model loaded");
     return true;
+}
+
+void discardContextBoundResources(Runtime& runtime) {
+    runtime.textures.clear();
+    runtime.model.reset();
+    runtime.modelSetting.reset();
+    runtime.mouthId = nullptr;
+    runtime.status.modelLoaded = false;
+    runtime.status.mouthParameterFound = false;
+    runtime.status.texturesLoaded = 0;
+    runtime.status.glTextureIds = "[]";
 }
 
 RuntimeStatus copyStatusLocked() {
@@ -419,6 +498,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnSurfaceCreated(
     if (!validateGlContext(*g_runtime)) {
         return JNI_FALSE;
     }
+    discardContextBoundResources(*g_runtime);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     if (!ensureFramework(*g_runtime)) {
@@ -457,7 +537,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnSurfaceChanged(
             g_runtime->status.lastError = "OpenGL renderer recreation failed";
             return JNI_FALSE;
         }
-        renderer->IsPremultipliedAlpha(true);
+        renderer->IsPremultipliedAlpha(false);
         for (csmUint32 i = 0; i < g_runtime->textures.size(); i++) {
             renderer->BindTexture(i, g_runtime->textures[i]);
         }
@@ -570,7 +650,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
     jmethodID ctor = env->GetMethodID(
         clazz,
         "<init>",
-        "(ZZZZFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"
+        "(ZZZZFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"
     );
     if (!ctor) return nullptr;
     return env->NewObject(
@@ -588,6 +668,11 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
         static_cast<jint>(status.surfaceHeight),
         toJString(env, status.modelName),
         toJString(env, status.mouthParameterId),
-        toJString(env, status.lastError)
+        toJString(env, status.lastError),
+        static_cast<jint>(status.textureCount),
+        static_cast<jint>(status.texturesLoaded),
+        toJString(env, status.lastTexturePath),
+        toJString(env, status.lastTextureError),
+        toJString(env, status.glTextureIds)
     );
 }

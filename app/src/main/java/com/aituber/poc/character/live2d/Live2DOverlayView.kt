@@ -65,6 +65,11 @@ class Live2DOverlayView(
                 nativeFrameCount = snapshot.nativeFrameCount,
                 surfaceWidth = snapshot.surfaceWidth,
                 surfaceHeight = snapshot.surfaceHeight,
+                textureCount = snapshot.textureCount,
+                texturesLoaded = snapshot.texturesLoaded,
+                lastTexturePath = snapshot.lastTexturePath,
+                lastTextureError = snapshot.lastTextureError,
+                glTextureIds = snapshot.glTextureIds,
                 fallbackReason = if (snapshot.lastError.isBlank()) "n/a" else snapshot.lastError,
                 mouthParameterStatus = if (snapshot.mouthParameterFound) {
                     Live2DParameterStatus.APPLIED.name

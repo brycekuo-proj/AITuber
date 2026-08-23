@@ -13,7 +13,12 @@ data class Live2DNativeSnapshot(
     val surfaceHeight: Int,
     val modelName: String,
     val mouthParameterId: String,
-    val lastError: String
+    val lastError: String,
+    val textureCount: Int,
+    val texturesLoaded: Int,
+    val lastTexturePath: String,
+    val lastTextureError: String,
+    val glTextureIds: String
 ) {
     companion object {
         fun unavailable(reason: String) = Live2DNativeSnapshot(
@@ -29,7 +34,12 @@ data class Live2DNativeSnapshot(
             surfaceHeight = 0,
             modelName = "Haru",
             mouthParameterId = "ParamMouthOpenY",
-            lastError = reason
+            lastError = reason,
+            textureCount = 0,
+            texturesLoaded = 0,
+            lastTexturePath = "n/a",
+            lastTextureError = reason,
+            glTextureIds = "[]"
         )
     }
 }

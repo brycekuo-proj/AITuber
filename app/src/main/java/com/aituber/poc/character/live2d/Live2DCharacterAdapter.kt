@@ -64,6 +64,11 @@ class Live2DCharacterAdapter(
                 nativeFrameCount = native.nativeFrameCount,
                 surfaceWidth = native.surfaceWidth,
                 surfaceHeight = native.surfaceHeight,
+                textureCount = native.textureCount,
+                texturesLoaded = native.texturesLoaded,
+                lastTexturePath = native.lastTexturePath,
+                lastTextureError = native.lastTextureError,
+                glTextureIds = native.glTextureIds,
                 fallbackReason = native.lastError.ifBlank { "n/a" },
                 mouthParameterStatus = if (native.mouthParameterFound) {
                     Live2DParameterStatus.APPLIED.name
