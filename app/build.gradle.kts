@@ -70,7 +70,7 @@ kotlin {
 if (live2dEnabled) {
     val stageLive2DModelAssets by tasks.registering(Sync::class) {
         from(live2dModelDir)
-        include("*.model3.json", "*.moc3", "Haru.2048/**")
+        include("*.model3.json", "*.moc3", "*.pose3.json", "Haru.2048/**")
         into(layout.buildDirectory.dir("generated/live2dAssets/live2d/Haru"))
     }
     val stageLive2DShaderAssets by tasks.registering(Sync::class) {

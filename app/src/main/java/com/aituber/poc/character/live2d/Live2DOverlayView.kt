@@ -70,6 +70,9 @@ class Live2DOverlayView(
                 lastTexturePath = snapshot.lastTexturePath,
                 lastTextureError = snapshot.lastTextureError,
                 glTextureIds = snapshot.glTextureIds,
+                poseFile = snapshot.poseFile,
+                poseLoaded = snapshot.poseLoaded,
+                poseActive = snapshot.poseActive,
                 lifecycleState = lifecycleState(snapshot),
                 fallbackReason = if (snapshot.lastError.isBlank()) "n/a" else snapshot.lastError,
                 mouthParameterStatus = if (snapshot.mouthParameterFound) {

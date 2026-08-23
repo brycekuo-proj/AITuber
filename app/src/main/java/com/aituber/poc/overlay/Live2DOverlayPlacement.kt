@@ -4,11 +4,11 @@ import kotlin.math.max
 import kotlin.math.min
 
 object Live2DOverlayPlacement {
-    const val DEFAULT_DISPLAY_SCALE = 1.9f
+    const val DEFAULT_DISPLAY_SCALE = 2.25f
     private const val BASE_WIDTH_PX = 360
     private const val BASE_HEIGHT_PX = 520
-    private const val MAX_SCREEN_WIDTH_FRACTION = 0.64f
-    private const val MAX_SCREEN_HEIGHT_FRACTION = 0.72f
+    private const val MAX_SCREEN_WIDTH_FRACTION = 0.75f
+    private const val MAX_SCREEN_HEIGHT_FRACTION = 0.78f
     private const val MIN_WIDTH_PX = 320
     private const val MIN_HEIGHT_PX = 460
     private const val RIGHT_MARGIN_FRACTION = 0.03f

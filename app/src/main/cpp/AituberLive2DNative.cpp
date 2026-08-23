@@ -17,6 +17,7 @@
 #include <CubismDefaultParameterId.hpp>
 #include <CubismFramework.hpp>
 #include <CubismModelSettingJson.hpp>
+#include <Effect/CubismPose.hpp>
 #include <ICubismAllocator.hpp>
 #include <Id/CubismIdManager.hpp>
 #include <Math/CubismMatrix44.hpp>
@@ -74,6 +75,21 @@ class SmokeModel : public CubismUserModel {
 public:
     CubismModel* model() { return _model; }
     CubismModelMatrix* matrix() { return _modelMatrix; }
+
+    void loadPose(const csmByte* buffer, csmSizeInt size) {
+        LoadPose(buffer, size);
+        if (_pose && _model) {
+            _pose->Reset(_model);
+        }
+    }
+
+    bool poseLoaded() const { return _pose != nullptr; }
+
+    void updatePose(csmFloat32 deltaTimeSeconds) {
+        if (_pose && _model) {
+            _pose->UpdateParameters(_model, deltaTimeSeconds);
+        }
+    }
 };
 
 struct RuntimeStatus {
@@ -89,8 +105,11 @@ struct RuntimeStatus {
     int surfaceHeight = 0;
     int textureCount = 0;
     int texturesLoaded = 0;
+    bool poseLoaded = false;
+    bool poseActive = false;
     std::string modelName = kDefaultModelName;
     std::string mouthParameterId = kMouthParameterId;
+    std::string poseFile = "n/a";
     std::string lastTexturePath = "n/a";
     std::string lastTextureError = "n/a";
     std::string glTextureIds = "[]";
@@ -107,6 +126,7 @@ struct Runtime {
     RuntimeStatus status;
     long lastFpsFrame = 0;
     double lastFpsMs = 0.0;
+    double lastFrameMs = 0.0;
 };
 
 AituberCubismAllocator g_allocator;
@@ -418,12 +438,46 @@ bool loadModel(Runtime& runtime) {
         logInfo("Bound Live2D texture index=" + std::to_string(i) + " id=" + std::to_string(textureId) + " path=" + texturePath);
     }
 
+    runtime.status.poseFile = "n/a";
+    runtime.status.poseLoaded = false;
+    runtime.status.poseActive = false;
+    bool poseError = false;
+    const char* poseFile = runtime.modelSetting->GetPoseFileName();
+    if (poseFile && std::strlen(poseFile) > 0) {
+        runtime.status.poseFile = poseFile;
+        std::vector<unsigned char> poseJson;
+        const std::string posePath = joinAssetPath(runtime.modelAssetDir, poseFile);
+        if (readAsset(runtime.assetManager, posePath, poseJson, error)) {
+            runtime.model->loadPose(
+                reinterpret_cast<const csmByte*>(poseJson.data()),
+                static_cast<csmSizeInt>(poseJson.size())
+            );
+            runtime.status.poseLoaded = runtime.model->poseLoaded();
+            runtime.status.poseActive = runtime.status.poseLoaded;
+            if (runtime.status.poseLoaded) {
+                logInfo("Live2D pose loaded: " + posePath);
+            } else {
+                runtime.status.lastError = "Pose parse returned null: " + posePath;
+                poseError = true;
+                logError(runtime.status.lastError);
+            }
+        } else {
+            runtime.status.lastError = "Pose unavailable: " + error;
+            poseError = true;
+            logError(runtime.status.lastError);
+        }
+    }
+
     runtime.mouthId = CubismFramework::GetIdManager()->GetId(kMouthParameterId);
     const csmInt32 mouthIndex = runtime.model->model()->GetParameterIndex(runtime.mouthId);
     const bool found = mouthIndex >= 0 && mouthIndex < runtime.model->model()->GetParameterCount();
     runtime.status.mouthParameterFound = found;
     runtime.status.modelLoaded = true;
-    runtime.status.lastError = found ? "" : "ParamMouthOpenY not found";
+    if (!found) {
+        runtime.status.lastError = "ParamMouthOpenY not found";
+    } else if (!poseError) {
+        runtime.status.lastError = "";
+    }
     logInfo("Live2D model loaded");
     return true;
 }
@@ -437,6 +491,8 @@ void discardContextBoundResources(Runtime& runtime) {
     runtime.status.mouthParameterFound = false;
     runtime.status.texturesLoaded = 0;
     runtime.status.glTextureIds = "[]";
+    runtime.status.poseLoaded = false;
+    runtime.status.poseActive = false;
 }
 
 RuntimeStatus copyStatusLocked() {
@@ -591,6 +647,13 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
         }
     }
     model->SaveParameters();
+    const double currentMs = nowMs();
+    const csmFloat32 deltaTimeSeconds = g_runtime->lastFrameMs == 0.0
+        ? 1.0f / 30.0f
+        : static_cast<csmFloat32>(std::max(0.0, currentMs - g_runtime->lastFrameMs) / 1000.0);
+    g_runtime->lastFrameMs = currentMs;
+    g_runtime->model->updatePose(deltaTimeSeconds);
+    g_runtime->status.poseActive = g_runtime->model->poseLoaded();
     model->Update();
 
     CubismMatrix44 projection;
@@ -609,7 +672,6 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
     }
 
     g_runtime->status.frameCount += 1;
-    const double currentMs = nowMs();
     if (g_runtime->lastFpsMs == 0.0) {
         g_runtime->lastFpsMs = currentMs;
         g_runtime->lastFpsFrame = g_runtime->status.frameCount;
@@ -650,7 +712,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
     jmethodID ctor = env->GetMethodID(
         clazz,
         "<init>",
-        "(ZZZZFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"
+        "(ZZZZFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"
     );
     if (!ctor) return nullptr;
     return env->NewObject(
@@ -673,6 +735,9 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
         static_cast<jint>(status.texturesLoaded),
         toJString(env, status.lastTexturePath),
         toJString(env, status.lastTextureError),
-        toJString(env, status.glTextureIds)
+        toJString(env, status.glTextureIds),
+        toJString(env, status.poseFile),
+        static_cast<jboolean>(status.poseLoaded),
+        static_cast<jboolean>(status.poseActive)
     );
 }

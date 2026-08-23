@@ -18,7 +18,10 @@ data class Live2DNativeSnapshot(
     val texturesLoaded: Int,
     val lastTexturePath: String,
     val lastTextureError: String,
-    val glTextureIds: String
+    val glTextureIds: String,
+    val poseFile: String,
+    val poseLoaded: Boolean,
+    val poseActive: Boolean
 ) {
     companion object {
         fun unavailable(reason: String) = Live2DNativeSnapshot(
@@ -39,7 +42,10 @@ data class Live2DNativeSnapshot(
             texturesLoaded = 0,
             lastTexturePath = "n/a",
             lastTextureError = reason,
-            glTextureIds = "[]"
+            glTextureIds = "[]",
+            poseFile = "n/a",
+            poseLoaded = false,
+            poseActive = false
         )
     }
 }

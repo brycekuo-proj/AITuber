@@ -141,13 +141,17 @@ class MainActivity : Activity() {
     private lateinit var live2dNativeFrameCountValue: TextView
     private lateinit var live2dSurfaceSizeValue: TextView
     private lateinit var live2dDisplayScaleValue: TextView
-    private lateinit var live2dDisplayOffsetValue: TextView
+    private lateinit var live2dDisplayOffsetXValue: TextView
+    private lateinit var live2dDisplayOffsetYValue: TextView
     private lateinit var live2dViewportSizeValue: TextView
     private lateinit var live2dTextureCountValue: TextView
     private lateinit var live2dTexturesLoadedValue: TextView
     private lateinit var live2dLastTexturePathValue: TextView
     private lateinit var live2dLastTextureErrorValue: TextView
     private lateinit var live2dGlTextureIdsValue: TextView
+    private lateinit var live2dPoseFileValue: TextView
+    private lateinit var live2dPoseLoadedValue: TextView
+    private lateinit var live2dPoseActiveValue: TextView
     private lateinit var live2dLifecycleStateValue: TextView
     private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var live2dLastErrorValue: TextView
@@ -504,13 +508,17 @@ class MainActivity : Activity() {
         live2dNativeFrameCountValue = addDiagnosticField(root, "Native Frame Count")
         live2dSurfaceSizeValue = addDiagnosticField(root, "Live2D Surface Size")
         live2dDisplayScaleValue = addDiagnosticField(root, "Live2D Display Scale")
-        live2dDisplayOffsetValue = addDiagnosticField(root, "Live2D Display Offset")
+        live2dDisplayOffsetXValue = addDiagnosticField(root, "Live2D Display Offset X")
+        live2dDisplayOffsetYValue = addDiagnosticField(root, "Live2D Display Offset Y")
         live2dViewportSizeValue = addDiagnosticField(root, "Live2D Viewport Size")
         live2dTextureCountValue = addDiagnosticField(root, "Live2D Texture Count")
         live2dTexturesLoadedValue = addDiagnosticField(root, "Live2D Textures Loaded")
         live2dLastTexturePathValue = addDiagnosticField(root, "Last Texture Path")
         live2dLastTextureErrorValue = addDiagnosticField(root, "Last Texture Error")
         live2dGlTextureIdsValue = addDiagnosticField(root, "GL Texture IDs")
+        live2dPoseFileValue = addDiagnosticField(root, "Pose File")
+        live2dPoseLoadedValue = addDiagnosticField(root, "Pose Loaded")
+        live2dPoseActiveValue = addDiagnosticField(root, "Pose Active")
         live2dLifecycleStateValue = addDiagnosticField(root, "Live2D Lifecycle State")
         live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
         live2dLastErrorValue = addDiagnosticField(root, "Last Live2D Error")
@@ -1003,13 +1011,17 @@ class MainActivity : Activity() {
             live2dNativeFrameCountValue.text = character.live2dNativeFrameCount.toString()
             live2dSurfaceSizeValue.text = "${character.live2dSurfaceWidth} x ${character.live2dSurfaceHeight}"
             live2dDisplayScaleValue.text = "%.2f".format(character.live2dDisplayScale)
-            live2dDisplayOffsetValue.text = "${character.live2dDisplayOffsetX}, ${character.live2dDisplayOffsetY}"
+            live2dDisplayOffsetXValue.text = character.live2dDisplayOffsetX.toString()
+            live2dDisplayOffsetYValue.text = character.live2dDisplayOffsetY.toString()
             live2dViewportSizeValue.text = "${character.live2dViewportWidth} x ${character.live2dViewportHeight}"
             live2dTextureCountValue.text = character.live2dTextureCount.toString()
             live2dTexturesLoadedValue.text = character.live2dTexturesLoaded.toString()
             live2dLastTexturePathValue.text = character.live2dLastTexturePath
             live2dLastTextureErrorValue.text = character.live2dLastTextureError
             live2dGlTextureIdsValue.text = character.live2dGlTextureIds
+            live2dPoseFileValue.text = character.live2dPoseFile
+            live2dPoseLoadedValue.text = character.live2dPoseLoaded
+            live2dPoseActiveValue.text = character.live2dPoseActive
             live2dLifecycleStateValue.text = character.live2dLifecycleState
             live2dFallbackReasonValue.text = character.live2dFallbackReason
             live2dLastErrorValue.text = character.live2dLastError

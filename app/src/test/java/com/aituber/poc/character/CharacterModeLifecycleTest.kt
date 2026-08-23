@@ -106,6 +106,34 @@ class CharacterModeLifecycleTest {
         assertEquals("WAITING_FOR_OVERLAY", snapshot.live2dFallbackReason)
     }
 
+    @Test
+    fun poseDiagnosticsCanRepresentMissingPoseSafely() {
+        CharacterDiagnostics.recordLive2D(
+            Live2DDiagnosticsSnapshot(
+                available = true,
+                runtimeLoaded = true,
+                coreLoaded = true,
+                modelLoaded = true,
+                modelName = "Haru",
+                mouthParameterId = "ParamMouthOpenY",
+                mouthParameterValue = 0.5f,
+                renderFps = 30.0,
+                poseFile = "Haru.pose3.json",
+                poseLoaded = false,
+                poseActive = false,
+                fallbackReason = "Pose unavailable: Asset not found",
+                mouthParameterStatus = "APPLIED"
+            )
+        )
+
+        val snapshot = CharacterDiagnostics.snapshot()
+
+        assertEquals("Haru.pose3.json", snapshot.live2dPoseFile)
+        assertEquals("NO", snapshot.live2dPoseLoaded)
+        assertEquals("NO", snapshot.live2dPoseActive)
+        assertEquals("Pose unavailable: Asset not found", snapshot.live2dFallbackReason)
+    }
+
     private class FakeMouthView : MouthViewPort {
         override fun render(nextState: UniversalAiState) = Unit
         override fun setMouthOpenRatio(ratio: Float) = Unit

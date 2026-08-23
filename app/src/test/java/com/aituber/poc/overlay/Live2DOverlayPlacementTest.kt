@@ -9,9 +9,9 @@ class Live2DOverlayPlacementTest {
     fun samsungA16SizedViewportUsesLargerRightBottomPlacement() {
         val placement = Live2DOverlayPlacement.compute(screenWidth = 1080, screenHeight = 2340)
 
-        assertEquals(684, placement.width)
-        assertEquals(988, placement.height)
-        assertEquals(1.9f, placement.displayScale, 0.001f)
+        assertEquals(810, placement.width)
+        assertEquals(1170, placement.height)
+        assertEquals(2.25f, placement.displayScale, 0.001f)
         assertTrue(placement.offsetX > 0)
         assertTrue(placement.offsetY > 0)
         assertTrue(placement.offsetY + placement.height < 2340)
@@ -23,8 +23,13 @@ class Live2DOverlayPlacementTest {
 
         assertTrue(placement.width <= 720)
         assertTrue(placement.height <= 1280)
-        assertEquals((720 * 0.64f).toInt(), placement.width)
-        assertEquals((1280 * 0.72f).toInt(), placement.height)
+        assertEquals((720 * 0.75f).toInt(), placement.width)
+        assertEquals((1280 * 0.78f).toInt(), placement.height)
+    }
+
+    @Test
+    fun requestedDisplayScaleIsApproximatelyTwoPointTwoFive() {
+        assertEquals(2.25f, Live2DOverlayPlacement.DEFAULT_DISPLAY_SCALE, 0.001f)
     }
 
     @Test

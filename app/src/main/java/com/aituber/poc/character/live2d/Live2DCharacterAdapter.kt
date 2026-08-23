@@ -69,6 +69,9 @@ class Live2DCharacterAdapter(
                 lastTexturePath = native.lastTexturePath,
                 lastTextureError = native.lastTextureError,
                 glTextureIds = native.glTextureIds,
+                poseFile = native.poseFile,
+                poseLoaded = native.poseLoaded,
+                poseActive = native.poseActive,
                 lifecycleState = when {
                     native.modelLoaded -> "READY"
                     native.lastError.isNotBlank() -> "FAILED"
