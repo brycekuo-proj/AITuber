@@ -144,6 +144,9 @@ class MainActivity : Activity() {
     private lateinit var live2dDisplayOffsetXValue: TextView
     private lateinit var live2dDisplayOffsetYValue: TextView
     private lateinit var live2dViewportSizeValue: TextView
+    private lateinit var live2dAnchorValue: TextView
+    private lateinit var live2dTopSafeMarginPercentValue: TextView
+    private lateinit var live2dTopSafeMarginPxValue: TextView
     private lateinit var live2dBottomSafeZonePercentValue: TextView
     private lateinit var live2dBottomSafeZonePxValue: TextView
     private lateinit var live2dTextureCountValue: TextView
@@ -513,6 +516,9 @@ class MainActivity : Activity() {
         live2dDisplayOffsetXValue = addDiagnosticField(root, "Live2D Display Offset X")
         live2dDisplayOffsetYValue = addDiagnosticField(root, "Live2D Display Offset Y")
         live2dViewportSizeValue = addDiagnosticField(root, "Live2D Viewport Size")
+        live2dAnchorValue = addDiagnosticField(root, "Live2D Anchor")
+        live2dTopSafeMarginPercentValue = addDiagnosticField(root, "Live2D Top Safe Margin %")
+        live2dTopSafeMarginPxValue = addDiagnosticField(root, "Live2D Top Safe Margin px")
         live2dBottomSafeZonePercentValue = addDiagnosticField(root, "Live2D Bottom Safe Zone %")
         live2dBottomSafeZonePxValue = addDiagnosticField(root, "Live2D Bottom Safe Zone px")
         live2dTextureCountValue = addDiagnosticField(root, "Live2D Texture Count")
@@ -1018,6 +1024,9 @@ class MainActivity : Activity() {
             live2dDisplayOffsetXValue.text = character.live2dDisplayOffsetX.toString()
             live2dDisplayOffsetYValue.text = character.live2dDisplayOffsetY.toString()
             live2dViewportSizeValue.text = "${character.live2dViewportWidth} x ${character.live2dViewportHeight}"
+            live2dAnchorValue.text = character.live2dAnchor
+            live2dTopSafeMarginPercentValue.text = "%.1f".format(character.live2dTopSafeMarginPercent)
+            live2dTopSafeMarginPxValue.text = character.live2dTopSafeMarginPx.toString()
             live2dBottomSafeZonePercentValue.text = "%.1f".format(character.live2dBottomSafeZonePercent)
             live2dBottomSafeZonePxValue.text = character.live2dBottomSafeZonePx.toString()
             live2dTextureCountValue.text = character.live2dTextureCount.toString()

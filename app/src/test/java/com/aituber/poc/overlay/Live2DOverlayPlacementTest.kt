@@ -6,16 +6,18 @@ import org.junit.Test
 
 class Live2DOverlayPlacementTest {
     @Test
-    fun samsungA16SizedViewportUsesLargerRightBottomPlacement() {
+    fun samsungA16SizedViewportUsesTopRightPlacement() {
         val placement = Live2DOverlayPlacement.compute(screenWidth = 1080, screenHeight = 2340)
 
         assertEquals(810, placement.width)
         assertEquals(1170, placement.height)
         assertEquals(2.25f, placement.displayScale, 0.001f)
+        assertEquals("TOP_RIGHT", placement.anchor)
+        assertEquals(0.08f, placement.topSafeMarginFraction, 0.001f)
+        assertEquals((2340 * 0.08f).toInt(), placement.offsetY)
         assertEquals(0.18f, placement.bottomSafeZoneFraction, 0.001f)
         assertEquals(421, placement.bottomSafeZonePx)
         assertTrue(placement.offsetX > 0)
-        assertTrue(placement.offsetY > 0)
         assertTrue(placement.offsetY + placement.height <= 2340 - placement.bottomSafeZonePx)
     }
 
@@ -32,6 +34,29 @@ class Live2DOverlayPlacementTest {
     @Test
     fun requestedDisplayScaleIsApproximatelyTwoPointTwoFive() {
         assertEquals(2.25f, Live2DOverlayPlacement.DEFAULT_DISPLAY_SCALE, 0.001f)
+    }
+
+    @Test
+    fun anchorIsTopRight() {
+        val placement = Live2DOverlayPlacement.compute(screenWidth = 1080, screenHeight = 2340)
+
+        assertEquals("TOP_RIGHT", placement.anchor)
+    }
+
+    @Test
+    fun rightMarginIsApproximatelyThreePercent() {
+        val placement = Live2DOverlayPlacement.compute(screenWidth = 1080, screenHeight = 2340)
+
+        assertEquals((1080 * 0.03f).toInt(), placement.offsetX)
+    }
+
+    @Test
+    fun overlayTopUsesTopSafeMargin() {
+        val placement = Live2DOverlayPlacement.compute(screenWidth = 1080, screenHeight = 2340)
+
+        assertEquals(0.08f, placement.topSafeMarginFraction, 0.001f)
+        assertEquals((2340 * 0.08f).toInt(), placement.topSafeMarginPx)
+        assertTrue(placement.offsetY >= placement.topSafeMarginPx)
     }
 
     @Test
@@ -59,7 +84,7 @@ class Live2DOverlayPlacementTest {
     }
 
     @Test
-    fun placementKeepsRightSideAndNearBottomOffsetsResolutionSafe() {
+    fun placementKeepsRightSideAndTopOffsetsResolutionSafe() {
         val small = Live2DOverlayPlacement.compute(screenWidth = 720, screenHeight = 1280)
         val large = Live2DOverlayPlacement.compute(screenWidth = 1440, screenHeight = 3200)
 
@@ -67,5 +92,25 @@ class Live2DOverlayPlacementTest {
         assertTrue(large.offsetY > small.offsetY)
         assertTrue(small.offsetY + small.height <= 1280 - small.bottomSafeZonePx)
         assertTrue(large.offsetY + large.height <= 3200 - large.bottomSafeZonePx)
+    }
+
+    @Test
+    fun overlayWindowRemainsWithinScreenBoundsForMultipleResolutions() {
+        listOf(
+            720 to 1280,
+            1080 to 2340,
+            1440 to 3200,
+            1200 to 1920
+        ).forEach { (screenWidth, screenHeight) ->
+            val placement = Live2DOverlayPlacement.compute(screenWidth, screenHeight)
+            val left = screenWidth - placement.offsetX - placement.width
+            val right = left + placement.width
+            val bottom = placement.offsetY + placement.height
+
+            assertTrue(left >= 0)
+            assertTrue(right <= screenWidth)
+            assertTrue(placement.offsetY >= 0)
+            assertTrue(bottom <= screenHeight - placement.bottomSafeZonePx)
+        }
     }
 }

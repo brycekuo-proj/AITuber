@@ -123,6 +123,9 @@ class CharacterOverlayService : Service() {
                 offsetY = placement.offsetY,
                 viewportWidth = placement.width,
                 viewportHeight = placement.height,
+                anchor = placement.anchor,
+                topSafeMarginFraction = placement.topSafeMarginFraction,
+                topSafeMarginPx = placement.topSafeMarginPx,
                 bottomSafeZoneFraction = placement.bottomSafeZoneFraction,
                 bottomSafeZonePx = placement.bottomSafeZonePx
             )
