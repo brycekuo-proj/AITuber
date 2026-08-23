@@ -140,6 +140,9 @@ class MainActivity : Activity() {
     private lateinit var live2dRenderFpsValue: TextView
     private lateinit var live2dNativeFrameCountValue: TextView
     private lateinit var live2dSurfaceSizeValue: TextView
+    private lateinit var live2dDisplayScaleValue: TextView
+    private lateinit var live2dDisplayOffsetValue: TextView
+    private lateinit var live2dViewportSizeValue: TextView
     private lateinit var live2dTextureCountValue: TextView
     private lateinit var live2dTexturesLoadedValue: TextView
     private lateinit var live2dLastTexturePathValue: TextView
@@ -500,6 +503,9 @@ class MainActivity : Activity() {
         live2dRenderFpsValue = addDiagnosticField(root, "Live2D Render FPS")
         live2dNativeFrameCountValue = addDiagnosticField(root, "Native Frame Count")
         live2dSurfaceSizeValue = addDiagnosticField(root, "Live2D Surface Size")
+        live2dDisplayScaleValue = addDiagnosticField(root, "Live2D Display Scale")
+        live2dDisplayOffsetValue = addDiagnosticField(root, "Live2D Display Offset")
+        live2dViewportSizeValue = addDiagnosticField(root, "Live2D Viewport Size")
         live2dTextureCountValue = addDiagnosticField(root, "Live2D Texture Count")
         live2dTexturesLoadedValue = addDiagnosticField(root, "Live2D Textures Loaded")
         live2dLastTexturePathValue = addDiagnosticField(root, "Last Texture Path")
@@ -996,6 +1002,9 @@ class MainActivity : Activity() {
             live2dRenderFpsValue.text = "%.1f".format(character.live2dRenderFps)
             live2dNativeFrameCountValue.text = character.live2dNativeFrameCount.toString()
             live2dSurfaceSizeValue.text = "${character.live2dSurfaceWidth} x ${character.live2dSurfaceHeight}"
+            live2dDisplayScaleValue.text = "%.2f".format(character.live2dDisplayScale)
+            live2dDisplayOffsetValue.text = "${character.live2dDisplayOffsetX}, ${character.live2dDisplayOffsetY}"
+            live2dViewportSizeValue.text = "${character.live2dViewportWidth} x ${character.live2dViewportHeight}"
             live2dTextureCountValue.text = character.live2dTextureCount.toString()
             live2dTexturesLoadedValue.text = character.live2dTexturesLoaded.toString()
             live2dLastTexturePathValue.text = character.live2dLastTexturePath

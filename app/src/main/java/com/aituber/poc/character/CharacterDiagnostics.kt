@@ -85,6 +85,23 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordLive2DDisplayTransform(
+        displayScale: Float,
+        offsetX: Int,
+        offsetY: Int,
+        viewportWidth: Int,
+        viewportHeight: Int
+    ) {
+        current = current.copy(
+            live2dDisplayScale = displayScale.toDouble(),
+            live2dDisplayOffsetX = offsetX,
+            live2dDisplayOffsetY = offsetY,
+            live2dViewportWidth = viewportWidth,
+            live2dViewportHeight = viewportHeight
+        )
+    }
+
+    @Synchronized
     fun reset(requestedMode: CharacterMode = CharacterMode.MINIMAL_MOUTH) {
         current = CharacterDiagnosticsSnapshot.empty().copy(
             characterMode = requestedMode.name,
@@ -127,6 +144,11 @@ data class CharacterDiagnosticsSnapshot(
     val live2dNativeFrameCount: Long,
     val live2dSurfaceWidth: Int,
     val live2dSurfaceHeight: Int,
+    val live2dDisplayScale: Double,
+    val live2dDisplayOffsetX: Int,
+    val live2dDisplayOffsetY: Int,
+    val live2dViewportWidth: Int,
+    val live2dViewportHeight: Int,
     val live2dTextureCount: Int,
     val live2dTexturesLoaded: Int,
     val live2dLastTexturePath: String,
@@ -157,6 +179,11 @@ data class CharacterDiagnosticsSnapshot(
             live2dNativeFrameCount = 0L,
             live2dSurfaceWidth = 0,
             live2dSurfaceHeight = 0,
+            live2dDisplayScale = 0.0,
+            live2dDisplayOffsetX = 0,
+            live2dDisplayOffsetY = 0,
+            live2dViewportWidth = 0,
+            live2dViewportHeight = 0,
             live2dTextureCount = 0,
             live2dTexturesLoaded = 0,
             live2dLastTexturePath = "n/a",

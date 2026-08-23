@@ -109,23 +109,40 @@ class CharacterOverlayService : Service() {
         super.onDestroy()
     }
 
-    private fun overlayLayoutParams(live2dActive: Boolean) = WindowManager.LayoutParams(
-        if (live2dActive) 360 else 180,
-        if (live2dActive) 520 else 90,
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    private fun overlayLayoutParams(live2dActive: Boolean): WindowManager.LayoutParams {
+        val placement = if (live2dActive) {
+            val metrics = resources.displayMetrics
+            Live2DOverlayPlacement.compute(metrics.widthPixels, metrics.heightPixels)
         } else {
-            @Suppress("DEPRECATION")
-            WindowManager.LayoutParams.TYPE_PHONE
-        },
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-        PixelFormat.TRANSLUCENT
-    ).apply {
-        gravity = Gravity.TOP or Gravity.END
-        x = 32
-        y = if (live2dActive) 180 else 220
+            null
+        }
+        if (placement != null) {
+            CharacterDiagnostics.recordLive2DDisplayTransform(
+                displayScale = placement.displayScale,
+                offsetX = placement.offsetX,
+                offsetY = placement.offsetY,
+                viewportWidth = placement.width,
+                viewportHeight = placement.height
+            )
+        }
+        return WindowManager.LayoutParams(
+            placement?.width ?: 180,
+            placement?.height ?: 90,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            },
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            x = placement?.offsetX ?: 32
+            y = placement?.offsetY ?: 220
+        }
     }
 
     private fun createOverlaySelection(): OverlaySelection {
