@@ -5,9 +5,7 @@ object MouthDriveDiagnostics {
     private var current = MouthDriveSnapshot.empty()
 
     fun update(
-        mode: MouthDriveMode,
-        targetOpen: Double?,
-        smoothedOpen: Double,
+        frame: MouthDriveFrame,
         gateFrame: MouthSilenceGateFrame = MouthSilenceGateFrame(
             mouthActive = false,
             audible = false,
@@ -22,9 +20,13 @@ object MouthDriveDiagnostics {
         )
     ) {
         current = MouthDriveSnapshot(
-            mode = mode.name,
-            targetOpen = targetOpen,
-            smoothedOpen = smoothedOpen,
+            mode = frame.mode.name,
+            targetOpen = frame.targetOpen,
+            smoothedOpen = frame.smoothedOpen,
+            mouthCloseMode = frame.closeMode.name,
+            mouthActiveCloseTimeConstantMs = frame.activeTimeConstantMs,
+            silenceCloseStartTimeMs = frame.silenceCloseStartTimeMs,
+            silenceCloseDurationMs = frame.silenceCloseDurationMs,
             mouthAudible = if (gateFrame.audible) "YES" else "NO",
             mouthGateState = gateFrame.gateState.name,
             mouthLastAudibleTimeMs = gateFrame.lastAudibleTimeMs,
@@ -47,6 +49,10 @@ data class MouthDriveSnapshot(
     val mode: String,
     val targetOpen: Double?,
     val smoothedOpen: Double,
+    val mouthCloseMode: String,
+    val mouthActiveCloseTimeConstantMs: Long,
+    val silenceCloseStartTimeMs: Long?,
+    val silenceCloseDurationMs: Long,
     val mouthAudible: String,
     val mouthGateState: String,
     val mouthLastAudibleTimeMs: Long?,
@@ -61,6 +67,10 @@ data class MouthDriveSnapshot(
             mode = MouthDriveMode.CLOSED.name,
             targetOpen = 0.0,
             smoothedOpen = 0.0,
+            mouthCloseMode = MouthCloseMode.CLOSED.name,
+            mouthActiveCloseTimeConstantMs = 0L,
+            silenceCloseStartTimeMs = null,
+            silenceCloseDurationMs = 0L,
             mouthAudible = "NO",
             mouthGateState = MouthGateState.SILENT.name,
             mouthLastAudibleTimeMs = null,

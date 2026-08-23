@@ -84,6 +84,10 @@ class MainActivity : Activity() {
     private lateinit var mouthLastAudibleTimeValue: TextView
     private lateinit var mouthSilenceDurationValue: TextView
     private lateinit var mouthSilenceHoldRemainingValue: TextView
+    private lateinit var mouthCloseModeValue: TextView
+    private lateinit var mouthActiveCloseTimeConstantValue: TextView
+    private lateinit var silenceCloseStartTimeValue: TextView
+    private lateinit var silenceCloseDurationValue: TextView
     private lateinit var mouthGateRmsValue: TextView
     private lateinit var mouthGatePeakValue: TextView
     private lateinit var mouthGateActivityValue: TextView
@@ -399,6 +403,10 @@ class MainActivity : Activity() {
         mouthLastAudibleTimeValue = addDiagnosticField(root, "Mouth Last Audible Time")
         mouthSilenceDurationValue = addDiagnosticField(root, "Mouth Silence Duration")
         mouthSilenceHoldRemainingValue = addDiagnosticField(root, "Mouth Silence Hold Remaining")
+        mouthCloseModeValue = addDiagnosticField(root, "Mouth Close Mode")
+        mouthActiveCloseTimeConstantValue = addDiagnosticField(root, "Mouth Active Close Time Constant")
+        silenceCloseStartTimeValue = addDiagnosticField(root, "Silence Close Start Time")
+        silenceCloseDurationValue = addDiagnosticField(root, "Silence Close Duration")
         mouthGateRmsValue = addDiagnosticField(root, "Mouth Gate RMS")
         mouthGatePeakValue = addDiagnosticField(root, "Mouth Gate Peak")
         mouthGateActivityValue = addDiagnosticField(root, "Mouth Gate Activity Ratio")
@@ -834,6 +842,10 @@ class MainActivity : Activity() {
             mouthLastAudibleTimeValue.text = mouthDrive.mouthLastAudibleTimeMs?.let { "$it ms" } ?: "n/a"
             mouthSilenceDurationValue.text = mouthDrive.mouthSilenceDurationMs?.let { "$it ms" } ?: "n/a"
             mouthSilenceHoldRemainingValue.text = "${mouthDrive.mouthSilenceHoldRemainingMs} ms"
+            mouthCloseModeValue.text = mouthDrive.mouthCloseMode
+            mouthActiveCloseTimeConstantValue.text = "${mouthDrive.mouthActiveCloseTimeConstantMs} ms"
+            silenceCloseStartTimeValue.text = mouthDrive.silenceCloseStartTimeMs?.let { "$it ms" } ?: "n/a"
+            silenceCloseDurationValue.text = "${mouthDrive.silenceCloseDurationMs} ms"
             mouthGateRmsValue.text = "%.3f".format(mouthDrive.mouthGateRms)
             mouthGatePeakValue.text = "%.3f".format(mouthDrive.mouthGatePeak)
             mouthGateActivityValue.text = "%.3f".format(mouthDrive.mouthGateActivityRatio)

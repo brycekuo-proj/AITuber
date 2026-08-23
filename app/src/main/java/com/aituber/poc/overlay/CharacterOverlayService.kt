@@ -186,7 +186,7 @@ class CharacterOverlayService : Service() {
             nowMs = nowMs
         )
         mouthDriveMode = frame.mode
-        MouthDriveDiagnostics.update(frame.mode, frame.targetOpen, frame.smoothedOpen, gateFrame)
+        MouthDriveDiagnostics.update(frame, gateFrame)
         MouthRenderDiagnostics.recordMapper(frame.mode, frame.targetOpen, frame.smoothedOpen)
         MouthRenderDiagnostics.recordOverlaySnapshot(
             state = snapshot.state,

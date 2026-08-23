@@ -72,7 +72,7 @@ class MouthSilenceGate(
         val mouthRmsFloor: Double = 0.025,
         val mouthPeakFloor: Double = 0.10,
         val mouthActivityFloor: Double = 0.08,
-        val silenceHoldMs: Long = 80L
+        val silenceHoldMs: Long = 35L
     )
 }
 

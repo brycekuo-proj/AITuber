@@ -3,6 +3,7 @@ package com.aituber.poc.overlay
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.VisualizerWaveformMetrics
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,6 +19,7 @@ class MouthAmplitudeMapperTest {
         )
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
         assertTrue(frame.targetOpen!! in 0.18..0.35)
     }
 
@@ -154,7 +156,9 @@ class MouthAmplitudeMapperTest {
         )
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, frame.closeMode)
         assertEquals(0.0, frame.targetOpen!!, 0.0001)
+        assertEquals(70L, frame.activeTimeConstantMs)
     }
 
     @Test
@@ -170,6 +174,7 @@ class MouthAmplitudeMapperTest {
         )
 
         assertEquals(MouthDriveMode.PSEUDO_FALLBACK, frame.mode)
+        assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
         assertEquals(null, frame.targetOpen)
     }
 
@@ -193,8 +198,171 @@ class MouthAmplitudeMapperTest {
         )
 
         assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, frame.closeMode)
         assertEquals(0.0, frame.targetOpen!!, 0.0001)
         assertTrue(frame.smoothedOpen >= 0.0)
+    }
+
+    @Test
+    fun speakingWithMouthActiveKeepsMinOpenAndNormalReleaseMode() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.081, peak = 0.20, activityRatio = 0.10),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
+        assertTrue(frame.targetOpen!! >= 0.18)
+        assertTrue(frame.targetOpen!! < 0.19)
+        assertEquals(100L, frame.activeTimeConstantMs)
+    }
+
+    @Test
+    fun speakingWithMouthInactiveUsesSilenceCloseInsteadOfNormalRelease() {
+        val mapper = MouthAmplitudeMapper()
+        seedOpenMouth(mapper)
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+
+        assertEquals(0.0, frame.targetOpen!!, 0.0001)
+        assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, frame.closeMode)
+        assertEquals(70L, frame.activeTimeConstantMs)
+        assertEquals(1_150L, frame.silenceCloseStartTimeMs)
+        assertEquals(0L, frame.silenceCloseDurationMs)
+    }
+
+    @Test
+    fun silenceFastCloseIsFasterThanNormalReleaseForSameElapsedTime() {
+        val fastCloseMapper = MouthAmplitudeMapper()
+        val normalReleaseMapper = MouthAmplitudeMapper()
+        seedOpenMouth(fastCloseMapper)
+        seedOpenMouth(normalReleaseMapper)
+
+        val fastClose = fastCloseMapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+        val normalRelease = normalReleaseMapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.08, peak = 0.20, activityRatio = 0.20),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+
+        assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, fastClose.closeMode)
+        assertEquals(MouthCloseMode.NORMAL_RELEASE, normalRelease.closeMode)
+        assertTrue(fastClose.smoothedOpen < normalRelease.smoothedOpen)
+    }
+
+    @Test
+    fun silentToActiveImmediatelyReturnsToRmsMode() {
+        val mapper = MouthAmplitudeMapper()
+        seedOpenMouth(mapper)
+        mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.30, peak = 0.80, activityRatio = 0.70),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_180L
+        )
+
+        assertEquals(MouthDriveMode.RMS, frame.mode)
+        assertEquals(MouthCloseMode.NORMAL_RELEASE, frame.closeMode)
+        assertTrue(frame.targetOpen!! > 0.55)
+        assertEquals(null, frame.silenceCloseStartTimeMs)
+    }
+
+    @Test
+    fun idleClosesImmediatelyWithClosedMode() {
+        val mapper = MouthAmplitudeMapper()
+        seedOpenMouth(mapper)
+
+        val frame = mapper.evaluate(
+            UniversalAiState.IDLE,
+            VisualizerWaveformMetrics(rms = 0.40, peak = 0.99, activityRatio = 0.90),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+
+        assertEquals(MouthDriveMode.CLOSED, frame.mode)
+        assertEquals(MouthCloseMode.CLOSED, frame.closeMode)
+        assertEquals(0.0, frame.targetOpen!!, 0.0001)
+        assertEquals(0.0, frame.smoothedOpen, 0.0001)
+        assertTrue(frame.shouldRender)
+    }
+
+    @Test
+    fun silenceCloseDiagnosticsTrackDurationUntilAudioReturns() {
+        val mapper = MouthAmplitudeMapper()
+        seedOpenMouth(mapper)
+        mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_150L
+        )
+
+        val stillSilent = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_220L
+        )
+        val audible = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics(rms = 0.30, peak = 0.80, activityRatio = 0.70),
+            mouthActive = true,
+            visualizerAvailable = true,
+            nowMs = 1_250L
+        )
+
+        assertEquals(1_150L, stillSilent.silenceCloseStartTimeMs)
+        assertEquals(70L, stillSilent.silenceCloseDurationMs)
+        assertEquals(null, audible.silenceCloseStartTimeMs)
+        assertEquals(0L, audible.silenceCloseDurationMs)
+    }
+
+    @Test
+    fun silenceFrameMaySkipRenderWhenAlreadyClosedButAccumulatorStillCloses() {
+        val mapper = MouthAmplitudeMapper()
+
+        val frame = mapper.evaluate(
+            UniversalAiState.SPEAKING,
+            VisualizerWaveformMetrics.zero(),
+            mouthActive = false,
+            visualizerAvailable = true,
+            nowMs = 1_000L
+        )
+
+        assertEquals(0.0, frame.smoothedOpen, 0.0001)
+        assertFalse(frame.shouldRender)
+        assertEquals(MouthCloseMode.SILENCE_FAST_CLOSE, frame.closeMode)
     }
 
     @Test
@@ -228,5 +396,11 @@ class MouthAmplitudeMapperTest {
 
         assertEquals(MouthDriveMode.CLOSED, frame.mode)
         assertEquals(0.0, frame.smoothedOpen, 0.0001)
+    }
+
+    private fun seedOpenMouth(mapper: MouthAmplitudeMapper) {
+        val loud = VisualizerWaveformMetrics(rms = 0.50, peak = 0.95, activityRatio = 0.90)
+        mapper.evaluate(UniversalAiState.SPEAKING, loud, mouthActive = true, visualizerAvailable = true, nowMs = 1_000L)
+        mapper.evaluate(UniversalAiState.SPEAKING, loud, mouthActive = true, visualizerAvailable = true, nowMs = 1_100L)
     }
 }
