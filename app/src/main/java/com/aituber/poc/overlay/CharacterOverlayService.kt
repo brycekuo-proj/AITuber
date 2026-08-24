@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
@@ -38,6 +39,7 @@ class CharacterOverlayService : Service() {
     private var animationRunning = false
     private var mouthDriveMode = MouthDriveMode.CLOSED
     private var dragState: Live2DDragState? = null
+    private var live2dCurrentScale = Live2DOverlayScaleMath.DEFAULT_SCALE
 
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
@@ -118,14 +120,20 @@ class CharacterOverlayService : Service() {
     private fun overlayLayoutParams(live2dActive: Boolean): WindowManager.LayoutParams {
         val placement = if (live2dActive) {
             val metrics = resources.displayMetrics
+            val positionStore = Live2DOverlayPositionStore(this)
             Live2DOverlayPlacement.compute(
                 screenWidth = metrics.widthPixels,
                 screenHeight = metrics.heightPixels,
                 systemTopInsetPx = systemTopInsetPx(),
-                topInsetMarginPx = (8f * metrics.density).toInt()
+                topInsetMarginPx = (8f * metrics.density).toInt(),
+                density = metrics.density,
+                requestedScale = positionStore.loadScale() ?: Live2DOverlayPlacement.DEFAULT_DISPLAY_SCALE
             )
         } else {
             null
+        }
+        if (placement != null) {
+            live2dCurrentScale = placement.displayScale
         }
         val windowType = OverlayWindowConfig.windowType()
         val windowFlags = if (placement != null) {
@@ -150,27 +158,13 @@ class CharacterOverlayService : Service() {
             null
         }
         if (placement != null) {
-            CharacterDiagnostics.recordLive2DDisplayTransform(
-                displayScale = placement.displayScale,
-                offsetX = position?.x ?: placement.offsetX,
-                offsetY = position?.y ?: placement.offsetY,
-                viewportWidth = placement.width,
-                viewportHeight = placement.height,
-                anchor = placement.anchor,
-                rightMarginFraction = placement.rightMarginFraction,
-                rightMarginPx = placement.rightMarginPx,
-                topSafeMarginFraction = placement.topSafeMarginFraction,
-                topSafeMarginPx = placement.topSafeMarginPx,
-                bottomSafeZoneFraction = placement.bottomSafeZoneFraction,
-                bottomSafeZonePx = placement.bottomSafeZonePx,
+            recordLive2DPlacementDiagnostics(
+                placement = placement,
+                position = position ?: Live2DOverlayPosition(placement.offsetX, placement.offsetY),
                 windowType = windowType,
-                windowAlpha = OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA,
-                flagNotTouchable = OverlayWindowConfig.hasNotTouchable(windowFlags),
-                flagNotFocusable = OverlayWindowConfig.hasNotFocusable(windowFlags),
-                dragEnabled = true,
+                windowFlags = windowFlags,
                 dragging = false,
-                windowTouchable = OverlayWindowConfig.isTouchable(windowFlags),
-                positionSaved = positionStore?.isSaved() == true
+                positionSaved = positionStore?.isSaved() == true || positionStore?.isScaleSaved() == true
             )
         }
         return WindowManager.LayoutParams(
@@ -201,7 +195,77 @@ class CharacterOverlayService : Service() {
     private fun installLive2DDrag(view: View, params: WindowManager.LayoutParams) {
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         val positionStore = Live2DOverlayPositionStore(this)
+        val scaleDetector = ScaleGestureDetector(
+            this,
+            object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                    dragState = null
+                    CharacterDiagnostics.recordLive2DDragState(
+                        dragging = false,
+                        x = params.x,
+                        y = params.y,
+                        positionSaved = positionStore.isSaved() || positionStore.isScaleSaved()
+                    )
+                    return true
+                }
+
+                override fun onScale(detector: ScaleGestureDetector): Boolean {
+                    val metrics = resources.displayMetrics
+                    val range = Live2DOverlayScaleMath.scaleRange(metrics.heightPixels, metrics.density)
+                    val nextScale = Live2DOverlayScaleMath.clampScale(
+                        live2dCurrentScale * detector.scaleFactor,
+                        range
+                    )
+                    if (kotlin.math.abs(nextScale - live2dCurrentScale) < 0.001f) return true
+
+                    val currentSize = Live2DOverlayDimensions(params.width, params.height)
+                    val nextSize = Live2DOverlayScaleMath.dimensionsForScale(nextScale)
+                    val nextPosition = Live2DOverlayScaleMath.resizeAroundFocus(
+                        currentPosition = Live2DOverlayPosition(params.x, params.y),
+                        currentSize = currentSize,
+                        nextSize = nextSize,
+                        focusX = params.x + detector.focusX,
+                        focusY = params.y + detector.focusY,
+                        bounds = Live2DOverlayBounds(
+                            screenWidth = metrics.widthPixels,
+                            screenHeight = metrics.heightPixels,
+                            overlayWidth = nextSize.width,
+                            overlayHeight = nextSize.height
+                        )
+                    )
+
+                    live2dCurrentScale = nextScale
+                    params.width = nextSize.width
+                    params.height = nextSize.height
+                    params.x = nextPosition.x
+                    params.y = nextPosition.y
+                    windowManager?.updateViewLayout(view, params)
+                    recordLive2DCurrentTransform(
+                        params = params,
+                        dragging = false,
+                        positionSaved = positionStore.isSaved() || positionStore.isScaleSaved()
+                    )
+                    return true
+                }
+
+                override fun onScaleEnd(detector: ScaleGestureDetector) {
+                    positionStore.save(Live2DOverlayPosition(params.x, params.y), live2dCurrentScale)
+                    recordLive2DCurrentTransform(
+                        params = params,
+                        dragging = false,
+                        positionSaved = true
+                    )
+                }
+            }
+        )
         view.setOnTouchListener { _, event ->
+            scaleDetector.onTouchEvent(event)
+            if (event.pointerCount > 1 || scaleDetector.isInProgress) {
+                if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+                    dragState = null
+                }
+                return@setOnTouchListener true
+            }
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     dragState = Live2DDragState(
@@ -215,7 +279,7 @@ class CharacterOverlayService : Service() {
                         dragging = false,
                         x = params.x,
                         y = params.y,
-                        positionSaved = positionStore.isSaved()
+                        positionSaved = positionStore.isSaved() || positionStore.isScaleSaved()
                     )
                     true
                 }
@@ -242,7 +306,7 @@ class CharacterOverlayService : Service() {
                             dragging = true,
                             x = params.x,
                             y = params.y,
-                            positionSaved = positionStore.isSaved()
+                            positionSaved = positionStore.isSaved() || positionStore.isScaleSaved()
                         )
                     }
                     true
@@ -256,13 +320,13 @@ class CharacterOverlayService : Service() {
                     params.x = finalPosition.x
                     params.y = finalPosition.y
                     if (dragState?.dragging == true) {
-                        positionStore.save(finalPosition)
+                        positionStore.save(finalPosition, live2dCurrentScale)
                     }
                     CharacterDiagnostics.recordLive2DDragState(
                         dragging = false,
                         x = params.x,
                         y = params.y,
-                        positionSaved = positionStore.isSaved()
+                        positionSaved = positionStore.isSaved() || positionStore.isScaleSaved()
                     )
                     dragState = null
                     true
@@ -278,12 +342,6 @@ class CharacterOverlayService : Service() {
         overlayHeight: Int
     ): Live2DOverlayPosition {
         val metrics = resources.displayMetrics
-        val placement = Live2DOverlayPlacement.compute(
-            screenWidth = metrics.widthPixels,
-            screenHeight = metrics.heightPixels,
-            systemTopInsetPx = systemTopInsetPx(),
-            topInsetMarginPx = (8f * metrics.density).toInt()
-        )
         return Live2DOverlayDragMath.clamp(
             position = position,
             bounds = Live2DOverlayBounds(
@@ -292,6 +350,66 @@ class CharacterOverlayService : Service() {
                 overlayWidth = overlayWidth,
                 overlayHeight = overlayHeight
             )
+        )
+    }
+
+    private fun recordLive2DCurrentTransform(
+        params: WindowManager.LayoutParams,
+        dragging: Boolean,
+        positionSaved: Boolean
+    ) {
+        val metrics = resources.displayMetrics
+        val placement = Live2DOverlayPlacement.compute(
+            screenWidth = metrics.widthPixels,
+            screenHeight = metrics.heightPixels,
+            systemTopInsetPx = systemTopInsetPx(),
+            topInsetMarginPx = (8f * metrics.density).toInt(),
+            density = metrics.density,
+            requestedScale = live2dCurrentScale
+        )
+        recordLive2DPlacementDiagnostics(
+            placement = placement,
+            position = Live2DOverlayPosition(params.x, params.y),
+            windowType = OverlayWindowConfig.windowType(),
+            windowFlags = OverlayWindowConfig.live2dFlags(),
+            dragging = dragging,
+            positionSaved = positionSaved
+        )
+    }
+
+    private fun recordLive2DPlacementDiagnostics(
+        placement: Live2DOverlayPlacementFrame,
+        position: Live2DOverlayPosition,
+        windowType: Int,
+        windowFlags: Int,
+        dragging: Boolean,
+        positionSaved: Boolean
+    ) {
+        CharacterDiagnostics.recordLive2DDisplayTransform(
+            displayScale = placement.displayScale,
+            minScale = placement.minScale,
+            defaultScale = placement.defaultScale,
+            maxScale = placement.maxScale,
+            visibleHeightPercent = placement.visibleHeightPercent,
+            offsetX = position.x,
+            offsetY = position.y,
+            viewportWidth = placement.width,
+            viewportHeight = placement.height,
+            anchor = placement.anchor,
+            rightMarginFraction = placement.rightMarginFraction,
+            rightMarginPx = placement.rightMarginPx,
+            topSafeMarginFraction = placement.topSafeMarginFraction,
+            topSafeMarginPx = placement.topSafeMarginPx,
+            bottomSafeZoneFraction = placement.bottomSafeZoneFraction,
+            bottomSafeZonePx = placement.bottomSafeZonePx,
+            windowType = windowType,
+            windowAlpha = OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA,
+            flagNotTouchable = OverlayWindowConfig.hasNotTouchable(windowFlags),
+            flagNotFocusable = OverlayWindowConfig.hasNotFocusable(windowFlags),
+            dragEnabled = true,
+            dragging = dragging,
+            windowTouchable = OverlayWindowConfig.isTouchable(windowFlags),
+            positionSaved = positionSaved
         )
     }
 

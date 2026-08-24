@@ -141,6 +141,10 @@ class MainActivity : Activity() {
     private lateinit var live2dNativeFrameCountValue: TextView
     private lateinit var live2dSurfaceSizeValue: TextView
     private lateinit var live2dDisplayScaleValue: TextView
+    private lateinit var live2dMinScaleValue: TextView
+    private lateinit var live2dDefaultScaleValue: TextView
+    private lateinit var live2dMaxScaleValue: TextView
+    private lateinit var live2dVisibleHeightPercentValue: TextView
     private lateinit var live2dDisplayOffsetXValue: TextView
     private lateinit var live2dDisplayOffsetYValue: TextView
     private lateinit var live2dViewportSizeValue: TextView
@@ -525,6 +529,10 @@ class MainActivity : Activity() {
         live2dNativeFrameCountValue = addDiagnosticField(root, "Native Frame Count")
         live2dSurfaceSizeValue = addDiagnosticField(root, "Live2D Surface Size")
         live2dDisplayScaleValue = addDiagnosticField(root, "Live2D Display Scale")
+        live2dMinScaleValue = addDiagnosticField(root, "Live2D Min Scale")
+        live2dDefaultScaleValue = addDiagnosticField(root, "Live2D Default Scale")
+        live2dMaxScaleValue = addDiagnosticField(root, "Live2D Max Scale")
+        live2dVisibleHeightPercentValue = addDiagnosticField(root, "Live2D Visible Height %")
         live2dDisplayOffsetXValue = addDiagnosticField(root, "Live2D Display Offset X")
         live2dDisplayOffsetYValue = addDiagnosticField(root, "Live2D Display Offset Y")
         live2dViewportSizeValue = addDiagnosticField(root, "Live2D Viewport Size")
@@ -1045,6 +1053,10 @@ class MainActivity : Activity() {
             live2dNativeFrameCountValue.text = character.live2dNativeFrameCount.toString()
             live2dSurfaceSizeValue.text = "${character.live2dSurfaceWidth} x ${character.live2dSurfaceHeight}"
             live2dDisplayScaleValue.text = "%.2f".format(character.live2dDisplayScale)
+            live2dMinScaleValue.text = "%.2f".format(character.live2dMinScale)
+            live2dDefaultScaleValue.text = "%.2f".format(character.live2dDefaultScale)
+            live2dMaxScaleValue.text = "%.2f".format(character.live2dMaxScale)
+            live2dVisibleHeightPercentValue.text = "%.1f".format(character.live2dVisibleHeightPercent)
             live2dDisplayOffsetXValue.text = character.live2dDisplayOffsetX.toString()
             live2dDisplayOffsetYValue.text = character.live2dDisplayOffsetY.toString()
             live2dViewportSizeValue.text = "${character.live2dViewportWidth} x ${character.live2dViewportHeight}"

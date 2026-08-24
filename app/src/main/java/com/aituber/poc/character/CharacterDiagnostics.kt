@@ -90,6 +90,10 @@ object CharacterDiagnostics {
     @Synchronized
     fun recordLive2DDisplayTransform(
         displayScale: Float,
+        minScale: Float,
+        defaultScale: Float,
+        maxScale: Float,
+        visibleHeightPercent: Double,
         offsetX: Int,
         offsetY: Int,
         viewportWidth: Int,
@@ -112,6 +116,10 @@ object CharacterDiagnostics {
     ) {
         current = current.copy(
             live2dDisplayScale = displayScale.toDouble(),
+            live2dMinScale = minScale.toDouble(),
+            live2dDefaultScale = defaultScale.toDouble(),
+            live2dMaxScale = maxScale.toDouble(),
+            live2dVisibleHeightPercent = visibleHeightPercent,
             live2dDisplayOffsetX = offsetX,
             live2dDisplayOffsetY = offsetY,
             live2dViewportWidth = viewportWidth,
@@ -197,6 +205,10 @@ data class CharacterDiagnosticsSnapshot(
     val live2dSurfaceWidth: Int,
     val live2dSurfaceHeight: Int,
     val live2dDisplayScale: Double,
+    val live2dMinScale: Double,
+    val live2dDefaultScale: Double,
+    val live2dMaxScale: Double,
+    val live2dVisibleHeightPercent: Double,
     val live2dDisplayOffsetX: Int,
     val live2dDisplayOffsetY: Int,
     val live2dViewportWidth: Int,
@@ -252,6 +264,10 @@ data class CharacterDiagnosticsSnapshot(
             live2dSurfaceWidth = 0,
             live2dSurfaceHeight = 0,
             live2dDisplayScale = 0.0,
+            live2dMinScale = 0.0,
+            live2dDefaultScale = 0.0,
+            live2dMaxScale = 0.0,
+            live2dVisibleHeightPercent = 0.0,
             live2dDisplayOffsetX = 0,
             live2dDisplayOffsetY = 0,
             live2dViewportWidth = 0,
