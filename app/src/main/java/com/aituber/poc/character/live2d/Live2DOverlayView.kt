@@ -12,7 +12,8 @@ import javax.microedition.khronos.opengles.GL10
 
 class Live2DOverlayView(
     context: Context,
-    val bridge: Live2DNativeBridge = Live2DNativeBridge(),
+    val profile: Live2DCharacterProfile = Live2DCharacterProfiles.Haru,
+    val bridge: Live2DNativeBridge = Live2DNativeBridge(profile),
     private val onRuntimeFailure: (String) -> Unit = {}
 ) : GLSurfaceView(context) {
     @Volatile
@@ -98,6 +99,17 @@ class Live2DOverlayView(
         CharacterDiagnostics.recordLive2D(
             Live2DDiagnosticsSnapshot(
                 available = bridge.available,
+                profileId = profile.id,
+                profileName = profile.displayName,
+                model3File = profile.model3File,
+                mappedMouthParameter = profile.parameterMapping.mouthOpen,
+                mappedLeftEyeParameter = profile.parameterMapping.eyeLeftOpen,
+                mappedRightEyeParameter = profile.parameterMapping.eyeRightOpen,
+                mappedBreathParameter = profile.parameterMapping.breath,
+                capabilityIdle = profile.capabilities.idleMotion,
+                capabilityPhysics = profile.capabilities.physics,
+                capabilityPose = profile.capabilities.pose,
+                capabilityExpressions = profile.capabilities.expressions,
                 runtimeLoaded = snapshot.runtimeLoaded,
                 coreLoaded = snapshot.coreLoaded,
                 modelLoaded = snapshot.modelLoaded,

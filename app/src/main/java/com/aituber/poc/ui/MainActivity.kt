@@ -25,6 +25,8 @@ import com.aituber.poc.character.BreathDiagnostics
 import com.aituber.poc.character.CharacterCapabilities
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
+import com.aituber.poc.character.live2d.Live2DCharacterProfiles
+import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
@@ -77,6 +79,7 @@ class MainActivity : Activity() {
     private lateinit var overlayToggleButton: Button
     private lateinit var characterModeToggleButton: Button
     private lateinit var diagnosticsToggleButton: Button
+    private lateinit var live2dModelToggleButton: Button
     private lateinit var testBreathButton: Button
     private lateinit var testIdleButton: Button
     private lateinit var testPhysicsButton: Button
@@ -137,6 +140,17 @@ class MainActivity : Activity() {
     private lateinit var characterFrameCountValue: TextView
     private lateinit var characterMouthInputValue: TextView
     private lateinit var characterMouthOutputValue: TextView
+    private lateinit var live2dProfileIdValue: TextView
+    private lateinit var live2dProfileNameValue: TextView
+    private lateinit var live2dModel3FileValue: TextView
+    private lateinit var live2dMappedMouthParameterValue: TextView
+    private lateinit var live2dMappedLeftEyeParameterValue: TextView
+    private lateinit var live2dMappedRightEyeParameterValue: TextView
+    private lateinit var live2dMappedBreathParameterValue: TextView
+    private lateinit var live2dCapabilityIdleValue: TextView
+    private lateinit var live2dCapabilityPhysicsValue: TextView
+    private lateinit var live2dCapabilityPoseValue: TextView
+    private lateinit var live2dCapabilityExpressionsValue: TextView
     private lateinit var blinkEnabledValue: TextView
     private lateinit var blinkStateValue: TextView
     private lateinit var blinkLeftEyeOpenValue: TextView
@@ -356,6 +370,9 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val selectedProfile = Live2DProfileStore.load(this)
+        CharacterOverlayService.requestedLive2DProfileId = selectedProfile.id
+        CharacterDiagnostics.recordLive2DProfile(selectedProfile)
         playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
             CaptureSessionState.updatePlaybackProbe(snapshot)
         }
@@ -562,6 +579,10 @@ class MainActivity : Activity() {
         mouthPipelineDrawThreadValue = addDiagnosticField(root, "Draw Thread")
 
         root.addView(sectionTitle("Character Engine"))
+        live2dModelToggleButton = addButton(
+            root,
+            DebugControlLabels.live2dModel(CharacterOverlayService.requestedLive2DProfile().displayName)
+        ) { toggleLive2DProfile() }
         addButton(root, DebugControlLabels.TEST_BLINK) { CharacterOverlayService.testBlinkForDebug() }
         testBreathButton = addButton(root, DebugControlLabels.testBreath(CharacterDiagnostics.snapshot().live2dBreathParameterStatus)) {
             if (CharacterCapabilities.supportsBreath(CharacterDiagnostics.snapshot().live2dBreathParameterStatus)) {
@@ -592,6 +613,17 @@ class MainActivity : Activity() {
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
         characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
         characterMouthOutputValue = addDiagnosticField(root, "Mouth Parameter Output")
+        live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
+        live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
+        live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
+        live2dMappedMouthParameterValue = addDiagnosticField(root, "Mapped Mouth Parameter")
+        live2dMappedLeftEyeParameterValue = addDiagnosticField(root, "Mapped Left Eye Parameter")
+        live2dMappedRightEyeParameterValue = addDiagnosticField(root, "Mapped Right Eye Parameter")
+        live2dMappedBreathParameterValue = addDiagnosticField(root, "Mapped Breath Parameter")
+        live2dCapabilityIdleValue = addDiagnosticField(root, "Capability Idle")
+        live2dCapabilityPhysicsValue = addDiagnosticField(root, "Capability Physics")
+        live2dCapabilityPoseValue = addDiagnosticField(root, "Capability Pose")
+        live2dCapabilityExpressionsValue = addDiagnosticField(root, "Capability Expressions")
         blinkEnabledValue = addDiagnosticField(root, "Blink Enabled")
         blinkStateValue = addDiagnosticField(root, "Blink State")
         blinkLeftEyeOpenValue = addDiagnosticField(root, "Eye L Open")
@@ -943,6 +975,19 @@ class MainActivity : Activity() {
         refreshControlLabels()
     }
 
+    private fun toggleLive2DProfile() {
+        val nextProfile = Live2DCharacterProfiles.next(CharacterOverlayService.requestedLive2DProfileId)
+        Live2DProfileStore.save(this, nextProfile)
+        CharacterOverlayService.requestedLive2DProfileId = nextProfile.id
+        CharacterDiagnostics.recordLive2DProfile(nextProfile)
+        OverlayLifecycleTrace.record("live2d profile requested ${nextProfile.id}")
+        if (CharacterOverlayService.isRunning && CharacterOverlayService.requestedCharacterMode == CharacterMode.LIVE2D) {
+            stopService(Intent(this, CharacterOverlayService::class.java))
+            uiHandler.postDelayed({ enableMouthOverlay() }, 150L)
+        }
+        refreshControlLabels()
+    }
+
     private fun refreshControlLabels() {
         if (::captureToggleButton.isInitialized) {
             captureToggleButton.text = DebugControlLabels.capture(CaptureSessionService.isRunning)
@@ -955,6 +1000,11 @@ class MainActivity : Activity() {
         }
         if (::diagnosticsToggleButton.isInitialized) {
             diagnosticsToggleButton.text = DebugControlLabels.diagnostics(diagnosticsExpanded)
+        }
+        if (::live2dModelToggleButton.isInitialized) {
+            live2dModelToggleButton.text = DebugControlLabels.live2dModel(
+                CharacterOverlayService.requestedLive2DProfile().displayName
+            )
         }
     }
 
@@ -1197,6 +1247,17 @@ class MainActivity : Activity() {
             characterFrameCountValue.text = character.characterFrameCount.toString()
             characterMouthInputValue.text = "%.3f".format(character.mouthParameterInput)
             characterMouthOutputValue.text = "%.3f".format(character.mouthParameterOutput)
+            live2dProfileIdValue.text = character.live2dProfileId
+            live2dProfileNameValue.text = character.live2dProfileName
+            live2dModel3FileValue.text = character.live2dModel3File
+            live2dMappedMouthParameterValue.text = character.live2dMappedMouthParameter
+            live2dMappedLeftEyeParameterValue.text = character.live2dMappedLeftEyeParameter
+            live2dMappedRightEyeParameterValue.text = character.live2dMappedRightEyeParameter
+            live2dMappedBreathParameterValue.text = character.live2dMappedBreathParameter
+            live2dCapabilityIdleValue.text = character.live2dCapabilityIdle
+            live2dCapabilityPhysicsValue.text = character.live2dCapabilityPhysics
+            live2dCapabilityPoseValue.text = character.live2dCapabilityPose
+            live2dCapabilityExpressionsValue.text = character.live2dCapabilityExpressions
             val blink = BlinkDiagnostics.snapshot()
             blinkEnabledValue.text = blink.enabled
             blinkStateValue.text = blink.state

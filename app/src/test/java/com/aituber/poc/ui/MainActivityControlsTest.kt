@@ -55,6 +55,12 @@ class MainActivityControlsTest {
     }
 
     @Test
+    fun live2dModelControlLabelReflectsSelectedProfile() {
+        assertEquals("LIVE2D MODEL: HARU", DebugControlLabels.live2dModel("Haru"))
+        assertEquals("LIVE2D MODEL: LOAF DOG", DebugControlLabels.live2dModel("Loaf Dog"))
+    }
+
+    @Test
     fun blinkTestRemainsAvailableInDiagnostics() {
         assertEquals("TEST BLINK", DebugControlLabels.TEST_BLINK)
     }

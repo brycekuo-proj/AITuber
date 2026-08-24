@@ -1,6 +1,7 @@
 package com.aituber.poc.character
 
 import android.os.SystemClock
+import com.aituber.poc.character.live2d.Live2DCharacterProfile
 
 object CharacterDiagnostics {
     @Volatile
@@ -58,9 +59,39 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordLive2DProfile(profile: Live2DCharacterProfile) {
+        current = current.copy(
+            live2dProfileId = profile.id,
+            live2dProfileName = profile.displayName,
+            live2dModel3File = profile.model3File,
+            live2dMappedMouthParameter = profile.parameterMapping.mouthOpen,
+            live2dMappedLeftEyeParameter = profile.parameterMapping.eyeLeftOpen,
+            live2dMappedRightEyeParameter = profile.parameterMapping.eyeRightOpen,
+            live2dMappedBreathParameter = profile.parameterMapping.breath,
+            live2dCapabilityIdle = if (profile.capabilities.idleMotion) "YES" else "NO",
+            live2dCapabilityPhysics = if (profile.capabilities.physics) "YES" else "NO",
+            live2dCapabilityPose = if (profile.capabilities.pose) "YES" else "NO",
+            live2dCapabilityExpressions = if (profile.capabilities.expressions) "YES" else "NO",
+            live2dModelName = profile.displayName,
+            live2dMouthParameterId = profile.parameterMapping.mouthOpen
+        )
+    }
+
+    @Synchronized
     fun recordLive2D(snapshot: Live2DDiagnosticsSnapshot) {
         current = current.copy(
             live2dAvailable = if (snapshot.available) "YES" else "NO",
+            live2dProfileId = snapshot.profileId,
+            live2dProfileName = snapshot.profileName,
+            live2dModel3File = snapshot.model3File,
+            live2dMappedMouthParameter = snapshot.mappedMouthParameter,
+            live2dMappedLeftEyeParameter = snapshot.mappedLeftEyeParameter,
+            live2dMappedRightEyeParameter = snapshot.mappedRightEyeParameter,
+            live2dMappedBreathParameter = snapshot.mappedBreathParameter,
+            live2dCapabilityIdle = if (snapshot.capabilityIdle) "YES" else "NO",
+            live2dCapabilityPhysics = if (snapshot.capabilityPhysics) "YES" else "NO",
+            live2dCapabilityPose = if (snapshot.capabilityPose) "YES" else "NO",
+            live2dCapabilityExpressions = if (snapshot.capabilityExpressions) "YES" else "NO",
             live2dRuntimeLoaded = if (snapshot.runtimeLoaded) "YES" else "NO",
             live2dCoreLoaded = if (snapshot.coreLoaded) "YES" else "NO",
             live2dModelLoaded = if (snapshot.modelLoaded) "YES" else "NO",
@@ -222,6 +253,17 @@ data class CharacterDiagnosticsSnapshot(
     val mouthParameterInput: Double,
     val mouthParameterOutput: Double,
     val live2dAvailable: String,
+    val live2dProfileId: String,
+    val live2dProfileName: String,
+    val live2dModel3File: String,
+    val live2dMappedMouthParameter: String,
+    val live2dMappedLeftEyeParameter: String,
+    val live2dMappedRightEyeParameter: String,
+    val live2dMappedBreathParameter: String,
+    val live2dCapabilityIdle: String,
+    val live2dCapabilityPhysics: String,
+    val live2dCapabilityPose: String,
+    val live2dCapabilityExpressions: String,
     val live2dRuntimeLoaded: String,
     val live2dCoreLoaded: String,
     val live2dModelLoaded: String,
@@ -310,6 +352,17 @@ data class CharacterDiagnosticsSnapshot(
             mouthParameterInput = 0.0,
             mouthParameterOutput = 0.0,
             live2dAvailable = "NO",
+            live2dProfileId = "haru",
+            live2dProfileName = "Haru",
+            live2dModel3File = "Haru.model3.json",
+            live2dMappedMouthParameter = "ParamMouthOpenY",
+            live2dMappedLeftEyeParameter = "ParamEyeLOpen",
+            live2dMappedRightEyeParameter = "ParamEyeROpen",
+            live2dMappedBreathParameter = "ParamBreath",
+            live2dCapabilityIdle = "YES",
+            live2dCapabilityPhysics = "YES",
+            live2dCapabilityPose = "YES",
+            live2dCapabilityExpressions = "NO",
             live2dRuntimeLoaded = "NO",
             live2dCoreLoaded = "NO",
             live2dModelLoaded = "NO",
@@ -395,6 +448,17 @@ data class CharacterDiagnosticsSnapshot(
 
 data class Live2DDiagnosticsSnapshot(
     val available: Boolean,
+    val profileId: String = "haru",
+    val profileName: String = "Haru",
+    val model3File: String = "Haru.model3.json",
+    val mappedMouthParameter: String = "ParamMouthOpenY",
+    val mappedLeftEyeParameter: String = "ParamEyeLOpen",
+    val mappedRightEyeParameter: String = "ParamEyeROpen",
+    val mappedBreathParameter: String = "ParamBreath",
+    val capabilityIdle: Boolean = true,
+    val capabilityPhysics: Boolean = true,
+    val capabilityPose: Boolean = true,
+    val capabilityExpressions: Boolean = false,
     val runtimeLoaded: Boolean = available,
     val coreLoaded: Boolean = available,
     val modelLoaded: Boolean,

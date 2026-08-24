@@ -5,7 +5,7 @@ import android.content.res.AssetManager
 import com.aituber.poc.BuildConfig
 
 class Live2DNativeBridge(
-    private val modelAssetDir: String = BuildConfig.LIVE2D_MODEL_ASSET_DIR
+    private val profile: Live2DCharacterProfile = Live2DCharacterProfiles.Haru
 ) {
     @Volatile
     private var initialized = false
@@ -16,7 +16,16 @@ class Live2DNativeBridge(
     fun initialize(context: Context): Boolean {
         if (!libraryLoaded) return false
         return runCatching {
-            initialized = nativeInitialize(context.assets, modelAssetDir)
+            initialized = nativeInitialize(
+                context.assets,
+                profile.assetDir,
+                profile.displayName,
+                profile.model3File,
+                profile.parameterMapping.mouthOpen,
+                profile.parameterMapping.eyeLeftOpen,
+                profile.parameterMapping.eyeRightOpen,
+                profile.parameterMapping.breath
+            )
             initialized
         }.getOrElse {
             lastLoadError = it.message ?: it::class.java.simpleName
@@ -85,7 +94,16 @@ class Live2DNativeBridge(
             .getOrElse { Live2DNativeSnapshot.unavailable(it.message ?: it::class.java.simpleName) }
     }
 
-    private external fun nativeInitialize(assetManager: AssetManager, modelAssetDir: String): Boolean
+    private external fun nativeInitialize(
+        assetManager: AssetManager,
+        modelAssetDir: String,
+        modelName: String,
+        model3File: String,
+        mouthParameterId: String,
+        leftEyeParameterId: String,
+        rightEyeParameterId: String,
+        breathParameterId: String
+    ): Boolean
     private external fun nativeOnSurfaceCreated(): Boolean
     private external fun nativeOnSurfaceChanged(width: Int, height: Int): Boolean
     private external fun nativeSetMouthOpen(value: Float)

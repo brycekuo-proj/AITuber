@@ -188,6 +188,9 @@ struct RuntimeStatus {
     std::string lastPhysicsError = "n/a";
     std::string modelName = kDefaultModelName;
     std::string mouthParameterId = kMouthParameterId;
+    std::string leftEyeParameterId = kLeftEyeParameterId;
+    std::string rightEyeParameterId = kRightEyeParameterId;
+    std::string breathParameterId = kBreathParameterId;
     std::string poseFile = "n/a";
     std::string lastTexturePath = "n/a";
     std::string lastTextureError = "n/a";
@@ -198,6 +201,12 @@ struct RuntimeStatus {
 struct Runtime {
     AAssetManager* assetManager = nullptr;
     std::string modelAssetDir = kDefaultModelAssetDir;
+    std::string modelJsonFile = kDefaultModelJson;
+    std::string modelName = kDefaultModelName;
+    std::string mouthParameterId = kMouthParameterId;
+    std::string leftEyeParameterId = kLeftEyeParameterId;
+    std::string rightEyeParameterId = kRightEyeParameterId;
+    std::string breathParameterId = kBreathParameterId;
     std::unique_ptr<SmokeModel> model;
     std::unique_ptr<CubismModelSettingJson> modelSetting;
     std::vector<GLuint> textures;
@@ -641,7 +650,7 @@ bool loadModel(Runtime& runtime) {
 
     std::string error;
     std::vector<unsigned char> modelJson;
-    const std::string modelJsonPath = joinAssetPath(runtime.modelAssetDir, kDefaultModelJson);
+    const std::string modelJsonPath = joinAssetPath(runtime.modelAssetDir, runtime.modelJsonFile);
     if (!readAsset(runtime.assetManager, modelJsonPath, modelJson, error)) {
         runtime.status.lastError = error;
         return false;
@@ -750,10 +759,10 @@ bool loadModel(Runtime& runtime) {
         }
     }
 
-    runtime.mouthId = CubismFramework::GetIdManager()->GetId(kMouthParameterId);
-    runtime.leftEyeId = CubismFramework::GetIdManager()->GetId(kLeftEyeParameterId);
-    runtime.rightEyeId = CubismFramework::GetIdManager()->GetId(kRightEyeParameterId);
-    runtime.breathId = CubismFramework::GetIdManager()->GetId(kBreathParameterId);
+    runtime.mouthId = CubismFramework::GetIdManager()->GetId(runtime.mouthParameterId.c_str());
+    runtime.leftEyeId = CubismFramework::GetIdManager()->GetId(runtime.leftEyeParameterId.c_str());
+    runtime.rightEyeId = CubismFramework::GetIdManager()->GetId(runtime.rightEyeParameterId.c_str());
+    runtime.breathId = CubismFramework::GetIdManager()->GetId(runtime.breathParameterId.c_str());
     const csmInt32 mouthIndex = runtime.model->model()->GetParameterIndex(runtime.mouthId);
     const bool found = mouthIndex >= 0 && mouthIndex < runtime.model->model()->GetParameterCount();
     runtime.status.mouthParameterFound = found;
@@ -771,7 +780,7 @@ bool loadModel(Runtime& runtime) {
     }
     runtime.status.modelLoaded = true;
     if (!found) {
-        runtime.status.lastError = "ParamMouthOpenY not found";
+        runtime.status.lastError = runtime.mouthParameterId + " not found";
     } else if (!poseError) {
         runtime.status.lastError = "";
     }
@@ -873,6 +882,16 @@ jstring toJString(JNIEnv* env, const std::string& value) {
     return env->NewStringUTF(value.c_str());
 }
 
+std::string readJString(JNIEnv* env, jstring value, const char* fallback) {
+    if (!value) return fallback;
+    const char* chars = env->GetStringUTFChars(value, nullptr);
+    std::string result = chars ? chars : fallback;
+    if (chars) {
+        env->ReleaseStringUTFChars(value, chars);
+    }
+    return result.empty() ? fallback : result;
+}
+
 } // namespace
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -880,12 +899,22 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeInitialize(
     JNIEnv* env,
     jobject,
     jobject assetManager,
-    jstring modelAssetDir
+    jstring modelAssetDir,
+    jstring modelName,
+    jstring model3File,
+    jstring mouthParameterId,
+    jstring leftEyeParameterId,
+    jstring rightEyeParameterId,
+    jstring breathParameterId
 ) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    const char* modelDirChars = env->GetStringUTFChars(modelAssetDir, nullptr);
-    std::string modelDir = modelDirChars ? modelDirChars : kDefaultModelAssetDir;
-    env->ReleaseStringUTFChars(modelAssetDir, modelDirChars);
+    const std::string modelDir = readJString(env, modelAssetDir, kDefaultModelAssetDir);
+    const std::string name = readJString(env, modelName, kDefaultModelName);
+    const std::string jsonFile = readJString(env, model3File, kDefaultModelJson);
+    const std::string mouthId = readJString(env, mouthParameterId, kMouthParameterId);
+    const std::string leftEyeId = readJString(env, leftEyeParameterId, kLeftEyeParameterId);
+    const std::string rightEyeId = readJString(env, rightEyeParameterId, kRightEyeParameterId);
+    const std::string breathId = readJString(env, breathParameterId, kBreathParameterId);
 
     AAssetManager* manager = AAssetManager_fromJava(env, assetManager);
     if (!manager) {
@@ -897,9 +926,15 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeInitialize(
     g_runtime.reset(new Runtime());
     g_runtime->assetManager = manager;
     g_assetManager = manager;
-    g_runtime->modelAssetDir = modelDir.empty() ? kDefaultModelAssetDir : modelDir;
-    g_runtime->status.modelName = kDefaultModelName;
-    g_runtime->status.mouthParameterId = kMouthParameterId;
+    g_runtime->modelAssetDir = modelDir;
+    g_runtime->modelName = name;
+    g_runtime->modelJsonFile = jsonFile;
+    g_runtime->mouthParameterId = mouthId;
+    g_runtime->leftEyeParameterId = leftEyeId;
+    g_runtime->rightEyeParameterId = rightEyeId;
+    g_runtime->breathParameterId = breathId;
+    g_runtime->status.modelName = name;
+    g_runtime->status.mouthParameterId = mouthId;
     return JNI_TRUE;
 }
 
@@ -976,7 +1011,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetMouthOpen(
         g_runtime->status.mouthParameterFound = true;
     } else {
         g_runtime->status.mouthParameterFound = false;
-        g_runtime->status.lastError = "ParamMouthOpenY not found";
+        g_runtime->status.lastError = g_runtime->mouthParameterId + " not found";
     }
 }
 

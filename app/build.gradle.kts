@@ -14,10 +14,13 @@ val localProperties = Properties().apply {
 
 val live2dSdkDir = localProperties.getProperty("live2d.sdk.dir")?.takeIf { it.isNotBlank() }
 val live2dModelDir = localProperties.getProperty("live2d.test.model.dir")?.takeIf { it.isNotBlank() }
+val live2dDogModelDir = localProperties.getProperty("live2d.dog.model.dir")?.takeIf { it.isNotBlank() }
+    ?: rootProject.file("../models/third-party/duokhay-loaf-corgi/model/duokhay mascot - loaf dog").absolutePath
 val live2dEnabled = live2dSdkDir != null && live2dModelDir != null &&
     file(live2dSdkDir).isDirectory &&
     file("$live2dSdkDir/Core/lib/android/arm64-v8a/libLive2DCubismCore.a").isFile &&
     file(live2dModelDir).isDirectory
+val live2dDogAvailable = file(live2dDogModelDir).isDirectory
 
 android {
     namespace = "com.aituber.poc"
@@ -30,7 +33,6 @@ android {
         versionCode = 1
         versionName = "0.1.0-alpha2"
         buildConfigField("Boolean", "LIVE2D_ENABLED", live2dEnabled.toString())
-        buildConfigField("String", "LIVE2D_MODEL_ASSET_DIR", "\"live2d/Haru\"")
 
         if (live2dEnabled) {
             ndk {
@@ -81,6 +83,18 @@ if (live2dEnabled) {
         )
         into(layout.buildDirectory.dir("generated/live2dAssets/live2d/Haru"))
     }
+    val stageLive2DDogAssets by tasks.registering(Sync::class) {
+        onlyIf { live2dDogAvailable }
+        from(live2dDogModelDir)
+        include(
+            "*.model3.json",
+            "*.moc3",
+            "*.physics3.json",
+            "*.cdi3.json",
+            "bread dog chonk.2048/**"
+        )
+        into(layout.buildDirectory.dir("generated/live2dAssets/live2d/duokhay-loaf-dog"))
+    }
     val stageLive2DShaderAssets by tasks.registering(Sync::class) {
         from("$live2dSdkDir/Framework/src/Rendering/OpenGL/Shaders/StandardES")
         include("*.vert", "*.frag")
@@ -88,6 +102,7 @@ if (live2dEnabled) {
     }
     tasks.named("preBuild") {
         dependsOn(stageLive2DModelAssets)
+        dependsOn(stageLive2DDogAssets)
         dependsOn(stageLive2DShaderAssets)
     }
 }

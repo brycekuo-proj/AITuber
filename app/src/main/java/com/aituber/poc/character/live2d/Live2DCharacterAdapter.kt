@@ -6,7 +6,8 @@ import com.aituber.poc.character.CharacterParameterFrame
 import com.aituber.poc.character.Live2DDiagnosticsSnapshot
 
 class Live2DCharacterAdapter(
-    private val modelConfig: Live2DModelConfig = Live2DModelConfig(),
+    private val profile: Live2DCharacterProfile = Live2DCharacterProfiles.Haru,
+    private val modelConfig: Live2DModelConfig = profile.toModelConfig(),
     private val sdkAvailable: Boolean = false,
     private val parameterSink: Live2DParameterSink? = null,
     private val renderFps: Double = 0.0,
@@ -35,6 +36,17 @@ class Live2DCharacterAdapter(
         CharacterDiagnostics.recordLive2D(
             Live2DDiagnosticsSnapshot(
                 available = true,
+                profileId = profile.id,
+                profileName = profile.displayName,
+                model3File = profile.model3File,
+                mappedMouthParameter = profile.parameterMapping.mouthOpen,
+                mappedLeftEyeParameter = profile.parameterMapping.eyeLeftOpen,
+                mappedRightEyeParameter = profile.parameterMapping.eyeRightOpen,
+                mappedBreathParameter = profile.parameterMapping.breath,
+                capabilityIdle = profile.capabilities.idleMotion,
+                capabilityPhysics = profile.capabilities.physics,
+                capabilityPose = profile.capabilities.pose,
+                capabilityExpressions = profile.capabilities.expressions,
                 modelLoaded = true,
                 modelName = modelConfig.modelName,
                 mouthParameterId = result.parameterId,
@@ -62,6 +74,17 @@ class Live2DCharacterAdapter(
             val native = view.bridge.snapshot()
             return Live2DDiagnosticsSnapshot(
                 available = true,
+                profileId = profile.id,
+                profileName = profile.displayName,
+                model3File = profile.model3File,
+                mappedMouthParameter = profile.parameterMapping.mouthOpen,
+                mappedLeftEyeParameter = profile.parameterMapping.eyeLeftOpen,
+                mappedRightEyeParameter = profile.parameterMapping.eyeRightOpen,
+                mappedBreathParameter = profile.parameterMapping.breath,
+                capabilityIdle = profile.capabilities.idleMotion,
+                capabilityPhysics = profile.capabilities.physics,
+                capabilityPose = profile.capabilities.pose,
+                capabilityExpressions = profile.capabilities.expressions,
                 runtimeLoaded = native.runtimeLoaded,
                 coreLoaded = native.coreLoaded,
                 modelLoaded = native.modelLoaded,
@@ -128,6 +151,17 @@ class Live2DCharacterAdapter(
         return if (available) {
             Live2DDiagnosticsSnapshot(
                 available = true,
+                profileId = profile.id,
+                profileName = profile.displayName,
+                model3File = profile.model3File,
+                mappedMouthParameter = profile.parameterMapping.mouthOpen,
+                mappedLeftEyeParameter = profile.parameterMapping.eyeLeftOpen,
+                mappedRightEyeParameter = profile.parameterMapping.eyeRightOpen,
+                mappedBreathParameter = profile.parameterMapping.breath,
+                capabilityIdle = profile.capabilities.idleMotion,
+                capabilityPhysics = profile.capabilities.physics,
+                capabilityPose = profile.capabilities.pose,
+                capabilityExpressions = profile.capabilities.expressions,
                 modelLoaded = true,
                 modelName = modelConfig.modelName,
                 mouthParameterId = modelConfig.mouthParameterId,
@@ -144,6 +178,17 @@ class Live2DCharacterAdapter(
 
     private fun unavailableSnapshot(reason: String) = Live2DDiagnosticsSnapshot(
         available = false,
+        profileId = profile.id,
+        profileName = profile.displayName,
+        model3File = profile.model3File,
+        mappedMouthParameter = profile.parameterMapping.mouthOpen,
+        mappedLeftEyeParameter = profile.parameterMapping.eyeLeftOpen,
+        mappedRightEyeParameter = profile.parameterMapping.eyeRightOpen,
+        mappedBreathParameter = profile.parameterMapping.breath,
+        capabilityIdle = profile.capabilities.idleMotion,
+        capabilityPhysics = profile.capabilities.physics,
+        capabilityPose = profile.capabilities.pose,
+        capabilityExpressions = profile.capabilities.expressions,
         runtimeLoaded = false,
         coreLoaded = false,
         modelLoaded = false,

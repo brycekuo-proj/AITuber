@@ -19,7 +19,10 @@ import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterEngine
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterAdapter
+import com.aituber.poc.character.live2d.Live2DCharacterProfile
+import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DOverlayView
+import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -88,6 +91,8 @@ class CharacterOverlayService : Service() {
             return
         }
         isRunning = true
+        requestedLive2DProfileId = Live2DProfileStore.load(this).id
+        CharacterDiagnostics.recordLive2DProfile(requestedLive2DProfile())
         OverlayLifecycleTrace.setAlive(true)
 
         val overlaySelection = createOverlaySelection()
@@ -430,10 +435,11 @@ class CharacterOverlayService : Service() {
 
     private fun createOverlaySelection(): OverlaySelection {
         if (requestedCharacterMode == CharacterMode.LIVE2D) {
-            val live2d = Live2DOverlayView(this) { reason ->
+            val profile = requestedLive2DProfile()
+            val live2d = Live2DOverlayView(this, profile = profile) { reason ->
                 fallbackToMinimalMouthOnMain("LIVE2D_RUNTIME_FAILURE: $reason")
             }
-            val live2dAdapter = Live2DCharacterAdapter(nativeView = live2d)
+            val live2dAdapter = Live2DCharacterAdapter(profile = profile, nativeView = live2d)
             if (live2dAdapter.available) {
                 live2dView = live2d
                 mouthView = null
@@ -453,6 +459,7 @@ class CharacterOverlayService : Service() {
         }
 
         val minimal = MouthOverlayView(this)
+        val profile = requestedLive2DProfile()
         mouthView = minimal
         live2dView = null
         return OverlaySelection(
@@ -462,7 +469,7 @@ class CharacterOverlayService : Service() {
             selection = CharacterAdapterFactory.create(
                 requestedMode = requestedCharacterMode,
                 mouthView = minimal,
-                live2dAdapter = Live2DCharacterAdapter(sdkAvailable = false)
+                live2dAdapter = Live2DCharacterAdapter(profile = profile, sdkAvailable = false)
             )
         )
     }
@@ -486,7 +493,7 @@ class CharacterOverlayService : Service() {
         val selection = CharacterAdapterFactory.create(
             requestedMode = CharacterMode.LIVE2D,
             mouthView = minimal,
-            live2dAdapter = Live2DCharacterAdapter(sdkAvailable = false)
+            live2dAdapter = Live2DCharacterAdapter(profile = requestedLive2DProfile(), sdkAvailable = false)
         )
         CharacterDiagnostics.configure(
             requestedMode = selection.requestedMode,
@@ -627,7 +634,13 @@ class CharacterOverlayService : Service() {
         var requestedCharacterMode: CharacterMode = CharacterMode.MINIMAL_MOUTH
 
         @Volatile
+        var requestedLive2DProfileId: String = Live2DCharacterProfiles.HARU_ID
+
+        @Volatile
         private var activeService: CharacterOverlayService? = null
+
+        fun requestedLive2DProfile(): Live2DCharacterProfile =
+            Live2DCharacterProfiles.byId(requestedLive2DProfileId)
 
         fun testMouthFullyOpenForDebug() {
             activeService?.runMouthFullyOpenTest()
@@ -691,7 +704,13 @@ class CharacterOverlayService : Service() {
 
     private fun runPhysicsTest() {
         handler.post {
-            live2dView?.startPhysicsTestForDebug()
+            if (requestedLive2DProfile().capabilities.idleMotion) {
+                live2dView?.startPhysicsTestForDebug()
+            } else {
+                characterEngine?.forceTestBreath()
+                MouthRenderDiagnostics.recordCharacterEngineRender()
+                characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
+            }
         }
     }
 }

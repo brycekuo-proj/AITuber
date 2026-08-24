@@ -80,6 +80,80 @@ class Live2DParameterBridgeTest {
     }
 
     @Test
+    fun haruProfileMapsMouthToParamMouthOpenY() {
+        val profile = Live2DCharacterProfiles.Haru
+
+        assertEquals("ParamMouthOpenY", profile.parameterMapping.mouthOpen)
+        assertEquals("ParamEyeLOpen", profile.parameterMapping.eyeLeftOpen)
+        assertEquals("ParamEyeROpen", profile.parameterMapping.eyeRightOpen)
+        assertEquals("ParamBreath", profile.parameterMapping.breath)
+    }
+
+    @Test
+    fun loafDogProfileMapsMouthToParamMouthOpen() {
+        val profile = Live2DCharacterProfiles.LoafDog
+
+        assertEquals("duokhay-loaf-dog", profile.id)
+        assertEquals("Loaf Dog", profile.displayName)
+        assertEquals("bread dog chonk.model3.json", profile.model3File)
+        assertEquals("ParamMouthOpen", profile.parameterMapping.mouthOpen)
+        assertEquals("ParamEyeLOpen", profile.parameterMapping.eyeLeftOpen)
+        assertEquals("ParamEyeROpen", profile.parameterMapping.eyeRightOpen)
+        assertEquals("ParamBreath", profile.parameterMapping.breath)
+    }
+
+    @Test
+    fun loafDogProfileCapabilitiesMatchAssetAudit() {
+        val capabilities = Live2DCharacterProfiles.LoafDog.capabilities
+
+        assertEquals(false, capabilities.idleMotion)
+        assertEquals(true, capabilities.physics)
+        assertEquals(false, capabilities.pose)
+        assertEquals(false, capabilities.expressions)
+    }
+
+    @Test
+    fun haruProfileCapabilitiesRemainEnabled() {
+        val capabilities = Live2DCharacterProfiles.Haru.capabilities
+
+        assertEquals(true, capabilities.idleMotion)
+        assertEquals(true, capabilities.physics)
+        assertEquals(true, capabilities.pose)
+        assertEquals(false, capabilities.expressions)
+    }
+
+    @Test
+    fun dogParameterBridgeUsesProfileSpecificMouthParameter() {
+        val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpen"))
+        val profile = Live2DCharacterProfiles.LoafDog
+
+        val result = Live2DParameterBridge(profile.toModelConfig(), sink).apply(frame(0.64f))
+
+        assertEquals("ParamMouthOpen", result.parameterId)
+        assertEquals(Live2DParameterStatus.APPLIED, result.status)
+        assertEquals(0.64f, sink.values["ParamMouthOpen"]!!, 0.0001f)
+        assertEquals(null, sink.values["ParamMouthOpenY"])
+    }
+
+    @Test
+    fun missingOptionalProfileCapabilityDoesNotMakeAdapterUnavailable() {
+        val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpen"))
+        val adapter = Live2DCharacterAdapter(
+            profile = Live2DCharacterProfiles.LoafDog,
+            sdkAvailable = true,
+            parameterSink = sink
+        )
+
+        adapter.render(frame(0.25f))
+
+        val diagnostics = adapter.diagnosticsSnapshot()
+        assertEquals(true, diagnostics.available)
+        assertEquals("duokhay-loaf-dog", diagnostics.profileId)
+        assertEquals(false, diagnostics.capabilityIdle)
+        assertEquals(true, diagnostics.capabilityPhysics)
+    }
+
+    @Test
     fun eyeOpenMapsToStandardLive2dEyeParameters() {
         val sink = FakeSink(
             availableParameterIds = setOf("ParamMouthOpenY", "ParamEyeLOpen", "ParamEyeROpen")

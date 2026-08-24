@@ -18,6 +18,8 @@ object DebugControlLabels {
     fun diagnostics(expanded: Boolean): String =
         if (expanded) "HIDE DIAGNOSTICS" else "SHOW DIAGNOSTICS"
 
+    fun live2dModel(profileName: String): String = "LIVE2D MODEL: ${profileName.uppercase()}"
+
     fun testBreath(parameterStatus: String): String =
         if (CharacterCapabilities.supportsBreath(parameterStatus)) {
             "TEST BREATH"
