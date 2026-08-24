@@ -147,7 +147,7 @@ class Live2DOverlayPlacementTest {
     }
 
     @Test
-    fun maximumScaleSupportsCloseUpUpperBodyAroundHalfScreenHeight() {
+    fun maximumScaleSupportsHeadChestCloseUpAroundSixtyPercentScreenHeight() {
         val placement = Live2DOverlayPlacement.compute(
             screenWidth = 1080,
             screenHeight = 2340,
@@ -155,8 +155,13 @@ class Live2DOverlayPlacementTest {
             requestedScale = 99f
         )
 
-        val expectedMaxHeight = 2340 * 0.50f / 0.45f
+        val expectedMaxHeight = 2340 *
+            Live2DOverlayScaleMath.MAX_CLOSE_UP_SCREEN_FRACTION /
+            Live2DOverlayScaleMath.HEAD_CHEST_MODEL_HEIGHT_FRACTION
+        val headChestHeight = placement.height * Live2DOverlayScaleMath.HEAD_CHEST_MODEL_HEIGHT_FRACTION
         assertEquals(expectedMaxHeight, placement.height.toFloat(), 1.0f)
+        assertTrue(headChestHeight >= 2340 * 0.55f)
+        assertTrue(headChestHeight <= 2340 * 0.65f)
         assertTrue(placement.maxScale > placement.defaultScale)
     }
 

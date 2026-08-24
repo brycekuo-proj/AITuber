@@ -23,13 +23,23 @@ class Live2DOverlayScaleMathTest {
     }
 
     @Test
-    fun maximumScaleAllowsUpperBodyCloseUpAroundHalfScreenHeight() {
+    fun maximumScaleAllowsHeadChestCloseUpAroundSixtyPercentScreenHeight() {
         val range = Live2DOverlayScaleMath.scaleRange(screenHeight = 2340, density = 3f)
         val dimensions = Live2DOverlayScaleMath.dimensionsForScale(range.maxScale)
-        val upperBodyHeight = dimensions.height * Live2DOverlayScaleMath.UPPER_BODY_MODEL_HEIGHT_FRACTION
+        val headChestHeight = dimensions.height * Live2DOverlayScaleMath.HEAD_CHEST_MODEL_HEIGHT_FRACTION
 
-        assertEquals(2340 * 0.50f, upperBodyHeight, 1.0f)
+        assertTrue(headChestHeight >= 2340 * 0.55f)
+        assertTrue(headChestHeight <= 2340 * 0.65f)
         assertTrue(range.maxScale > range.defaultScale)
+    }
+
+    @Test
+    fun maximumScaleIsSignificantlyLargerThanPreviousConservativeRange() {
+        val range = Live2DOverlayScaleMath.scaleRange(screenHeight = 2340, density = 3f)
+        val previousMaxScale = 2340f * 0.50f / 0.45f / Live2DOverlayScaleMath.BASE_HEIGHT_PX
+
+        assertTrue(range.maxScale >= previousMaxScale * 1.8f)
+        assertTrue(range.maxScale <= previousMaxScale * 2.2f)
     }
 
     @Test
@@ -49,6 +59,20 @@ class Live2DOverlayScaleMathTest {
 
         assertTrue(low.height < normal.height)
         assertTrue(normal.height < high.height)
+    }
+
+    @Test
+    fun savedScaleRestoreCanUseExpandedMaximumRange() {
+        val placement = Live2DOverlayPlacement.compute(
+            screenWidth = 1080,
+            screenHeight = 2340,
+            density = 3f,
+            requestedScale = 8.5f
+        )
+
+        assertEquals(8.5f, placement.displayScale, 0.001f)
+        assertTrue(placement.displayScale > placement.defaultScale)
+        assertTrue(placement.displayScale < placement.maxScale)
     }
 
     @Test

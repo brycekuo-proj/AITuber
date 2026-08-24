@@ -9,14 +9,14 @@ object Live2DOverlayScaleMath {
     const val DEFAULT_SCALE = 2.25f
     const val STANDARD_APP_ICON_DP = 48f
     const val MIN_ICON_HEIGHT_COUNT = 2f
-    const val MAX_UPPER_BODY_SCREEN_FRACTION = 0.50f
-    const val UPPER_BODY_MODEL_HEIGHT_FRACTION = 0.45f
+    const val MAX_CLOSE_UP_SCREEN_FRACTION = 0.60f
+    const val HEAD_CHEST_MODEL_HEIGHT_FRACTION = 0.25f
 
     fun scaleRange(screenHeight: Int, density: Float): Live2DOverlayScaleRange {
         val safeHeight = max(screenHeight, 1)
         val safeDensity = max(density, 0.1f)
         val minimumVisualHeightPx = STANDARD_APP_ICON_DP * MIN_ICON_HEIGHT_COUNT * safeDensity
-        val closeUpModelHeightPx = safeHeight * MAX_UPPER_BODY_SCREEN_FRACTION / UPPER_BODY_MODEL_HEIGHT_FRACTION
+        val closeUpModelHeightPx = safeHeight * MAX_CLOSE_UP_SCREEN_FRACTION / HEAD_CHEST_MODEL_HEIGHT_FRACTION
         val minScale = (minimumVisualHeightPx / BASE_HEIGHT_PX).coerceAtMost(DEFAULT_SCALE)
         val maxScale = (closeUpModelHeightPx / BASE_HEIGHT_PX).coerceAtLeast(DEFAULT_SCALE)
         return Live2DOverlayScaleRange(
