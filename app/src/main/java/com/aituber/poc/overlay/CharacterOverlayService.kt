@@ -141,10 +141,9 @@ class CharacterOverlayService : Service() {
                 savedPosition = positionStore?.load(),
                 bounds = Live2DOverlayBounds(
                     screenWidth = metrics.widthPixels,
-                    usableBottom = placement.usableBottom,
+                    screenHeight = metrics.heightPixels,
                     overlayWidth = placement.width,
-                    overlayHeight = placement.height,
-                    minY = placement.minOffsetY
+                    overlayHeight = placement.height
                 )
             )
         } else {
@@ -289,10 +288,9 @@ class CharacterOverlayService : Service() {
             position = position,
             bounds = Live2DOverlayBounds(
                 screenWidth = metrics.widthPixels,
-                usableBottom = placement.usableBottom,
+                screenHeight = metrics.heightPixels,
                 overlayWidth = overlayWidth,
-                overlayHeight = overlayHeight,
-                minY = placement.minOffsetY
+                overlayHeight = overlayHeight
             )
         )
     }
