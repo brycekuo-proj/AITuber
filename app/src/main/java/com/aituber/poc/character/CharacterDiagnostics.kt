@@ -75,7 +75,9 @@ object CharacterDiagnostics {
             live2dModelName = profile.displayName,
             live2dMouthParameterId = profile.parameterMapping.mouthOpen,
             live2dMouthProfileScale = profile.mouthTuning.outputMax.toDouble(),
-            live2dFallbackIdleEnabled = if (profile.fallbackHeadIdle.enabled && !profile.capabilities.idleMotion) "YES" else "NO"
+            live2dFallbackIdleEnabled = if (profile.fallbackHeadIdle.enabled && !profile.capabilities.idleMotion) "YES" else "NO",
+            live2dFallbackHeadXMax = profile.fallbackHeadIdle.headXAmplitude.toDouble(),
+            live2dFallbackHeadYMax = profile.fallbackHeadIdle.headYAmplitude.toDouble()
         )
     }
 
@@ -106,6 +108,8 @@ object CharacterDiagnostics {
             live2dFallbackIdleEnabled = if (snapshot.fallbackIdleEnabled) "YES" else "NO",
             live2dFallbackHeadX = snapshot.fallbackHeadX.toDouble(),
             live2dFallbackHeadY = snapshot.fallbackHeadY.toDouble(),
+            live2dFallbackHeadXMax = snapshot.fallbackHeadXMax.toDouble(),
+            live2dFallbackHeadYMax = snapshot.fallbackHeadYMax.toDouble(),
             live2dFallbackIdleCycle = snapshot.fallbackIdleCycle,
             live2dPhysicsEarOutputsAvailable = if (snapshot.physicsEarOutputsAvailable) "YES" else "NO",
             live2dPhysicsEarJiggleX = snapshot.physicsEarJiggleX?.toDouble(),
@@ -287,6 +291,8 @@ data class CharacterDiagnosticsSnapshot(
     val live2dFallbackIdleEnabled: String,
     val live2dFallbackHeadX: Double,
     val live2dFallbackHeadY: Double,
+    val live2dFallbackHeadXMax: Double,
+    val live2dFallbackHeadYMax: Double,
     val live2dFallbackIdleCycle: String,
     val live2dPhysicsEarOutputsAvailable: String,
     val live2dPhysicsEarJiggleX: Double?,
@@ -395,6 +401,8 @@ data class CharacterDiagnosticsSnapshot(
             live2dFallbackIdleEnabled = "NO",
             live2dFallbackHeadX = 0.0,
             live2dFallbackHeadY = 0.0,
+            live2dFallbackHeadXMax = 0.0,
+            live2dFallbackHeadYMax = 0.0,
             live2dFallbackIdleCycle = "DISABLED",
             live2dPhysicsEarOutputsAvailable = "NO",
             live2dPhysicsEarJiggleX = null,
@@ -500,6 +508,8 @@ data class Live2DDiagnosticsSnapshot(
     val fallbackIdleEnabled: Boolean = false,
     val fallbackHeadX: Float = 0f,
     val fallbackHeadY: Float = 0f,
+    val fallbackHeadXMax: Float = 0f,
+    val fallbackHeadYMax: Float = 0f,
     val fallbackIdleCycle: String = "DISABLED",
     val physicsEarOutputsAvailable: Boolean = false,
     val physicsEarJiggleX: Float? = null,

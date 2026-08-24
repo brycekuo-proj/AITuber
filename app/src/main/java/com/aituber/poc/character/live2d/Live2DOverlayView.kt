@@ -138,6 +138,8 @@ class Live2DOverlayView(
                 fallbackIdleEnabled = fallbackHeadIdle.enabled,
                 fallbackHeadX = fallbackHeadIdle.snapshot().headX,
                 fallbackHeadY = fallbackHeadIdle.snapshot().headY,
+                fallbackHeadXMax = profile.fallbackHeadIdle.headXAmplitude,
+                fallbackHeadYMax = profile.fallbackHeadIdle.headYAmplitude,
                 fallbackIdleCycle = fallbackHeadIdle.snapshot().cycle,
                 physicsEarOutputsAvailable = snapshot.earOutputsAvailable,
                 physicsEarJiggleX = snapshot.earJiggleX,

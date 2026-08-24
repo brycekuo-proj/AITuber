@@ -157,6 +157,8 @@ class MainActivity : Activity() {
     private lateinit var live2dFallbackIdleEnabledValue: TextView
     private lateinit var live2dFallbackHeadXValue: TextView
     private lateinit var live2dFallbackHeadYValue: TextView
+    private lateinit var live2dFallbackHeadXMaxValue: TextView
+    private lateinit var live2dFallbackHeadYMaxValue: TextView
     private lateinit var live2dFallbackIdleCycleValue: TextView
     private lateinit var live2dPhysicsEarOutputsAvailableValue: TextView
     private lateinit var live2dPhysicsEarJiggleXValue: TextView
@@ -655,6 +657,8 @@ class MainActivity : Activity() {
         live2dFallbackIdleEnabledValue = addDiagnosticField(root, "Fallback Idle Enabled")
         live2dFallbackHeadXValue = addDiagnosticField(root, "Fallback Head X")
         live2dFallbackHeadYValue = addDiagnosticField(root, "Fallback Head Y")
+        live2dFallbackHeadXMaxValue = addDiagnosticField(root, "Fallback Head X Max")
+        live2dFallbackHeadYMaxValue = addDiagnosticField(root, "Fallback Head Y Max")
         live2dFallbackIdleCycleValue = addDiagnosticField(root, "Fallback Idle Cycle/Target")
         live2dPhysicsEarOutputsAvailableValue = addDiagnosticField(root, "Physics Ear Outputs available")
         live2dPhysicsEarJiggleXValue = addDiagnosticField(root, "physEarJiggleX current")
@@ -1345,6 +1349,8 @@ class MainActivity : Activity() {
             live2dFallbackIdleEnabledValue.text = character.live2dFallbackIdleEnabled
             live2dFallbackHeadXValue.text = "%.3f".format(character.live2dFallbackHeadX)
             live2dFallbackHeadYValue.text = "%.3f".format(character.live2dFallbackHeadY)
+            live2dFallbackHeadXMaxValue.text = "%.3f".format(character.live2dFallbackHeadXMax)
+            live2dFallbackHeadYMaxValue.text = "%.3f".format(character.live2dFallbackHeadYMax)
             live2dFallbackIdleCycleValue.text = character.live2dFallbackIdleCycle
             live2dPhysicsEarOutputsAvailableValue.text = character.live2dPhysicsEarOutputsAvailable
             live2dPhysicsEarJiggleXValue.text = character.live2dPhysicsEarJiggleX?.let { "%.3f".format(it) } ?: "n/a"

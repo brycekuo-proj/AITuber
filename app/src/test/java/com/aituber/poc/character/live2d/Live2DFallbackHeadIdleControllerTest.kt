@@ -24,6 +24,31 @@ class Live2DFallbackHeadIdleControllerTest {
     }
 
     @Test
+    fun dogFallbackUsesStrengthenedProfileAmplitude() {
+        val config = Live2DCharacterProfiles.LoafDog.fallbackHeadIdle
+
+        assertEquals(5.5f, config.headXAmplitude, 0.0001f)
+        assertEquals(2.8f, config.headYAmplitude, 0.0001f)
+    }
+
+    @Test
+    fun testEarsConfigurationRemainsUnchanged() {
+        val config = Live2DCharacterProfiles.LoafDog.fallbackHeadIdle
+
+        assertEquals(10.8f, config.testHeadXAmplitude, 0.0001f)
+        assertEquals(6.0f, config.testHeadYAmplitude, 0.0001f)
+        assertEquals(2_600L, config.testDurationMs)
+    }
+
+    @Test
+    fun fallbackTimingRemainsUnchanged() {
+        val config = Live2DCharacterProfiles.LoafDog.fallbackHeadIdle
+
+        assertEquals(6_200L, config.headXPeriodMs)
+        assertEquals(4_700L, config.headYPeriodMs)
+    }
+
+    @Test
     fun fallbackHeadIdleIsSubtleAndWithinConfiguredAmplitude() {
         var now = 1_000L
         val controller = Live2DFallbackHeadIdleController(Live2DCharacterProfiles.LoafDog) { now }

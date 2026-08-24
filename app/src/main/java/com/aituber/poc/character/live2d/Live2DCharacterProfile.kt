@@ -113,8 +113,8 @@ object Live2DCharacterProfiles {
         ),
         fallbackHeadIdle = Live2DFallbackHeadIdleConfig(
             enabled = true,
-            headXAmplitude = 3.6f,
-            headYAmplitude = 1.8f,
+            headXAmplitude = 5.5f,
+            headYAmplitude = 2.8f,
             testHeadXAmplitude = 10.8f,
             testHeadYAmplitude = 6.0f
         ),
