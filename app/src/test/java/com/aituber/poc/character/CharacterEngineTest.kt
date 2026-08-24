@@ -15,6 +15,8 @@ class CharacterEngineTest {
 
         assertEquals(0.5f, frame.mouthOpen, 0.0001f)
         assertEquals(true, frame.speaking)
+        assertEquals(1f, frame.eyeLeftOpen!!, 0.0001f)
+        assertEquals(1f, frame.eyeRightOpen!!, 0.0001f)
         assertEquals(frame, frames.single())
     }
 

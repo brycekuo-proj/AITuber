@@ -40,6 +40,8 @@ class CharacterOverlayService : Service() {
     private var mouthDriveMode = MouthDriveMode.CLOSED
     private var dragState: Live2DDragState? = null
     private var live2dCurrentScale = Live2DOverlayScaleMath.DEFAULT_SCALE
+    private var blinkTickRunning = false
+    private var lastCharacterMouthOpen = 0f
 
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
@@ -63,6 +65,15 @@ class CharacterOverlayService : Service() {
             characterEngine?.bind(CaptureSessionState.current(), animationFrames[frameIndex % animationFrames.size])
             frameIndex += 1
             handler.postDelayed(this, 185L)
+        }
+    }
+
+    private val blinkRunnable = object : Runnable {
+        override fun run() {
+            if (!blinkTickRunning || live2dView == null || characterEngine == null) return
+            MouthRenderDiagnostics.recordCharacterEngineRender()
+            characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
+            handler.postDelayed(this, BLINK_TICK_MS)
         }
     }
 
@@ -98,6 +109,9 @@ class CharacterOverlayService : Service() {
         OverlayLifecycleTrace.record("overlay view attached")
         CaptureSessionState.subscribe(stateListener)
         OverlayLifecycleTrace.record("overlay subscribed to state")
+        if (overlaySelection.live2dActive) {
+            startBlinkTick()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -112,6 +126,7 @@ class CharacterOverlayService : Service() {
         CaptureSessionState.unsubscribe(stateListener)
         OverlayLifecycleTrace.record("overlay unsubscribed")
         renderDispatcher.destroy()
+        stopBlinkTick()
         cleanupOverlayOnMain()
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
@@ -459,6 +474,7 @@ class CharacterOverlayService : Service() {
     private fun fallbackToMinimalMouthOnMain(reason: String) {
         requireMainThread("fallbackToMinimalMouthOnMain")
         OverlayLifecycleTrace.record(reason)
+        stopBlinkTick()
         val oldView = overlayView
         live2dView?.release()
         oldView?.let { runCatching { windowManager?.removeView(it) } }
@@ -571,6 +587,7 @@ class CharacterOverlayService : Service() {
                 stopAnimation(closeMouth = false)
                 if (frame.shouldRender) {
                     MouthRenderDiagnostics.recordCharacterEngineRender()
+                    lastCharacterMouthOpen = frame.smoothedOpen.toFloat()
                     characterEngine?.bind(snapshot, frame.smoothedOpen.toFloat())
                 }
             }
@@ -578,9 +595,24 @@ class CharacterOverlayService : Service() {
             MouthDriveMode.CLOSED -> {
                 stopAnimation(closeMouth = false)
                 MouthRenderDiagnostics.recordCharacterEngineRender()
+                lastCharacterMouthOpen = 0f
                 characterEngine?.bind(snapshot, 0f)
             }
         }
+    }
+
+    private fun startBlinkTick() {
+        requireMainThread("startBlinkTick")
+        if (blinkTickRunning) return
+        blinkTickRunning = true
+        handler.post(blinkRunnable)
+    }
+
+    private fun stopBlinkTick() {
+        requireMainThread("stopBlinkTick")
+        blinkTickRunning = false
+        characterEngine?.resetBlink()
+        handler.removeCallbacks(blinkRunnable)
     }
 
     companion object {
@@ -598,6 +630,10 @@ class CharacterOverlayService : Service() {
 
         fun testMouthFullyOpenForDebug() {
             activeService?.runMouthFullyOpenTest()
+        }
+
+        fun testBlinkForDebug() {
+            activeService?.runBlinkTest()
         }
     }
 
@@ -617,7 +653,17 @@ class CharacterOverlayService : Service() {
             }, 2_000L)
         }
     }
+
+    private fun runBlinkTest() {
+        handler.post {
+            characterEngine?.forceBlink()
+            MouthRenderDiagnostics.recordCharacterEngineRender()
+            characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
+        }
+    }
 }
+
+private const val BLINK_TICK_MS = 33L
 
 private data class OverlaySelection(
     val view: View,

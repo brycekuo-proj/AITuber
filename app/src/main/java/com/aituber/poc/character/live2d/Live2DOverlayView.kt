@@ -5,6 +5,7 @@ import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import com.aituber.poc.character.CharacterDiagnostics
+import com.aituber.poc.character.CharacterParameterFrame
 import com.aituber.poc.character.Live2DDiagnosticsSnapshot
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -20,6 +21,10 @@ class Live2DOverlayView(
 
     @Volatile
     private var lastMouthOpen: Float = 0f
+    @Volatile
+    private var lastLeftEyeOpen: Float = 1f
+    @Volatile
+    private var lastRightEyeOpen: Float = 1f
 
     init {
         holder.setFormat(PixelFormat.TRANSLUCENT)
@@ -37,6 +42,27 @@ class Live2DOverlayView(
         lastMouthOpen = ratio.coerceIn(0f, 1f)
         queueEvent {
             bridge.setMouthOpen(lastMouthOpen)
+            publishDiagnostics()
+        }
+    }
+
+    fun renderFrame(frame: CharacterParameterFrame) {
+        val clamped = frame.clamped()
+        lastMouthOpen = clamped.mouthOpen
+        lastLeftEyeOpen = clamped.eyeLeftOpen ?: 1f
+        lastRightEyeOpen = clamped.eyeRightOpen ?: 1f
+        queueEvent {
+            bridge.setMouthOpen(lastMouthOpen)
+            bridge.setEyeOpen(lastLeftEyeOpen, lastRightEyeOpen)
+            publishDiagnostics()
+        }
+    }
+
+    fun setEyeOpen(leftEyeOpen: Float, rightEyeOpen: Float) {
+        lastLeftEyeOpen = leftEyeOpen.coerceIn(0f, 1f)
+        lastRightEyeOpen = rightEyeOpen.coerceIn(0f, 1f)
+        queueEvent {
+            bridge.setEyeOpen(lastLeftEyeOpen, lastRightEyeOpen)
             publishDiagnostics()
         }
     }
@@ -61,6 +87,10 @@ class Live2DOverlayView(
                 mouthParameterId = snapshot.mouthParameterId,
                 mouthParameterValue = snapshot.appliedMouthOpen,
                 inputMouthOpen = snapshot.inputMouthOpen,
+                leftEyeParameterStatus = snapshot.leftEyeParameterStatus,
+                rightEyeParameterStatus = snapshot.rightEyeParameterStatus,
+                leftEyeOpen = snapshot.appliedLeftEyeOpen,
+                rightEyeOpen = snapshot.appliedRightEyeOpen,
                 renderFps = snapshot.renderFps,
                 nativeFrameCount = snapshot.nativeFrameCount,
                 surfaceWidth = snapshot.surfaceWidth,
@@ -105,6 +135,7 @@ class Live2DOverlayView(
                     return
                 }
                 bridge.setMouthOpen(lastMouthOpen)
+                bridge.setEyeOpen(lastLeftEyeOpen, lastRightEyeOpen)
                 publishDiagnostics()
             }
         }

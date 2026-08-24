@@ -79,6 +79,66 @@ class Live2DParameterBridgeTest {
         assertTrue(adapter.diagnosticsSnapshot().available)
     }
 
+    @Test
+    fun eyeOpenMapsToStandardLive2dEyeParameters() {
+        val sink = FakeSink(
+            availableParameterIds = setOf("ParamMouthOpenY", "ParamEyeLOpen", "ParamEyeROpen")
+        )
+
+        val result = Live2DParameterBridge(Live2DModelConfig(), sink).apply(
+            CharacterParameterFrame(
+                mouthOpen = 0.2f,
+                speaking = true,
+                eyeLeftOpen = 0.25f,
+                eyeRightOpen = 0.75f
+            )
+        )
+
+        assertEquals(Live2DParameterStatus.APPLIED, result.leftEyeStatus)
+        assertEquals(Live2DParameterStatus.APPLIED, result.rightEyeStatus)
+        assertEquals(0.25f, sink.values["ParamEyeLOpen"]!!, 0.0001f)
+        assertEquals(0.75f, sink.values["ParamEyeROpen"]!!, 0.0001f)
+    }
+
+    @Test
+    fun missingEyeParametersDoNotCrashOrAffectMouth() {
+        val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpenY"))
+
+        val result = Live2DParameterBridge(Live2DModelConfig(), sink).apply(
+            CharacterParameterFrame(
+                mouthOpen = 0.4f,
+                speaking = true,
+                eyeLeftOpen = 0f,
+                eyeRightOpen = 0f
+            )
+        )
+
+        assertEquals(Live2DParameterStatus.APPLIED, result.status)
+        assertEquals(Live2DParameterStatus.NOT_FOUND, result.leftEyeStatus)
+        assertEquals(Live2DParameterStatus.NOT_FOUND, result.rightEyeStatus)
+        assertEquals(0.4f, sink.values["ParamMouthOpenY"]!!, 0.0001f)
+        assertEquals(null, sink.values["ParamEyeLOpen"])
+        assertEquals(null, sink.values["ParamEyeROpen"])
+    }
+
+    @Test
+    fun oneEyeMissingStillAppliesExistingEyeSafely() {
+        val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpenY", "ParamEyeLOpen"))
+
+        val result = Live2DParameterBridge(Live2DModelConfig(), sink).apply(
+            CharacterParameterFrame(
+                mouthOpen = 0.4f,
+                speaking = true,
+                eyeLeftOpen = 0.1f,
+                eyeRightOpen = 0.9f
+            )
+        )
+
+        assertEquals(Live2DParameterStatus.APPLIED, result.leftEyeStatus)
+        assertEquals(Live2DParameterStatus.NOT_FOUND, result.rightEyeStatus)
+        assertEquals(0.1f, sink.values["ParamEyeLOpen"]!!, 0.0001f)
+    }
+
     private fun frame(mouthOpen: Float) = CharacterParameterFrame(
         mouthOpen = mouthOpen,
         speaking = mouthOpen > 0f

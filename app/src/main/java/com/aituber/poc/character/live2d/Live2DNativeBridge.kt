@@ -47,6 +47,17 @@ class Live2DNativeBridge(
         }.getOrDefault(false)
     }
 
+    fun setEyeOpen(leftEyeOpen: Float, rightEyeOpen: Float): Boolean {
+        if (!initialized) return false
+        return runCatching {
+            nativeSetEyeOpen(
+                leftEyeOpen.coerceIn(0f, 1f),
+                rightEyeOpen.coerceIn(0f, 1f)
+            )
+            true
+        }.getOrDefault(false)
+    }
+
     fun release() {
         if (!initialized) return
         runCatching { nativeRelease() }
@@ -65,6 +76,7 @@ class Live2DNativeBridge(
     private external fun nativeOnSurfaceCreated(): Boolean
     private external fun nativeOnSurfaceChanged(width: Int, height: Int): Boolean
     private external fun nativeSetMouthOpen(value: Float)
+    private external fun nativeSetEyeOpen(leftEyeOpen: Float, rightEyeOpen: Float)
     private external fun nativeOnDrawFrame()
     private external fun nativeRelease()
     private external fun nativeSnapshot(): Live2DNativeSnapshot

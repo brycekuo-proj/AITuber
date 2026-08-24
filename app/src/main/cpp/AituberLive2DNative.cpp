@@ -36,6 +36,8 @@ constexpr const char* kDefaultModelAssetDir = "live2d/Haru";
 constexpr const char* kDefaultModelName = "Haru";
 constexpr const char* kDefaultModelJson = "Haru.model3.json";
 constexpr const char* kMouthParameterId = "ParamMouthOpenY";
+constexpr const char* kLeftEyeParameterId = "ParamEyeLOpen";
+constexpr const char* kRightEyeParameterId = "ParamEyeROpen";
 constexpr const char* kShaderAssetDir = "live2d/framework/shaders";
 
 class AituberCubismAllocator : public ICubismAllocator {
@@ -99,6 +101,12 @@ struct RuntimeStatus {
     bool mouthParameterFound = false;
     float inputMouthOpen = 0.0f;
     float appliedMouthOpen = 0.0f;
+    bool leftEyeParameterFound = false;
+    bool rightEyeParameterFound = false;
+    float inputLeftEyeOpen = 1.0f;
+    float inputRightEyeOpen = 1.0f;
+    float appliedLeftEyeOpen = 1.0f;
+    float appliedRightEyeOpen = 1.0f;
     double renderFps = 0.0;
     long frameCount = 0;
     int surfaceWidth = 0;
@@ -123,6 +131,8 @@ struct Runtime {
     std::unique_ptr<CubismModelSettingJson> modelSetting;
     std::vector<GLuint> textures;
     const CubismId* mouthId = nullptr;
+    const CubismId* leftEyeId = nullptr;
+    const CubismId* rightEyeId = nullptr;
     RuntimeStatus status;
     long lastFpsFrame = 0;
     double lastFpsMs = 0.0;
@@ -469,9 +479,15 @@ bool loadModel(Runtime& runtime) {
     }
 
     runtime.mouthId = CubismFramework::GetIdManager()->GetId(kMouthParameterId);
+    runtime.leftEyeId = CubismFramework::GetIdManager()->GetId(kLeftEyeParameterId);
+    runtime.rightEyeId = CubismFramework::GetIdManager()->GetId(kRightEyeParameterId);
     const csmInt32 mouthIndex = runtime.model->model()->GetParameterIndex(runtime.mouthId);
     const bool found = mouthIndex >= 0 && mouthIndex < runtime.model->model()->GetParameterCount();
     runtime.status.mouthParameterFound = found;
+    const csmInt32 leftEyeIndex = runtime.model->model()->GetParameterIndex(runtime.leftEyeId);
+    runtime.status.leftEyeParameterFound = leftEyeIndex >= 0 && leftEyeIndex < runtime.model->model()->GetParameterCount();
+    const csmInt32 rightEyeIndex = runtime.model->model()->GetParameterIndex(runtime.rightEyeId);
+    runtime.status.rightEyeParameterFound = rightEyeIndex >= 0 && rightEyeIndex < runtime.model->model()->GetParameterCount();
     runtime.status.modelLoaded = true;
     if (!found) {
         runtime.status.lastError = "ParamMouthOpenY not found";
@@ -487,6 +503,8 @@ void discardContextBoundResources(Runtime& runtime) {
     runtime.model.reset();
     runtime.modelSetting.reset();
     runtime.mouthId = nullptr;
+    runtime.leftEyeId = nullptr;
+    runtime.rightEyeId = nullptr;
     runtime.status.modelLoaded = false;
     runtime.status.mouthParameterFound = false;
     runtime.status.texturesLoaded = 0;
@@ -624,6 +642,42 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetMouthOpen(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetEyeOpen(
+    JNIEnv*,
+    jobject,
+    jfloat leftEyeOpen,
+    jfloat rightEyeOpen
+) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_runtime) return;
+    g_runtime->status.inputLeftEyeOpen = std::max(0.0f, std::min(1.0f, leftEyeOpen));
+    g_runtime->status.inputRightEyeOpen = std::max(0.0f, std::min(1.0f, rightEyeOpen));
+    if (!g_runtime->model || !g_runtime->model->model()) return;
+
+    auto* model = g_runtime->model->model();
+    if (g_runtime->leftEyeId) {
+        const csmInt32 index = model->GetParameterIndex(g_runtime->leftEyeId);
+        if (index >= 0 && index < model->GetParameterCount()) {
+            model->SetParameterValue(index, g_runtime->status.inputLeftEyeOpen, 1.0f);
+            g_runtime->status.appliedLeftEyeOpen = g_runtime->status.inputLeftEyeOpen;
+            g_runtime->status.leftEyeParameterFound = true;
+        } else {
+            g_runtime->status.leftEyeParameterFound = false;
+        }
+    }
+    if (g_runtime->rightEyeId) {
+        const csmInt32 index = model->GetParameterIndex(g_runtime->rightEyeId);
+        if (index >= 0 && index < model->GetParameterCount()) {
+            model->SetParameterValue(index, g_runtime->status.inputRightEyeOpen, 1.0f);
+            g_runtime->status.appliedRightEyeOpen = g_runtime->status.inputRightEyeOpen;
+            g_runtime->status.rightEyeParameterFound = true;
+        } else {
+            g_runtime->status.rightEyeParameterFound = false;
+        }
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (!g_runtime || !g_runtime->model || !g_runtime->model->model()) {
@@ -644,6 +698,26 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
             model->SetParameterValue(index, g_runtime->status.inputMouthOpen, 1.0f);
             g_runtime->status.appliedMouthOpen = g_runtime->status.inputMouthOpen;
             g_runtime->status.mouthParameterFound = true;
+        }
+    }
+    if (g_runtime->leftEyeId) {
+        const csmInt32 index = model->GetParameterIndex(g_runtime->leftEyeId);
+        if (index >= 0 && index < model->GetParameterCount()) {
+            model->SetParameterValue(index, g_runtime->status.inputLeftEyeOpen, 1.0f);
+            g_runtime->status.appliedLeftEyeOpen = g_runtime->status.inputLeftEyeOpen;
+            g_runtime->status.leftEyeParameterFound = true;
+        } else {
+            g_runtime->status.leftEyeParameterFound = false;
+        }
+    }
+    if (g_runtime->rightEyeId) {
+        const csmInt32 index = model->GetParameterIndex(g_runtime->rightEyeId);
+        if (index >= 0 && index < model->GetParameterCount()) {
+            model->SetParameterValue(index, g_runtime->status.inputRightEyeOpen, 1.0f);
+            g_runtime->status.appliedRightEyeOpen = g_runtime->status.inputRightEyeOpen;
+            g_runtime->status.rightEyeParameterFound = true;
+        } else {
+            g_runtime->status.rightEyeParameterFound = false;
         }
     }
     model->SaveParameters();
@@ -712,7 +786,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
     jmethodID ctor = env->GetMethodID(
         clazz,
         "<init>",
-        "(ZZZZFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"
+        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"
     );
     if (!ctor) return nullptr;
     return env->NewObject(
@@ -724,6 +798,12 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
         static_cast<jboolean>(status.mouthParameterFound),
         status.inputMouthOpen,
         status.appliedMouthOpen,
+        toJString(env, status.leftEyeParameterFound ? "APPLIED" : "LEFT_EYE_NOT_FOUND"),
+        toJString(env, status.rightEyeParameterFound ? "APPLIED" : "RIGHT_EYE_NOT_FOUND"),
+        status.inputLeftEyeOpen,
+        status.inputRightEyeOpen,
+        status.appliedLeftEyeOpen,
+        status.appliedRightEyeOpen,
         status.renderFps,
         static_cast<jlong>(status.frameCount),
         static_cast<jint>(status.surfaceWidth),

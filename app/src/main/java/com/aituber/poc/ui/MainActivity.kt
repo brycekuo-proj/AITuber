@@ -20,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
+import com.aituber.poc.character.BlinkDiagnostics
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.overlay.CharacterOverlayService
@@ -128,6 +129,14 @@ class MainActivity : Activity() {
     private lateinit var characterFrameCountValue: TextView
     private lateinit var characterMouthInputValue: TextView
     private lateinit var characterMouthOutputValue: TextView
+    private lateinit var blinkEnabledValue: TextView
+    private lateinit var blinkStateValue: TextView
+    private lateinit var blinkLeftEyeOpenValue: TextView
+    private lateinit var blinkRightEyeOpenValue: TextView
+    private lateinit var blinkNextInValue: TextView
+    private lateinit var blinkCountValue: TextView
+    private lateinit var live2dLeftEyeParameterStatusValue: TextView
+    private lateinit var live2dRightEyeParameterStatusValue: TextView
     private lateinit var live2dAvailableValue: TextView
     private lateinit var live2dRuntimeLoadedValue: TextView
     private lateinit var live2dCoreLoadedValue: TextView
@@ -511,11 +520,20 @@ class MainActivity : Activity() {
         mouthPipelineDrawThreadValue = addDiagnosticField(root, "Draw Thread")
 
         root.addView(sectionTitle("Character Engine"))
+        addButton(root, "TEST BLINK") { CharacterOverlayService.testBlinkForDebug() }
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
         characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
         characterMouthOutputValue = addDiagnosticField(root, "Mouth Parameter Output")
+        blinkEnabledValue = addDiagnosticField(root, "Blink Enabled")
+        blinkStateValue = addDiagnosticField(root, "Blink State")
+        blinkLeftEyeOpenValue = addDiagnosticField(root, "Eye L Open")
+        blinkRightEyeOpenValue = addDiagnosticField(root, "Eye R Open")
+        blinkNextInValue = addDiagnosticField(root, "Next Blink In")
+        blinkCountValue = addDiagnosticField(root, "Blink Count")
+        live2dLeftEyeParameterStatusValue = addDiagnosticField(root, "Left Eye Parameter Status")
+        live2dRightEyeParameterStatusValue = addDiagnosticField(root, "Right Eye Parameter Status")
         live2dAvailableValue = addDiagnosticField(root, "Live2D Available")
         live2dRuntimeLoadedValue = addDiagnosticField(root, "Live2D Runtime Loaded")
         live2dCoreLoadedValue = addDiagnosticField(root, "Cubism Core Loaded")
@@ -1040,6 +1058,15 @@ class MainActivity : Activity() {
             characterFrameCountValue.text = character.characterFrameCount.toString()
             characterMouthInputValue.text = "%.3f".format(character.mouthParameterInput)
             characterMouthOutputValue.text = "%.3f".format(character.mouthParameterOutput)
+            val blink = BlinkDiagnostics.snapshot()
+            blinkEnabledValue.text = blink.enabled
+            blinkStateValue.text = blink.state
+            blinkLeftEyeOpenValue.text = "%.3f".format(blink.eyeLeftOpen)
+            blinkRightEyeOpenValue.text = "%.3f".format(blink.eyeRightOpen)
+            blinkNextInValue.text = "${blink.nextBlinkInMs} ms"
+            blinkCountValue.text = blink.blinkCount.toString()
+            live2dLeftEyeParameterStatusValue.text = character.live2dLeftEyeParameterStatus
+            live2dRightEyeParameterStatusValue.text = character.live2dRightEyeParameterStatus
             live2dAvailableValue.text = character.live2dAvailable
             live2dRuntimeLoadedValue.text = character.live2dRuntimeLoaded
             live2dCoreLoadedValue.text = character.live2dCoreLoaded

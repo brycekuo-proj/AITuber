@@ -21,8 +21,7 @@ class Live2DCharacterAdapter(
         val view = nativeView
         if (view != null && view.initialized) {
             val clampedFrame = frame.clamped()
-            view.setMouthOpenRatio(clampedFrame.mouthOpen)
-            view.publishDiagnostics()
+            view.renderFrame(clampedFrame)
             return
         }
 
@@ -41,6 +40,10 @@ class Live2DCharacterAdapter(
                 mouthParameterId = result.parameterId,
                 mouthParameterValue = result.value,
                 renderFps = renderFps,
+                leftEyeParameterStatus = result.leftEyeStatus.name,
+                rightEyeParameterStatus = result.rightEyeStatus.name,
+                leftEyeOpen = result.leftEyeValue,
+                rightEyeOpen = result.rightEyeValue,
                 fallbackReason = "n/a",
                 mouthParameterStatus = result.status.name
             )
@@ -60,6 +63,10 @@ class Live2DCharacterAdapter(
                 mouthParameterId = native.mouthParameterId,
                 mouthParameterValue = native.appliedMouthOpen,
                 inputMouthOpen = native.inputMouthOpen,
+                leftEyeParameterStatus = native.leftEyeParameterStatus,
+                rightEyeParameterStatus = native.rightEyeParameterStatus,
+                leftEyeOpen = native.appliedLeftEyeOpen,
+                rightEyeOpen = native.appliedRightEyeOpen,
                 renderFps = native.renderFps,
                 nativeFrameCount = native.nativeFrameCount,
                 surfaceWidth = native.surfaceWidth,
