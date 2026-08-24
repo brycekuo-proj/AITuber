@@ -4,14 +4,14 @@ import android.os.Build
 import android.view.WindowManager
 
 object OverlayWindowConfig {
-    const val TOUCH_PASSTHROUGH = true
-    const val LIVE2D_TOUCH_THROUGH_EXPERIMENT_ENABLED = true
     const val LIVE2D_EXPERIMENTAL_WINDOW_ALPHA = 0.79f
 
-    fun flags(): Int =
+    fun live2dFlags(): Int =
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+
+    fun minimalMouthFlags(): Int =
+        live2dFlags() or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
 
     fun windowType(sdkInt: Int = Build.VERSION.SDK_INT): Int =
         if (sdkInt >= Build.VERSION_CODES.O) {

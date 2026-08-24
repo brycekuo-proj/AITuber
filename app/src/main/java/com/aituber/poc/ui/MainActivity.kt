@@ -155,9 +155,12 @@ class MainActivity : Activity() {
     private lateinit var live2dOverlayWindowAlphaValue: TextView
     private lateinit var live2dFlagNotTouchableValue: TextView
     private lateinit var live2dFlagNotFocusableValue: TextView
-    private lateinit var live2dTouchPassthroughValue: TextView
+    private lateinit var live2dDragEnabledValue: TextView
+    private lateinit var live2dDraggingValue: TextView
+    private lateinit var live2dWindowXValue: TextView
+    private lateinit var live2dWindowYValue: TextView
     private lateinit var live2dWindowTouchableValue: TextView
-    private lateinit var live2dTouchThroughExperimentValue: TextView
+    private lateinit var live2dPositionSavedValue: TextView
     private lateinit var live2dTextureCountValue: TextView
     private lateinit var live2dTexturesLoadedValue: TextView
     private lateinit var live2dLastTexturePathValue: TextView
@@ -536,9 +539,12 @@ class MainActivity : Activity() {
         live2dOverlayWindowAlphaValue = addDiagnosticField(root, "Overlay Window Alpha")
         live2dFlagNotTouchableValue = addDiagnosticField(root, "Overlay FLAG_NOT_TOUCHABLE")
         live2dFlagNotFocusableValue = addDiagnosticField(root, "Overlay FLAG_NOT_FOCUSABLE")
-        live2dTouchPassthroughValue = addDiagnosticField(root, "Live2D Touch Passthrough")
+        live2dDragEnabledValue = addDiagnosticField(root, "Live2D Drag Enabled")
+        live2dDraggingValue = addDiagnosticField(root, "Live2D Dragging")
+        live2dWindowXValue = addDiagnosticField(root, "Live2D Window X")
+        live2dWindowYValue = addDiagnosticField(root, "Live2D Window Y")
         live2dWindowTouchableValue = addDiagnosticField(root, "Live2D Window Touchable")
-        live2dTouchThroughExperimentValue = addDiagnosticField(root, "Touch Through Experiment")
+        live2dPositionSavedValue = addDiagnosticField(root, "Live2D Position Saved")
         live2dTextureCountValue = addDiagnosticField(root, "Live2D Texture Count")
         live2dTexturesLoadedValue = addDiagnosticField(root, "Live2D Textures Loaded")
         live2dLastTexturePathValue = addDiagnosticField(root, "Last Texture Path")
@@ -1053,9 +1059,12 @@ class MainActivity : Activity() {
             live2dOverlayWindowAlphaValue.text = "%.2f".format(character.live2dOverlayWindowAlpha)
             live2dFlagNotTouchableValue.text = character.live2dFlagNotTouchable
             live2dFlagNotFocusableValue.text = character.live2dFlagNotFocusable
-            live2dTouchPassthroughValue.text = character.live2dTouchPassthrough
+            live2dDragEnabledValue.text = character.live2dDragEnabled
+            live2dDraggingValue.text = character.live2dDragging
+            live2dWindowXValue.text = character.live2dWindowX.toString()
+            live2dWindowYValue.text = character.live2dWindowY.toString()
             live2dWindowTouchableValue.text = character.live2dWindowTouchable
-            live2dTouchThroughExperimentValue.text = character.live2dTouchThroughExperiment
+            live2dPositionSavedValue.text = character.live2dPositionSaved
             live2dTextureCountValue.text = character.live2dTextureCount.toString()
             live2dTexturesLoadedValue.text = character.live2dTexturesLoaded.toString()
             live2dLastTexturePathValue.text = character.live2dLastTexturePath

@@ -8,23 +8,31 @@ import org.junit.Test
 
 class OverlayWindowConfigTest {
     @Test
-    fun overlayWindowFlagsIncludeNotTouchable() {
-        val flags = OverlayWindowConfig.flags()
+    fun live2dOverlayWindowFlagsDoNotIncludeNotTouchable() {
+        val flags = OverlayWindowConfig.live2dFlags()
 
-        assertTrue(flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+        assertFalse(flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+        assertTrue(OverlayWindowConfig.isTouchable(flags))
+    }
+
+    @Test
+    fun minimalMouthWindowFlagsStillIncludeNotTouchable() {
+        val flags = OverlayWindowConfig.minimalMouthFlags()
+
+        assertTrue(OverlayWindowConfig.hasNotTouchable(flags))
         assertFalse(OverlayWindowConfig.isTouchable(flags))
     }
 
     @Test
-    fun overlayWindowFlagsIncludeNotFocusable() {
-        val flags = OverlayWindowConfig.flags()
+    fun live2dOverlayWindowFlagsIncludeNotFocusable() {
+        val flags = OverlayWindowConfig.live2dFlags()
 
         assertTrue(flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0)
     }
 
     @Test
-    fun touchPassthroughIsEnabledForOverlayWindow() {
-        assertTrue(OverlayWindowConfig.TOUCH_PASSTHROUGH)
+    fun live2dWindowIsTouchableForDragging() {
+        assertTrue(OverlayWindowConfig.isTouchable(OverlayWindowConfig.live2dFlags()))
     }
 
     @Test
@@ -40,7 +48,7 @@ class OverlayWindowConfigTest {
     }
 
     @Test
-    fun touchThroughExperimentIsEnabled() {
-        assertTrue(OverlayWindowConfig.LIVE2D_TOUCH_THROUGH_EXPERIMENT_ENABLED)
+    fun flagLayoutNoLimitsIsPreserved() {
+        assertTrue(OverlayWindowConfig.live2dFlags() and WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS != 0)
     }
 }

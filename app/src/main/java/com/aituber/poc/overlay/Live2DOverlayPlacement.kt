@@ -38,7 +38,8 @@ object Live2DOverlayPlacement {
             (usableBottom * MAX_SCREEN_HEIGHT_FRACTION).toInt()
         ).coerceAtLeast(min(MIN_HEIGHT_PX, usableBottom))
         val x = (safeWidth - width - rightMarginPx).coerceAtLeast(0)
-        val y = max(topSafeMarginPx, topInsetSafePx).coerceAtMost((usableBottom - height).coerceAtLeast(0))
+        val minY = max(topSafeMarginPx, topInsetSafePx).coerceAtMost((usableBottom - height).coerceAtLeast(0))
+        val y = minY
         return Live2DOverlayPlacementFrame(
             width = width,
             height = height,
@@ -51,7 +52,9 @@ object Live2DOverlayPlacement {
             topSafeMarginFraction = TOP_SAFE_MARGIN_FRACTION,
             topSafeMarginPx = topSafeMarginPx,
             bottomSafeZoneFraction = BOTTOM_SAFE_ZONE_FRACTION,
-            bottomSafeZonePx = bottomSafeZonePx
+            bottomSafeZonePx = bottomSafeZonePx,
+            usableBottom = usableBottom,
+            minOffsetY = minY
         )
     }
 }
@@ -68,5 +71,7 @@ data class Live2DOverlayPlacementFrame(
     val topSafeMarginFraction: Float,
     val topSafeMarginPx: Int,
     val bottomSafeZoneFraction: Float,
-    val bottomSafeZonePx: Int
+    val bottomSafeZonePx: Int,
+    val usableBottom: Int,
+    val minOffsetY: Int
 )

@@ -105,9 +105,10 @@ object CharacterDiagnostics {
         windowAlpha: Float,
         flagNotTouchable: Boolean,
         flagNotFocusable: Boolean,
-        touchPassthrough: Boolean,
+        dragEnabled: Boolean,
+        dragging: Boolean,
         windowTouchable: Boolean,
-        touchThroughExperimentEnabled: Boolean
+        positionSaved: Boolean
     ) {
         current = current.copy(
             live2dDisplayScale = displayScale.toDouble(),
@@ -126,9 +127,29 @@ object CharacterDiagnostics {
             live2dOverlayWindowAlpha = windowAlpha.toDouble(),
             live2dFlagNotTouchable = if (flagNotTouchable) "YES" else "NO",
             live2dFlagNotFocusable = if (flagNotFocusable) "YES" else "NO",
-            live2dTouchPassthrough = if (touchPassthrough) "YES" else "NO",
+            live2dDragEnabled = if (dragEnabled) "YES" else "NO",
+            live2dDragging = if (dragging) "YES" else "NO",
+            live2dWindowX = offsetX,
+            live2dWindowY = offsetY,
             live2dWindowTouchable = if (windowTouchable) "YES" else "NO",
-            live2dTouchThroughExperiment = if (touchThroughExperimentEnabled) "ENABLED" else "DISABLED"
+            live2dPositionSaved = if (positionSaved) "YES" else "NO"
+        )
+    }
+
+    @Synchronized
+    fun recordLive2DDragState(
+        dragging: Boolean,
+        x: Int,
+        y: Int,
+        positionSaved: Boolean
+    ) {
+        current = current.copy(
+            live2dDragging = if (dragging) "YES" else "NO",
+            live2dWindowX = x,
+            live2dWindowY = y,
+            live2dDisplayOffsetX = x,
+            live2dDisplayOffsetY = y,
+            live2dPositionSaved = if (positionSaved) "YES" else "NO"
         )
     }
 
@@ -191,9 +212,12 @@ data class CharacterDiagnosticsSnapshot(
     val live2dOverlayWindowAlpha: Double,
     val live2dFlagNotTouchable: String,
     val live2dFlagNotFocusable: String,
-    val live2dTouchPassthrough: String,
+    val live2dDragEnabled: String,
+    val live2dDragging: String,
+    val live2dWindowX: Int,
+    val live2dWindowY: Int,
     val live2dWindowTouchable: String,
-    val live2dTouchThroughExperiment: String,
+    val live2dPositionSaved: String,
     val live2dTextureCount: Int,
     val live2dTexturesLoaded: Int,
     val live2dLastTexturePath: String,
@@ -243,9 +267,12 @@ data class CharacterDiagnosticsSnapshot(
             live2dOverlayWindowAlpha = 1.0,
             live2dFlagNotTouchable = "n/a",
             live2dFlagNotFocusable = "n/a",
-            live2dTouchPassthrough = "n/a",
+            live2dDragEnabled = "n/a",
+            live2dDragging = "NO",
+            live2dWindowX = 0,
+            live2dWindowY = 0,
             live2dWindowTouchable = "n/a",
-            live2dTouchThroughExperiment = "n/a",
+            live2dPositionSaved = "NO",
             live2dTextureCount = 0,
             live2dTexturesLoaded = 0,
             live2dLastTexturePath = "n/a",

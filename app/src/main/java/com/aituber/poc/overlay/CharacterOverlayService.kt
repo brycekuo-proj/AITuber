@@ -9,7 +9,9 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import com.aituber.poc.character.CharacterAdapterFactory
 import com.aituber.poc.character.CharacterDiagnostics
@@ -35,6 +37,7 @@ class CharacterOverlayService : Service() {
     private var currentState = UniversalAiState.UNKNOWN
     private var animationRunning = false
     private var mouthDriveMode = MouthDriveMode.CLOSED
+    private var dragState: Live2DDragState? = null
 
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
@@ -85,7 +88,11 @@ class CharacterOverlayService : Service() {
         characterEngine = CharacterEngine(selection.adapter)
         windowManager = getSystemService(WindowManager::class.java)
         overlayView = overlaySelection.view
-        windowManager?.addView(overlaySelection.view, overlayLayoutParams(overlaySelection.live2dActive))
+        val layoutParams = overlayLayoutParams(overlaySelection.live2dActive)
+        if (overlaySelection.live2dActive) {
+            installLive2DDrag(overlaySelection.view, layoutParams)
+        }
+        windowManager?.addView(overlaySelection.view, layoutParams)
         OverlayLifecycleTrace.record("overlay view attached")
         CaptureSessionState.subscribe(stateListener)
         OverlayLifecycleTrace.record("overlay subscribed to state")
@@ -121,12 +128,33 @@ class CharacterOverlayService : Service() {
             null
         }
         val windowType = OverlayWindowConfig.windowType()
-        val windowFlags = OverlayWindowConfig.flags()
+        val windowFlags = if (placement != null) {
+            OverlayWindowConfig.live2dFlags()
+        } else {
+            OverlayWindowConfig.minimalMouthFlags()
+        }
+        val positionStore = if (placement != null) Live2DOverlayPositionStore(this) else null
+        val position = if (placement != null) {
+            val metrics = resources.displayMetrics
+            Live2DOverlayDragMath.initialPosition(
+                defaultPosition = Live2DOverlayPosition(placement.offsetX, placement.offsetY),
+                savedPosition = positionStore?.load(),
+                bounds = Live2DOverlayBounds(
+                    screenWidth = metrics.widthPixels,
+                    usableBottom = placement.usableBottom,
+                    overlayWidth = placement.width,
+                    overlayHeight = placement.height,
+                    minY = placement.minOffsetY
+                )
+            )
+        } else {
+            null
+        }
         if (placement != null) {
             CharacterDiagnostics.recordLive2DDisplayTransform(
                 displayScale = placement.displayScale,
-                offsetX = placement.offsetX,
-                offsetY = placement.offsetY,
+                offsetX = position?.x ?: placement.offsetX,
+                offsetY = position?.y ?: placement.offsetY,
                 viewportWidth = placement.width,
                 viewportHeight = placement.height,
                 anchor = placement.anchor,
@@ -140,9 +168,10 @@ class CharacterOverlayService : Service() {
                 windowAlpha = OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA,
                 flagNotTouchable = OverlayWindowConfig.hasNotTouchable(windowFlags),
                 flagNotFocusable = OverlayWindowConfig.hasNotFocusable(windowFlags),
-                touchPassthrough = OverlayWindowConfig.TOUCH_PASSTHROUGH,
+                dragEnabled = true,
+                dragging = false,
                 windowTouchable = OverlayWindowConfig.isTouchable(windowFlags),
-                touchThroughExperimentEnabled = OverlayWindowConfig.LIVE2D_TOUCH_THROUGH_EXPERIMENT_ENABLED
+                positionSaved = positionStore?.isSaved() == true
             )
         }
         return WindowManager.LayoutParams(
@@ -160,14 +189,112 @@ class CharacterOverlayService : Service() {
             } else {
                 Gravity.TOP or Gravity.END
             }
-            x = placement?.offsetX ?: 32
-            y = placement?.offsetY ?: 220
+            x = position?.x ?: 32
+            y = position?.y ?: 220
         }
     }
 
     private fun systemTopInsetPx(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
+    }
+
+    private fun installLive2DDrag(view: View, params: WindowManager.LayoutParams) {
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        val positionStore = Live2DOverlayPositionStore(this)
+        view.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragState = Live2DDragState(
+                        downRawX = event.rawX,
+                        downRawY = event.rawY,
+                        startX = params.x,
+                        startY = params.y,
+                        dragging = false
+                    )
+                    CharacterDiagnostics.recordLive2DDragState(
+                        dragging = false,
+                        x = params.x,
+                        y = params.y,
+                        positionSaved = positionStore.isSaved()
+                    )
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val state = dragState ?: return@setOnTouchListener true
+                    val deltaX = event.rawX - state.downRawX
+                    val deltaY = event.rawY - state.downRawY
+                    val movementExceededSlop = kotlin.math.abs(deltaX) >= touchSlop ||
+                        kotlin.math.abs(deltaY) >= touchSlop
+                    if (state.dragging || movementExceededSlop) {
+                        dragState = state.copy(dragging = true)
+                        val next = clampedLive2DPosition(
+                            position = Live2DOverlayPosition(
+                                x = state.startX + deltaX.toInt(),
+                                y = state.startY + deltaY.toInt()
+                            ),
+                            overlayWidth = params.width,
+                            overlayHeight = params.height
+                        )
+                        params.x = next.x
+                        params.y = next.y
+                        windowManager?.updateViewLayout(view, params)
+                        CharacterDiagnostics.recordLive2DDragState(
+                            dragging = true,
+                            x = params.x,
+                            y = params.y,
+                            positionSaved = positionStore.isSaved()
+                        )
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val finalPosition = clampedLive2DPosition(
+                        position = Live2DOverlayPosition(params.x, params.y),
+                        overlayWidth = params.width,
+                        overlayHeight = params.height
+                    )
+                    params.x = finalPosition.x
+                    params.y = finalPosition.y
+                    if (dragState?.dragging == true) {
+                        positionStore.save(finalPosition)
+                    }
+                    CharacterDiagnostics.recordLive2DDragState(
+                        dragging = false,
+                        x = params.x,
+                        y = params.y,
+                        positionSaved = positionStore.isSaved()
+                    )
+                    dragState = null
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
+    private fun clampedLive2DPosition(
+        position: Live2DOverlayPosition,
+        overlayWidth: Int,
+        overlayHeight: Int
+    ): Live2DOverlayPosition {
+        val metrics = resources.displayMetrics
+        val placement = Live2DOverlayPlacement.compute(
+            screenWidth = metrics.widthPixels,
+            screenHeight = metrics.heightPixels,
+            systemTopInsetPx = systemTopInsetPx(),
+            topInsetMarginPx = (8f * metrics.density).toInt()
+        )
+        return Live2DOverlayDragMath.clamp(
+            position = position,
+            bounds = Live2DOverlayBounds(
+                screenWidth = metrics.widthPixels,
+                usableBottom = placement.usableBottom,
+                overlayWidth = overlayWidth,
+                overlayHeight = overlayHeight,
+                minY = placement.minOffsetY
+            )
+        )
     }
 
     private fun createOverlaySelection(): OverlaySelection {
@@ -381,4 +508,12 @@ private data class OverlaySelection(
     val live2dActive: Boolean,
     val live2dLifecycleState: String,
     val selection: com.aituber.poc.character.CharacterAdapterSelection
+)
+
+private data class Live2DDragState(
+    val downRawX: Float,
+    val downRawY: Float,
+    val startX: Int,
+    val startY: Int,
+    val dragging: Boolean
 )
