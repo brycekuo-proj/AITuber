@@ -100,6 +100,16 @@ class Live2DCharacterAdapter(
                 idleMotionCount = native.idleMotionCount,
                 idleMotionPlayCount = native.idleMotionPlayCount,
                 lastIdleMotionError = native.lastIdleMotionError,
+                physicsEnabled = native.physicsEnabled,
+                physicsStatus = native.physicsStatus,
+                physicsFile = native.physicsFile,
+                physicsLoaded = native.physicsLoaded,
+                physicsUpdateCount = native.physicsUpdateCount,
+                physicsLastDeltaMs = native.physicsLastDeltaMs,
+                physicsInputCount = native.physicsInputCount,
+                physicsOutputCount = native.physicsOutputCount,
+                physicsOutputParameterIds = native.physicsOutputParameterIds,
+                lastPhysicsError = native.lastPhysicsError,
                 lifecycleState = when {
                     native.modelLoaded -> "READY"
                     native.lastError.isNotBlank() -> "FAILED"

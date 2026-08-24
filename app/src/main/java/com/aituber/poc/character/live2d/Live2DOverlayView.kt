@@ -81,6 +81,10 @@ class Live2DOverlayView(
         }
     }
 
+    fun startPhysicsTestForDebug() {
+        startIdleMotionForDebug()
+    }
+
     fun release() {
         queueEvent {
             bridge.release()
@@ -132,6 +136,16 @@ class Live2DOverlayView(
                 idleMotionCount = snapshot.idleMotionCount,
                 idleMotionPlayCount = snapshot.idleMotionPlayCount,
                 lastIdleMotionError = snapshot.lastIdleMotionError,
+                physicsEnabled = snapshot.physicsEnabled,
+                physicsStatus = snapshot.physicsStatus,
+                physicsFile = snapshot.physicsFile,
+                physicsLoaded = snapshot.physicsLoaded,
+                physicsUpdateCount = snapshot.physicsUpdateCount,
+                physicsLastDeltaMs = snapshot.physicsLastDeltaMs,
+                physicsInputCount = snapshot.physicsInputCount,
+                physicsOutputCount = snapshot.physicsOutputCount,
+                physicsOutputParameterIds = snapshot.physicsOutputParameterIds,
+                lastPhysicsError = snapshot.lastPhysicsError,
                 lifecycleState = lifecycleState(snapshot),
                 fallbackReason = if (snapshot.lastError.isBlank()) "n/a" else snapshot.lastError,
                 mouthParameterStatus = if (snapshot.mouthParameterFound) {

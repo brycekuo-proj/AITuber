@@ -42,7 +42,17 @@ data class Live2DNativeSnapshot(
     val idleMotionPlaying: Boolean,
     val idleMotionCount: Int,
     val idleMotionPlayCount: Long,
-    val lastIdleMotionError: String
+    val lastIdleMotionError: String,
+    val physicsEnabled: Boolean,
+    val physicsStatus: String,
+    val physicsFile: String,
+    val physicsLoaded: Boolean,
+    val physicsUpdateCount: Long,
+    val physicsLastDeltaMs: Float,
+    val physicsInputCount: Int,
+    val physicsOutputCount: Int,
+    val physicsOutputParameterIds: String,
+    val lastPhysicsError: String
 ) {
     companion object {
         fun unavailable(reason: String) = Live2DNativeSnapshot(
@@ -87,7 +97,17 @@ data class Live2DNativeSnapshot(
             idleMotionPlaying = false,
             idleMotionCount = 0,
             idleMotionPlayCount = 0L,
-            lastIdleMotionError = reason
+            lastIdleMotionError = reason,
+            physicsEnabled = false,
+            physicsStatus = "UNAVAILABLE",
+            physicsFile = "n/a",
+            physicsLoaded = false,
+            physicsUpdateCount = 0L,
+            physicsLastDeltaMs = 0f,
+            physicsInputCount = 0,
+            physicsOutputCount = 0,
+            physicsOutputParameterIds = "[]",
+            lastPhysicsError = reason
         )
     }
 }

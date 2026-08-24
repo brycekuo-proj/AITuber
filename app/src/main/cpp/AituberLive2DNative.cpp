@@ -5,6 +5,7 @@
 #include <GLES2/gl2.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -24,6 +25,7 @@
 #include <Model/CubismUserModel.hpp>
 #include <Motion/ACubismMotion.hpp>
 #include <Motion/CubismMotionQueueEntry.hpp>
+#include <Physics/CubismPhysics.hpp>
 #include <Rendering/OpenGL/CubismRenderer_OpenGLES2.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -45,6 +47,7 @@ constexpr float kBreathIntensity = 0.30f;
 constexpr const char* kShaderAssetDir = "live2d/framework/shaders";
 constexpr const char* kIdleMotionGroup = "Idle";
 constexpr int kPriorityIdle = 1;
+constexpr csmFloat32 kMaxPhysicsDeltaSeconds = 0.1f;
 
 class AituberCubismAllocator : public ICubismAllocator {
 public:
@@ -96,6 +99,18 @@ public:
     void updatePose(csmFloat32 deltaTimeSeconds) {
         if (_pose && _model) {
             _pose->UpdateParameters(_model, deltaTimeSeconds);
+        }
+    }
+
+    void loadPhysics(const csmByte* buffer, csmSizeInt size) {
+        LoadPhysics(buffer, size);
+    }
+
+    bool physicsLoaded() const { return _physics != nullptr; }
+
+    void updatePhysics(csmFloat32 deltaTimeSeconds) {
+        if (_physics && _model) {
+            _physics->Evaluate(_model, deltaTimeSeconds);
         }
     }
 
@@ -161,6 +176,16 @@ struct RuntimeStatus {
     int idleMotionCount = 0;
     long idleMotionPlayCount = 0;
     std::string lastIdleMotionError = "n/a";
+    bool physicsEnabled = false;
+    std::string physicsStatus = "UNAVAILABLE";
+    std::string physicsFile = "n/a";
+    bool physicsLoaded = false;
+    long physicsUpdateCount = 0;
+    float physicsLastDeltaMs = 0.0f;
+    int physicsInputCount = 0;
+    int physicsOutputCount = 0;
+    std::string physicsOutputParameterIds = "[]";
+    std::string lastPhysicsError = "n/a";
     std::string modelName = kDefaultModelName;
     std::string mouthParameterId = kMouthParameterId;
     std::string poseFile = "n/a";
@@ -225,6 +250,58 @@ std::string joinAssetPath(const std::string& dir, const std::string& file) {
 std::string baseName(const std::string& path) {
     const size_t index = path.find_last_of("/\\");
     return index == std::string::npos ? path : path.substr(index + 1);
+}
+
+int extractJsonInt(const std::string& json, const std::string& key, int fallback = 0) {
+    const std::string marker = "\"" + key + "\"";
+    const size_t keyIndex = json.find(marker);
+    if (keyIndex == std::string::npos) return fallback;
+    const size_t colonIndex = json.find(':', keyIndex + marker.size());
+    if (colonIndex == std::string::npos) return fallback;
+    size_t valueIndex = colonIndex + 1;
+    while (valueIndex < json.size() && std::isspace(static_cast<unsigned char>(json[valueIndex]))) {
+        valueIndex++;
+    }
+    size_t endIndex = valueIndex;
+    while (endIndex < json.size() && std::isdigit(static_cast<unsigned char>(json[endIndex]))) {
+        endIndex++;
+    }
+    if (endIndex == valueIndex) return fallback;
+    return std::atoi(json.substr(valueIndex, endIndex - valueIndex).c_str());
+}
+
+std::string extractPhysicsOutputIds(const std::string& json) {
+    std::vector<std::string> ids;
+    size_t cursor = 0;
+    while (true) {
+        const size_t destinationIndex = json.find("\"Destination\"", cursor);
+        if (destinationIndex == std::string::npos) break;
+        const size_t outputEnd = json.find("\"Vertices\"", destinationIndex);
+        const size_t idIndex = json.find("\"Id\"", destinationIndex);
+        if (idIndex != std::string::npos && (outputEnd == std::string::npos || idIndex < outputEnd)) {
+            const size_t colonIndex = json.find(':', idIndex);
+            const size_t quoteStart = colonIndex == std::string::npos ? std::string::npos : json.find('"', colonIndex + 1);
+            const size_t quoteEnd = quoteStart == std::string::npos ? std::string::npos : json.find('"', quoteStart + 1);
+            if (quoteStart != std::string::npos && quoteEnd != std::string::npos) {
+                const std::string id = json.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+                if (std::find(ids.begin(), ids.end(), id) == ids.end()) {
+                    ids.push_back(id);
+                }
+                cursor = quoteEnd + 1;
+                continue;
+            }
+        }
+        cursor = destinationIndex + 1;
+    }
+
+    std::ostringstream stream;
+    stream << "[";
+    for (size_t i = 0; i < ids.size(); i++) {
+        if (i > 0) stream << ",";
+        stream << ids[i];
+    }
+    stream << "]";
+    return stream.str();
 }
 
 bool readAsset(AAssetManager* manager, const std::string& path, std::vector<unsigned char>& out, std::string& error) {
@@ -492,6 +569,59 @@ bool startIdleMotionLocked(Runtime& runtime, bool forceNext) {
     return true;
 }
 
+void loadPhysicsLocked(Runtime& runtime) {
+    runtime.status.physicsEnabled = false;
+    runtime.status.physicsStatus = "UNSUPPORTED";
+    runtime.status.physicsFile = "n/a";
+    runtime.status.physicsLoaded = false;
+    runtime.status.physicsUpdateCount = 0;
+    runtime.status.physicsLastDeltaMs = 0.0f;
+    runtime.status.physicsInputCount = 0;
+    runtime.status.physicsOutputCount = 0;
+    runtime.status.physicsOutputParameterIds = "[]";
+    runtime.status.lastPhysicsError = "Physics file not referenced";
+
+    if (!runtime.model || !runtime.model->model() || !runtime.modelSetting) {
+        runtime.status.physicsStatus = "UNAVAILABLE";
+        runtime.status.lastPhysicsError = "Model not ready";
+        return;
+    }
+
+    const char* physicsFile = runtime.modelSetting->GetPhysicsFileName();
+    if (!physicsFile || std::strlen(physicsFile) == 0) {
+        return;
+    }
+
+    runtime.status.physicsFile = physicsFile;
+    std::string error;
+    std::vector<unsigned char> physicsJson;
+    const std::string physicsPath = joinAssetPath(runtime.modelAssetDir, physicsFile);
+    if (!readAsset(runtime.assetManager, physicsPath, physicsJson, error)) {
+        runtime.status.physicsStatus = "PHYSICS_NOT_FOUND";
+        runtime.status.lastPhysicsError = error;
+        logError("Physics unavailable: " + error);
+        return;
+    }
+
+    const std::string physicsText(reinterpret_cast<const char*>(physicsJson.data()), physicsJson.size());
+    runtime.status.physicsInputCount = extractJsonInt(physicsText, "TotalInputCount", 0);
+    runtime.status.physicsOutputCount = extractJsonInt(physicsText, "TotalOutputCount", 0);
+    runtime.status.physicsOutputParameterIds = extractPhysicsOutputIds(physicsText);
+    runtime.model->loadPhysics(
+        reinterpret_cast<const csmByte*>(physicsJson.data()),
+        static_cast<csmSizeInt>(physicsJson.size())
+    );
+    runtime.status.physicsLoaded = runtime.model->physicsLoaded();
+    runtime.status.physicsEnabled = runtime.status.physicsLoaded;
+    runtime.status.physicsStatus = runtime.status.physicsLoaded ? "READY" : "PHYSICS_FAILED";
+    runtime.status.lastPhysicsError = runtime.status.physicsLoaded ? "n/a" : "Physics parse returned null";
+    if (runtime.status.physicsLoaded) {
+        logInfo("Live2D physics loaded: " + physicsPath);
+    } else {
+        logError("Physics parse returned null: " + physicsPath);
+    }
+}
+
 bool loadModel(Runtime& runtime) {
     if (!ensureFramework(runtime)) {
         return false;
@@ -592,6 +722,7 @@ bool loadModel(Runtime& runtime) {
     runtime.status.idleMotionPlaying = false;
     runtime.status.lastIdleMotionError = runtime.status.idleMotionEnabled ? "n/a" : "Idle motion group empty";
     runtime.nextIdleMotionIndex = 0;
+    loadPhysicsLocked(runtime);
     bool poseError = false;
     const char* poseFile = runtime.modelSetting->GetPoseFileName();
     if (poseFile && std::strlen(poseFile) > 0) {
@@ -669,6 +800,16 @@ void discardContextBoundResources(Runtime& runtime) {
     runtime.status.idleMotionIndex = -1;
     runtime.status.idleMotionPlaying = false;
     runtime.status.idleMotionCount = 0;
+    runtime.status.physicsEnabled = false;
+    runtime.status.physicsStatus = "UNAVAILABLE";
+    runtime.status.physicsFile = "n/a";
+    runtime.status.physicsLoaded = false;
+    runtime.status.physicsUpdateCount = 0;
+    runtime.status.physicsLastDeltaMs = 0.0f;
+    runtime.status.physicsInputCount = 0;
+    runtime.status.physicsOutputCount = 0;
+    runtime.status.physicsOutputParameterIds = "[]";
+    runtime.status.lastPhysicsError = "n/a";
 }
 
 RuntimeStatus copyStatusLocked() {
@@ -923,6 +1064,20 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
             g_runtime->status.idleMotionStatus = g_runtime->status.idleMotionPlaying ? "PLAYING" : "FINISHED";
         }
     }
+    if (!g_runtime->status.idleMotionPlaying || g_runtime->status.inputBreathIntensity > kBreathIntensity + 0.001f) {
+        applyBreathLocked(g_runtime->status.inputBreathNormalized, g_runtime->status.inputBreathIntensity);
+    }
+    if (g_runtime->status.physicsLoaded) {
+        const csmFloat32 boundedPhysicsDelta = std::max(
+            0.0f,
+            std::min(deltaTimeSeconds, kMaxPhysicsDeltaSeconds)
+        );
+        g_runtime->model->updatePhysics(boundedPhysicsDelta);
+        g_runtime->status.physicsEnabled = true;
+        g_runtime->status.physicsStatus = "ACTIVE";
+        g_runtime->status.physicsUpdateCount += 1L;
+        g_runtime->status.physicsLastDeltaMs = boundedPhysicsDelta * 1000.0f;
+    }
     if (g_runtime->mouthId) {
         const csmInt32 index = model->GetParameterIndex(g_runtime->mouthId);
         if (index >= 0 && index < model->GetParameterCount()) {
@@ -950,9 +1105,6 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
         } else {
             g_runtime->status.rightEyeParameterFound = false;
         }
-    }
-    if (!g_runtime->status.idleMotionPlaying || g_runtime->status.inputBreathIntensity > kBreathIntensity + 0.001f) {
-        applyBreathLocked(g_runtime->status.inputBreathNormalized, g_runtime->status.inputBreathIntensity);
     }
     model->SaveParameters();
     g_runtime->model->updatePose(deltaTimeSeconds);
@@ -1015,7 +1167,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
     jmethodID ctor = env->GetMethodID(
         clazz,
         "<init>",
-        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFLjava/lang/String;FFFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;IZIJLjava/lang/String;)V"
+        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFLjava/lang/String;FFFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;IZIJLjava/lang/String;ZLjava/lang/String;Ljava/lang/String;ZJFIILjava/lang/String;Ljava/lang/String;)V"
     );
     if (!ctor) return nullptr;
     return env->NewObject(
@@ -1062,6 +1214,16 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
         static_cast<jboolean>(status.idleMotionPlaying),
         static_cast<jint>(status.idleMotionCount),
         static_cast<jlong>(status.idleMotionPlayCount),
-        toJString(env, status.lastIdleMotionError)
+        toJString(env, status.lastIdleMotionError),
+        static_cast<jboolean>(status.physicsEnabled),
+        toJString(env, status.physicsStatus),
+        toJString(env, status.physicsFile),
+        static_cast<jboolean>(status.physicsLoaded),
+        static_cast<jlong>(status.physicsUpdateCount),
+        status.physicsLastDeltaMs,
+        static_cast<jint>(status.physicsInputCount),
+        static_cast<jint>(status.physicsOutputCount),
+        toJString(env, status.physicsOutputParameterIds),
+        toJString(env, status.lastPhysicsError)
     );
 }

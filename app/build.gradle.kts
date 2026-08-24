@@ -74,6 +74,7 @@ if (live2dEnabled) {
             "*.model3.json",
             "*.moc3",
             "*.pose3.json",
+            "*.physics3.json",
             "Haru.2048/**",
             "motions/haru_g_idle.motion3.json",
             "motions/haru_g_m15.motion3.json"

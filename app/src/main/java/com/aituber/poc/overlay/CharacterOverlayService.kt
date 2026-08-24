@@ -644,6 +644,10 @@ class CharacterOverlayService : Service() {
         fun testIdleForDebug() {
             activeService?.runIdleTest()
         }
+
+        fun testPhysicsForDebug() {
+            activeService?.runPhysicsTest()
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -682,6 +686,12 @@ class CharacterOverlayService : Service() {
     private fun runIdleTest() {
         handler.post {
             live2dView?.startIdleMotionForDebug()
+        }
+    }
+
+    private fun runPhysicsTest() {
+        handler.post {
+            live2dView?.startPhysicsTestForDebug()
         }
     }
 }

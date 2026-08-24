@@ -79,6 +79,7 @@ class MainActivity : Activity() {
     private lateinit var diagnosticsToggleButton: Button
     private lateinit var testBreathButton: Button
     private lateinit var testIdleButton: Button
+    private lateinit var testPhysicsButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -208,6 +209,16 @@ class MainActivity : Activity() {
     private lateinit var live2dIdleMotionCountValue: TextView
     private lateinit var live2dIdleMotionPlayCountValue: TextView
     private lateinit var live2dLastIdleMotionErrorValue: TextView
+    private lateinit var live2dPhysicsEnabledValue: TextView
+    private lateinit var live2dPhysicsStatusValue: TextView
+    private lateinit var live2dPhysicsFileValue: TextView
+    private lateinit var live2dPhysicsLoadedValue: TextView
+    private lateinit var live2dPhysicsUpdateCountValue: TextView
+    private lateinit var live2dPhysicsLastDeltaValue: TextView
+    private lateinit var live2dPhysicsInputCountValue: TextView
+    private lateinit var live2dPhysicsOutputCountValue: TextView
+    private lateinit var live2dPhysicsOutputParameterIdsValue: TextView
+    private lateinit var live2dLastPhysicsErrorValue: TextView
     private lateinit var live2dLifecycleStateValue: TextView
     private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var live2dLastErrorValue: TextView
@@ -568,6 +579,14 @@ class MainActivity : Activity() {
         testIdleButton.isEnabled = DebugControlLabels.testIdleEnabled(
             CharacterDiagnostics.snapshot().live2dIdleMotionCount
         )
+        testPhysicsButton = addButton(root, DebugControlLabels.testPhysics(CharacterDiagnostics.snapshot().live2dPhysicsLoaded)) {
+            if (DebugControlLabels.testPhysicsEnabled(CharacterDiagnostics.snapshot().live2dPhysicsLoaded)) {
+                CharacterOverlayService.testPhysicsForDebug()
+            }
+        }
+        testPhysicsButton.isEnabled = DebugControlLabels.testPhysicsEnabled(
+            CharacterDiagnostics.snapshot().live2dPhysicsLoaded
+        )
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
@@ -645,6 +664,16 @@ class MainActivity : Activity() {
         live2dIdleMotionCountValue = addDiagnosticField(root, "Idle Motion Count")
         live2dIdleMotionPlayCountValue = addDiagnosticField(root, "Idle Motion Play Count")
         live2dLastIdleMotionErrorValue = addDiagnosticField(root, "Last Idle Motion Error")
+        live2dPhysicsEnabledValue = addDiagnosticField(root, "Physics Enabled")
+        live2dPhysicsStatusValue = addDiagnosticField(root, "Physics Status")
+        live2dPhysicsFileValue = addDiagnosticField(root, "Physics File")
+        live2dPhysicsLoadedValue = addDiagnosticField(root, "Physics Loaded")
+        live2dPhysicsUpdateCountValue = addDiagnosticField(root, "Physics Update Count")
+        live2dPhysicsLastDeltaValue = addDiagnosticField(root, "Physics Last Delta ms")
+        live2dPhysicsInputCountValue = addDiagnosticField(root, "Physics Input Count")
+        live2dPhysicsOutputCountValue = addDiagnosticField(root, "Physics Output Count")
+        live2dPhysicsOutputParameterIdsValue = addDiagnosticField(root, "Physics Output Parameter IDs")
+        live2dLastPhysicsErrorValue = addDiagnosticField(root, "Last Physics Error")
         live2dLifecycleStateValue = addDiagnosticField(root, "Live2D Lifecycle State")
         live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
         live2dLastErrorValue = addDiagnosticField(root, "Last Live2D Error")
@@ -1194,6 +1223,8 @@ class MainActivity : Activity() {
             breathTestIntensityValue.text = "%.0f%%".format(breath.testIntensityPercent)
             testIdleButton.text = DebugControlLabels.testIdle(character.live2dIdleMotionCount)
             testIdleButton.isEnabled = DebugControlLabels.testIdleEnabled(character.live2dIdleMotionCount)
+            testPhysicsButton.text = DebugControlLabels.testPhysics(character.live2dPhysicsLoaded)
+            testPhysicsButton.isEnabled = DebugControlLabels.testPhysicsEnabled(character.live2dPhysicsLoaded)
             live2dLeftEyeParameterStatusValue.text = character.live2dLeftEyeParameterStatus
             live2dRightEyeParameterStatusValue.text = character.live2dRightEyeParameterStatus
             live2dAvailableValue.text = character.live2dAvailable
@@ -1250,6 +1281,16 @@ class MainActivity : Activity() {
             live2dIdleMotionCountValue.text = character.live2dIdleMotionCount.toString()
             live2dIdleMotionPlayCountValue.text = character.live2dIdleMotionPlayCount.toString()
             live2dLastIdleMotionErrorValue.text = character.live2dLastIdleMotionError
+            live2dPhysicsEnabledValue.text = character.live2dPhysicsEnabled
+            live2dPhysicsStatusValue.text = character.live2dPhysicsStatus
+            live2dPhysicsFileValue.text = character.live2dPhysicsFile
+            live2dPhysicsLoadedValue.text = character.live2dPhysicsLoaded
+            live2dPhysicsUpdateCountValue.text = character.live2dPhysicsUpdateCount.toString()
+            live2dPhysicsLastDeltaValue.text = "%.1f".format(character.live2dPhysicsLastDeltaMs)
+            live2dPhysicsInputCountValue.text = character.live2dPhysicsInputCount.toString()
+            live2dPhysicsOutputCountValue.text = character.live2dPhysicsOutputCount.toString()
+            live2dPhysicsOutputParameterIdsValue.text = character.live2dPhysicsOutputParameterIds
+            live2dLastPhysicsErrorValue.text = character.live2dLastPhysicsError
             live2dLifecycleStateValue.text = character.live2dLifecycleState
             live2dFallbackReasonValue.text = character.live2dFallbackReason
             live2dLastErrorValue.text = character.live2dLastError

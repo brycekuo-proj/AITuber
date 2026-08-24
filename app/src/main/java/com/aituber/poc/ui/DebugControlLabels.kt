@@ -32,4 +32,9 @@ object DebugControlLabels {
         if (idleMotionCount > 0) "TEST IDLE" else "TEST IDLE - UNSUPPORTED"
 
     fun testIdleEnabled(idleMotionCount: Int): Boolean = idleMotionCount > 0
+
+    fun testPhysics(physicsLoaded: String): String =
+        if (testPhysicsEnabled(physicsLoaded)) "TEST PHYSICS" else "TEST PHYSICS - UNSUPPORTED"
+
+    fun testPhysicsEnabled(physicsLoaded: String): Boolean = physicsLoaded == "YES"
 }

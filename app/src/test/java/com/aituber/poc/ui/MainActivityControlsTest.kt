@@ -83,4 +83,16 @@ class MainActivityControlsTest {
         assertEquals("TEST IDLE", DebugControlLabels.testIdle(idleMotionCount = 2))
         assertTrue(DebugControlLabels.testIdleEnabled(idleMotionCount = 2))
     }
+
+    @Test
+    fun unsupportedPhysicsTestIsClearlyMarkedAndDisabled() {
+        assertEquals("TEST PHYSICS - UNSUPPORTED", DebugControlLabels.testPhysics("NO"))
+        assertFalse(DebugControlLabels.testPhysicsEnabled("NO"))
+    }
+
+    @Test
+    fun supportedPhysicsTestIsEnabled() {
+        assertEquals("TEST PHYSICS", DebugControlLabels.testPhysics("YES"))
+        assertTrue(DebugControlLabels.testPhysicsEnabled("YES"))
+    }
 }
