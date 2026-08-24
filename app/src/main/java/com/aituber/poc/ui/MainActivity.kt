@@ -151,8 +151,13 @@ class MainActivity : Activity() {
     private lateinit var live2dTopSafeMarginPxValue: TextView
     private lateinit var live2dBottomSafeZonePercentValue: TextView
     private lateinit var live2dBottomSafeZonePxValue: TextView
+    private lateinit var live2dOverlayWindowTypeValue: TextView
+    private lateinit var live2dOverlayWindowAlphaValue: TextView
+    private lateinit var live2dFlagNotTouchableValue: TextView
+    private lateinit var live2dFlagNotFocusableValue: TextView
     private lateinit var live2dTouchPassthroughValue: TextView
     private lateinit var live2dWindowTouchableValue: TextView
+    private lateinit var live2dTouchThroughExperimentValue: TextView
     private lateinit var live2dTextureCountValue: TextView
     private lateinit var live2dTexturesLoadedValue: TextView
     private lateinit var live2dLastTexturePathValue: TextView
@@ -527,8 +532,13 @@ class MainActivity : Activity() {
         live2dTopSafeMarginPxValue = addDiagnosticField(root, "Live2D Top Safe Margin px")
         live2dBottomSafeZonePercentValue = addDiagnosticField(root, "Live2D Bottom Safe Zone %")
         live2dBottomSafeZonePxValue = addDiagnosticField(root, "Live2D Bottom Safe Zone px")
+        live2dOverlayWindowTypeValue = addDiagnosticField(root, "Overlay Window Type")
+        live2dOverlayWindowAlphaValue = addDiagnosticField(root, "Overlay Window Alpha")
+        live2dFlagNotTouchableValue = addDiagnosticField(root, "Overlay FLAG_NOT_TOUCHABLE")
+        live2dFlagNotFocusableValue = addDiagnosticField(root, "Overlay FLAG_NOT_FOCUSABLE")
         live2dTouchPassthroughValue = addDiagnosticField(root, "Live2D Touch Passthrough")
         live2dWindowTouchableValue = addDiagnosticField(root, "Live2D Window Touchable")
+        live2dTouchThroughExperimentValue = addDiagnosticField(root, "Touch Through Experiment")
         live2dTextureCountValue = addDiagnosticField(root, "Live2D Texture Count")
         live2dTexturesLoadedValue = addDiagnosticField(root, "Live2D Textures Loaded")
         live2dLastTexturePathValue = addDiagnosticField(root, "Last Texture Path")
@@ -1039,8 +1049,13 @@ class MainActivity : Activity() {
             live2dTopSafeMarginPxValue.text = character.live2dTopSafeMarginPx.toString()
             live2dBottomSafeZonePercentValue.text = "%.1f".format(character.live2dBottomSafeZonePercent)
             live2dBottomSafeZonePxValue.text = character.live2dBottomSafeZonePx.toString()
+            live2dOverlayWindowTypeValue.text = character.live2dOverlayWindowType
+            live2dOverlayWindowAlphaValue.text = "%.2f".format(character.live2dOverlayWindowAlpha)
+            live2dFlagNotTouchableValue.text = character.live2dFlagNotTouchable
+            live2dFlagNotFocusableValue.text = character.live2dFlagNotFocusable
             live2dTouchPassthroughValue.text = character.live2dTouchPassthrough
             live2dWindowTouchableValue.text = character.live2dWindowTouchable
+            live2dTouchThroughExperimentValue.text = character.live2dTouchThroughExperiment
             live2dTextureCountValue.text = character.live2dTextureCount.toString()
             live2dTexturesLoadedValue.text = character.live2dTexturesLoaded.toString()
             live2dLastTexturePathValue.text = character.live2dLastTexturePath

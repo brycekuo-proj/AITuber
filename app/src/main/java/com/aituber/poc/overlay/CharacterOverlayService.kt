@@ -3,7 +3,6 @@ package com.aituber.poc.overlay
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -121,6 +120,8 @@ class CharacterOverlayService : Service() {
         } else {
             null
         }
+        val windowType = OverlayWindowConfig.windowType()
+        val windowFlags = OverlayWindowConfig.flags()
         if (placement != null) {
             CharacterDiagnostics.recordLive2DDisplayTransform(
                 displayScale = placement.displayScale,
@@ -135,22 +136,25 @@ class CharacterOverlayService : Service() {
                 topSafeMarginPx = placement.topSafeMarginPx,
                 bottomSafeZoneFraction = placement.bottomSafeZoneFraction,
                 bottomSafeZonePx = placement.bottomSafeZonePx,
+                windowType = windowType,
+                windowAlpha = OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA,
+                flagNotTouchable = OverlayWindowConfig.hasNotTouchable(windowFlags),
+                flagNotFocusable = OverlayWindowConfig.hasNotFocusable(windowFlags),
                 touchPassthrough = OverlayWindowConfig.TOUCH_PASSTHROUGH,
-                windowTouchable = false
+                windowTouchable = OverlayWindowConfig.isTouchable(windowFlags),
+                touchThroughExperimentEnabled = OverlayWindowConfig.LIVE2D_TOUCH_THROUGH_EXPERIMENT_ENABLED
             )
         }
         return WindowManager.LayoutParams(
             placement?.width ?: 180,
             placement?.height ?: 90,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            },
-            OverlayWindowConfig.flags(),
+            windowType,
+            windowFlags,
             PixelFormat.TRANSLUCENT
         ).apply {
+            if (placement != null) {
+                alpha = OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA
+            }
             gravity = if (placement != null) {
                 Gravity.TOP or Gravity.START
             } else {

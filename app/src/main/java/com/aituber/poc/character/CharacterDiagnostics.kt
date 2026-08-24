@@ -101,8 +101,13 @@ object CharacterDiagnostics {
         topSafeMarginPx: Int,
         bottomSafeZoneFraction: Float,
         bottomSafeZonePx: Int,
+        windowType: Int,
+        windowAlpha: Float,
+        flagNotTouchable: Boolean,
+        flagNotFocusable: Boolean,
         touchPassthrough: Boolean,
-        windowTouchable: Boolean
+        windowTouchable: Boolean,
+        touchThroughExperimentEnabled: Boolean
     ) {
         current = current.copy(
             live2dDisplayScale = displayScale.toDouble(),
@@ -117,8 +122,13 @@ object CharacterDiagnostics {
             live2dTopSafeMarginPx = topSafeMarginPx,
             live2dBottomSafeZonePercent = bottomSafeZoneFraction.toDouble() * 100.0,
             live2dBottomSafeZonePx = bottomSafeZonePx,
+            live2dOverlayWindowType = windowType.toString(),
+            live2dOverlayWindowAlpha = windowAlpha.toDouble(),
+            live2dFlagNotTouchable = if (flagNotTouchable) "YES" else "NO",
+            live2dFlagNotFocusable = if (flagNotFocusable) "YES" else "NO",
             live2dTouchPassthrough = if (touchPassthrough) "YES" else "NO",
-            live2dWindowTouchable = if (windowTouchable) "YES" else "NO"
+            live2dWindowTouchable = if (windowTouchable) "YES" else "NO",
+            live2dTouchThroughExperiment = if (touchThroughExperimentEnabled) "ENABLED" else "DISABLED"
         )
     }
 
@@ -177,8 +187,13 @@ data class CharacterDiagnosticsSnapshot(
     val live2dTopSafeMarginPx: Int,
     val live2dBottomSafeZonePercent: Double,
     val live2dBottomSafeZonePx: Int,
+    val live2dOverlayWindowType: String,
+    val live2dOverlayWindowAlpha: Double,
+    val live2dFlagNotTouchable: String,
+    val live2dFlagNotFocusable: String,
     val live2dTouchPassthrough: String,
     val live2dWindowTouchable: String,
+    val live2dTouchThroughExperiment: String,
     val live2dTextureCount: Int,
     val live2dTexturesLoaded: Int,
     val live2dLastTexturePath: String,
@@ -224,8 +239,13 @@ data class CharacterDiagnosticsSnapshot(
             live2dTopSafeMarginPx = 0,
             live2dBottomSafeZonePercent = 0.0,
             live2dBottomSafeZonePx = 0,
+            live2dOverlayWindowType = "n/a",
+            live2dOverlayWindowAlpha = 1.0,
+            live2dFlagNotTouchable = "n/a",
+            live2dFlagNotFocusable = "n/a",
             live2dTouchPassthrough = "n/a",
             live2dWindowTouchable = "n/a",
+            live2dTouchThroughExperiment = "n/a",
             live2dTextureCount = 0,
             live2dTexturesLoaded = 0,
             live2dLastTexturePath = "n/a",
