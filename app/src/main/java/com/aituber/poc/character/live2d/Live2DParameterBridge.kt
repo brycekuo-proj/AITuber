@@ -26,13 +26,14 @@ class Live2DParameterBridge(
             }
         } ?: Live2DParameterStatus.UNAVAILABLE
         val breathValue = frame.breath?.coerceIn(0f, 1f)
+        val breathIntensity = frame.breathIntensity?.coerceIn(0f, 1f) ?: modelConfig.breathIntensity
         val breathAppliedValue = breathValue?.let {
             Live2DBreathParameterMapper.map(
                 normalized = it,
                 min = 0f,
                 max = 1f,
                 default = 0.5f,
-                intensity = modelConfig.breathIntensity
+                intensity = breathIntensity
             )
         }
         val breathStatus = breathAppliedValue?.let {

@@ -148,6 +148,9 @@ class MainActivity : Activity() {
     private lateinit var breathCycleDurationValue: TextView
     private lateinit var breathCountValue: TextView
     private lateinit var breathRangeValue: TextView
+    private lateinit var breathTestActiveValue: TextView
+    private lateinit var breathTestPhaseValue: TextView
+    private lateinit var breathTestIntensityValue: TextView
     private lateinit var live2dLeftEyeParameterStatusValue: TextView
     private lateinit var live2dRightEyeParameterStatusValue: TextView
     private lateinit var live2dAvailableValue: TextView
@@ -565,6 +568,9 @@ class MainActivity : Activity() {
         breathCycleDurationValue = addDiagnosticField(root, "Breath Cycle Duration")
         breathCountValue = addDiagnosticField(root, "Breath Count")
         breathRangeValue = addDiagnosticField(root, "Breath Min/Default/Max")
+        breathTestActiveValue = addDiagnosticField(root, "Breath Test Active")
+        breathTestPhaseValue = addDiagnosticField(root, "Breath Test Phase")
+        breathTestIntensityValue = addDiagnosticField(root, "Breath Test Intensity %")
         live2dLeftEyeParameterStatusValue = addDiagnosticField(root, "Left Eye Parameter Status")
         live2dRightEyeParameterStatusValue = addDiagnosticField(root, "Right Eye Parameter Status")
         live2dAvailableValue = addDiagnosticField(root, "Live2D Available")
@@ -1156,6 +1162,9 @@ class MainActivity : Activity() {
                 character.live2dBreathDefault,
                 character.live2dBreathMax
             ).joinToString(" / ") { it?.let { value -> "%.3f".format(value) } ?: "n/a" }
+            breathTestActiveValue.text = breath.testActive
+            breathTestPhaseValue.text = breath.testPhase
+            breathTestIntensityValue.text = "%.0f%%".format(breath.testIntensityPercent)
             live2dLeftEyeParameterStatusValue.text = character.live2dLeftEyeParameterStatus
             live2dRightEyeParameterStatusValue.text = character.live2dRightEyeParameterStatus
             live2dAvailableValue.text = character.live2dAvailable

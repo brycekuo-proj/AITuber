@@ -156,6 +156,23 @@ class Live2DParameterBridgeTest {
     }
 
     @Test
+    fun testBreathIntensityCanUseMostOfSafeRangeWithoutChangingNaturalDefault() {
+        val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpenY", "ParamBreath"))
+
+        val result = Live2DParameterBridge(Live2DModelConfig(), sink).apply(
+            CharacterParameterFrame(
+                mouthOpen = 0.4f,
+                speaking = true,
+                breath = 1f,
+                breathIntensity = 1f
+            )
+        )
+
+        assertEquals(Live2DParameterStatus.APPLIED, result.breathStatus)
+        assertEquals(1.0f, sink.values["ParamBreath"]!!, 0.0001f)
+    }
+
+    @Test
     fun missingBreathParameterDoesNotCrashOrAffectMouth() {
         val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpenY"))
 

@@ -111,6 +111,7 @@ struct RuntimeStatus {
     float appliedRightEyeOpen = 1.0f;
     bool breathParameterFound = false;
     float inputBreathNormalized = 0.5f;
+    float inputBreathIntensity = kBreathIntensity;
     float appliedBreathValue = 0.5f;
     float breathMin = 0.0f;
     float breathMax = 1.0f;
@@ -542,22 +543,24 @@ RuntimeStatus copyStatusLocked() {
     return g_runtime->status;
 }
 
-float mapBreathValue(float normalized, float minValue, float maxValue, float defaultValue) {
+float mapBreathValue(float normalized, float minValue, float maxValue, float defaultValue, float intensity) {
     const float safeMin = std::min(minValue, maxValue);
     const float safeMax = std::max(minValue, maxValue);
     const float safeDefault = std::max(safeMin, std::min(safeMax, defaultValue));
     const float safeNormalized = std::max(0.0f, std::min(1.0f, normalized));
-    const float lower = (safeDefault - safeMin) * kBreathIntensity;
-    const float upper = (safeMax - safeDefault) * kBreathIntensity;
+    const float safeIntensity = std::max(0.0f, std::min(1.0f, intensity));
+    const float lower = (safeDefault - safeMin) * safeIntensity;
+    const float upper = (safeMax - safeDefault) * safeIntensity;
     const float mapped = safeNormalized < 0.5f
         ? safeDefault - lower * ((0.5f - safeNormalized) / 0.5f)
         : safeDefault + upper * ((safeNormalized - 0.5f) / 0.5f);
     return std::max(safeMin, std::min(safeMax, mapped));
 }
 
-void applyBreathLocked(float normalized) {
+void applyBreathLocked(float normalized, float intensity) {
     if (!g_runtime) return;
     g_runtime->status.inputBreathNormalized = std::max(0.0f, std::min(1.0f, normalized));
+    g_runtime->status.inputBreathIntensity = std::max(0.0f, std::min(1.0f, intensity));
     if (!g_runtime->model || !g_runtime->model->model() || !g_runtime->breathId) return;
     auto* model = g_runtime->model->model();
     const csmInt32 index = model->GetParameterIndex(g_runtime->breathId);
@@ -569,7 +572,8 @@ void applyBreathLocked(float normalized) {
             g_runtime->status.inputBreathNormalized,
             g_runtime->status.breathMin,
             g_runtime->status.breathMax,
-            g_runtime->status.breathDefault
+            g_runtime->status.breathDefault,
+            g_runtime->status.inputBreathIntensity
         );
         model->SetParameterValue(index, value, 1.0f);
         g_runtime->status.appliedBreathValue = value;
@@ -738,10 +742,11 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetBreath(
     JNIEnv*,
     jobject,
-    jfloat normalized
+    jfloat normalized,
+    jfloat intensity
 ) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    applyBreathLocked(normalized);
+    applyBreathLocked(normalized, intensity);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -787,7 +792,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
             g_runtime->status.rightEyeParameterFound = false;
         }
     }
-    applyBreathLocked(g_runtime->status.inputBreathNormalized);
+    applyBreathLocked(g_runtime->status.inputBreathNormalized, g_runtime->status.inputBreathIntensity);
     model->SaveParameters();
     const double currentMs = nowMs();
     const csmFloat32 deltaTimeSeconds = g_runtime->lastFrameMs == 0.0

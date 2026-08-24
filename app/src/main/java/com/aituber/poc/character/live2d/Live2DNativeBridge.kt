@@ -58,10 +58,10 @@ class Live2DNativeBridge(
         }.getOrDefault(false)
     }
 
-    fun setBreath(normalized: Float): Boolean {
+    fun setBreath(normalized: Float, intensity: Float): Boolean {
         if (!initialized) return false
         return runCatching {
-            nativeSetBreath(normalized.coerceIn(0f, 1f))
+            nativeSetBreath(normalized.coerceIn(0f, 1f), intensity.coerceIn(0f, 1f))
             true
         }.getOrDefault(false)
     }
@@ -85,7 +85,7 @@ class Live2DNativeBridge(
     private external fun nativeOnSurfaceChanged(width: Int, height: Int): Boolean
     private external fun nativeSetMouthOpen(value: Float)
     private external fun nativeSetEyeOpen(leftEyeOpen: Float, rightEyeOpen: Float)
-    private external fun nativeSetBreath(normalized: Float)
+    private external fun nativeSetBreath(normalized: Float, intensity: Float)
     private external fun nativeOnDrawFrame()
     private external fun nativeRelease()
     private external fun nativeSnapshot(): Live2DNativeSnapshot

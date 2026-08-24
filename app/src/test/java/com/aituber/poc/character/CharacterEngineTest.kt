@@ -45,10 +45,11 @@ class CharacterEngineTest {
 
     @Test
     fun characterParameterFrameIsLive2dSdkIndependent() {
-        val frame = CharacterParameterFrame(mouthOpen = 0.4f, speaking = true, breath = 0.5f)
+        val frame = CharacterParameterFrame(mouthOpen = 0.4f, speaking = true, breath = 0.5f, breathIntensity = 1f)
 
         assertEquals("com.aituber.poc.character.CharacterParameterFrame", frame::class.java.name)
         assertEquals(0.4f, frame.mouthOpen, 0.0001f)
+        assertEquals(1f, frame.breathIntensity!!, 0.0001f)
     }
 
     private fun snapshot(state: UniversalAiState) = UniversalStateSnapshot(

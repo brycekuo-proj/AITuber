@@ -8,6 +8,7 @@ data class CharacterParameterFrame(
     val eyeBlinkLeft: Float? = null,
     val eyeBlinkRight: Float? = null,
     val breath: Float? = null,
+    val breathIntensity: Float? = null,
     val headX: Float? = null,
     val headY: Float? = null,
     val bodyX: Float? = null
@@ -18,6 +19,7 @@ data class CharacterParameterFrame(
         eyeRightOpen = eyeRightOpen?.coerceIn(0f, 1f),
         eyeBlinkLeft = eyeBlinkLeft?.coerceIn(0f, 1f),
         eyeBlinkRight = eyeBlinkRight?.coerceIn(0f, 1f),
-        breath = breath?.coerceIn(0f, 1f)
+        breath = breath?.coerceIn(0f, 1f),
+        breathIntensity = breathIntensity?.coerceIn(0f, 1f)
     )
 }

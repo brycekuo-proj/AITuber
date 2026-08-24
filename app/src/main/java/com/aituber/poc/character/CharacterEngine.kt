@@ -16,7 +16,8 @@ class CharacterEngine(
             speaking = snapshot.state == UniversalAiState.SPEAKING,
             eyeLeftOpen = blink.leftEyeOpen,
             eyeRightOpen = blink.rightEyeOpen,
-            breath = breath.normalized
+            breath = breath.normalized,
+            breathIntensity = breath.intensity
         ).clamped()
         BlinkDiagnostics.update(enabled = true, frame = blink)
         BreathDiagnostics.update(enabled = true, frame = breath)

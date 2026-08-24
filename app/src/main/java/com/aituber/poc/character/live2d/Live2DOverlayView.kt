@@ -27,6 +27,8 @@ class Live2DOverlayView(
     private var lastRightEyeOpen: Float = 1f
     @Volatile
     private var lastBreath: Float = 0.5f
+    @Volatile
+    private var lastBreathIntensity: Float = 0.30f
 
     init {
         holder.setFormat(PixelFormat.TRANSLUCENT)
@@ -54,10 +56,11 @@ class Live2DOverlayView(
         lastLeftEyeOpen = clamped.eyeLeftOpen ?: 1f
         lastRightEyeOpen = clamped.eyeRightOpen ?: 1f
         lastBreath = clamped.breath ?: 0.5f
+        lastBreathIntensity = clamped.breathIntensity ?: 0.30f
         queueEvent {
             bridge.setMouthOpen(lastMouthOpen)
             bridge.setEyeOpen(lastLeftEyeOpen, lastRightEyeOpen)
-            bridge.setBreath(lastBreath)
+            bridge.setBreath(lastBreath, lastBreathIntensity)
             publishDiagnostics()
         }
     }
@@ -146,7 +149,7 @@ class Live2DOverlayView(
                 }
                 bridge.setMouthOpen(lastMouthOpen)
                 bridge.setEyeOpen(lastLeftEyeOpen, lastRightEyeOpen)
-                bridge.setBreath(lastBreath)
+                bridge.setBreath(lastBreath, lastBreathIntensity)
                 publishDiagnostics()
             }
         }
