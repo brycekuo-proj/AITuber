@@ -21,6 +21,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.character.BlinkDiagnostics
+import com.aituber.poc.character.BreathDiagnostics
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.overlay.CharacterOverlayService
@@ -135,6 +136,13 @@ class MainActivity : Activity() {
     private lateinit var blinkRightEyeOpenValue: TextView
     private lateinit var blinkNextInValue: TextView
     private lateinit var blinkCountValue: TextView
+    private lateinit var breathEnabledValue: TextView
+    private lateinit var breathParameterStatusValue: TextView
+    private lateinit var breathNormalizedValue: TextView
+    private lateinit var breathAppliedValue: TextView
+    private lateinit var breathCycleDurationValue: TextView
+    private lateinit var breathCountValue: TextView
+    private lateinit var breathRangeValue: TextView
     private lateinit var live2dLeftEyeParameterStatusValue: TextView
     private lateinit var live2dRightEyeParameterStatusValue: TextView
     private lateinit var live2dAvailableValue: TextView
@@ -521,6 +529,7 @@ class MainActivity : Activity() {
 
         root.addView(sectionTitle("Character Engine"))
         addButton(root, "TEST BLINK") { CharacterOverlayService.testBlinkForDebug() }
+        addButton(root, "TEST BREATH") { CharacterOverlayService.testBreathForDebug() }
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
@@ -532,6 +541,13 @@ class MainActivity : Activity() {
         blinkRightEyeOpenValue = addDiagnosticField(root, "Eye R Open")
         blinkNextInValue = addDiagnosticField(root, "Next Blink In")
         blinkCountValue = addDiagnosticField(root, "Blink Count")
+        breathEnabledValue = addDiagnosticField(root, "Breath Enabled")
+        breathParameterStatusValue = addDiagnosticField(root, "Breath Parameter Status")
+        breathNormalizedValue = addDiagnosticField(root, "Breath Normalized")
+        breathAppliedValue = addDiagnosticField(root, "Breath Applied Value")
+        breathCycleDurationValue = addDiagnosticField(root, "Breath Cycle Duration")
+        breathCountValue = addDiagnosticField(root, "Breath Count")
+        breathRangeValue = addDiagnosticField(root, "Breath Min/Default/Max")
         live2dLeftEyeParameterStatusValue = addDiagnosticField(root, "Left Eye Parameter Status")
         live2dRightEyeParameterStatusValue = addDiagnosticField(root, "Right Eye Parameter Status")
         live2dAvailableValue = addDiagnosticField(root, "Live2D Available")
@@ -1065,6 +1081,18 @@ class MainActivity : Activity() {
             blinkRightEyeOpenValue.text = "%.3f".format(blink.eyeRightOpen)
             blinkNextInValue.text = "${blink.nextBlinkInMs} ms"
             blinkCountValue.text = blink.blinkCount.toString()
+            val breath = BreathDiagnostics.snapshot()
+            breathEnabledValue.text = breath.enabled
+            breathParameterStatusValue.text = character.live2dBreathParameterStatus
+            breathNormalizedValue.text = "%.3f".format(breath.normalized)
+            breathAppliedValue.text = character.live2dBreathAppliedValue?.let { "%.3f".format(it) } ?: "n/a"
+            breathCycleDurationValue.text = "${breath.cycleDurationMs} ms"
+            breathCountValue.text = breath.breathCount.toString()
+            breathRangeValue.text = listOf(
+                character.live2dBreathMin,
+                character.live2dBreathDefault,
+                character.live2dBreathMax
+            ).joinToString(" / ") { it?.let { value -> "%.3f".format(value) } ?: "n/a" }
             live2dLeftEyeParameterStatusValue.text = character.live2dLeftEyeParameterStatus
             live2dRightEyeParameterStatusValue.text = character.live2dRightEyeParameterStatus
             live2dAvailableValue.text = character.live2dAvailable

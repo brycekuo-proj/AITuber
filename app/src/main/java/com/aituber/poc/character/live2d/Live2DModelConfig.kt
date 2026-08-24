@@ -5,5 +5,7 @@ data class Live2DModelConfig(
     val model3JsonPath: String = "assets/live2d/model/model.model3.json",
     val mouthParameterId: String = "ParamMouthOpenY",
     val leftEyeParameterId: String = "ParamEyeLOpen",
-    val rightEyeParameterId: String = "ParamEyeROpen"
+    val rightEyeParameterId: String = "ParamEyeROpen",
+    val breathParameterId: String = "ParamBreath",
+    val breathIntensity: Float = 0.30f
 )

@@ -612,6 +612,7 @@ class CharacterOverlayService : Service() {
         requireMainThread("stopBlinkTick")
         blinkTickRunning = false
         characterEngine?.resetBlink()
+        characterEngine?.resetBreath()
         handler.removeCallbacks(blinkRunnable)
     }
 
@@ -635,6 +636,10 @@ class CharacterOverlayService : Service() {
         fun testBlinkForDebug() {
             activeService?.runBlinkTest()
         }
+
+        fun testBreathForDebug() {
+            activeService?.runBreathTest()
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -657,6 +662,14 @@ class CharacterOverlayService : Service() {
     private fun runBlinkTest() {
         handler.post {
             characterEngine?.forceBlink()
+            MouthRenderDiagnostics.recordCharacterEngineRender()
+            characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
+        }
+    }
+
+    private fun runBreathTest() {
+        handler.post {
+            characterEngine?.forceTestBreath()
             MouthRenderDiagnostics.recordCharacterEngineRender()
             characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
         }

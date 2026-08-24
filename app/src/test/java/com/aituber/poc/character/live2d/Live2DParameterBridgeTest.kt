@@ -139,6 +139,82 @@ class Live2DParameterBridgeTest {
         assertEquals(0.1f, sink.values["ParamEyeLOpen"]!!, 0.0001f)
     }
 
+    @Test
+    fun breathMapsToParamBreathWithConservativeIntensity() {
+        val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpenY", "ParamBreath"))
+
+        val result = Live2DParameterBridge(Live2DModelConfig(), sink).apply(
+            CharacterParameterFrame(
+                mouthOpen = 0.4f,
+                speaking = true,
+                breath = 1f
+            )
+        )
+
+        assertEquals(Live2DParameterStatus.APPLIED, result.breathStatus)
+        assertEquals(0.65f, sink.values["ParamBreath"]!!, 0.0001f)
+    }
+
+    @Test
+    fun missingBreathParameterDoesNotCrashOrAffectMouth() {
+        val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpenY"))
+
+        val result = Live2DParameterBridge(Live2DModelConfig(), sink).apply(
+            CharacterParameterFrame(
+                mouthOpen = 0.4f,
+                speaking = true,
+                breath = 1f
+            )
+        )
+
+        assertEquals(Live2DParameterStatus.APPLIED, result.status)
+        assertEquals(Live2DParameterStatus.NOT_FOUND, result.breathStatus)
+        assertEquals(0.4f, sink.values["ParamMouthOpenY"]!!, 0.0001f)
+        assertEquals(null, sink.values["ParamBreath"])
+    }
+
+    @Test
+    fun breathRangeMappingRespectsMinMaxDefaultAndIntensity() {
+        val low = Live2DBreathParameterMapper.map(
+            normalized = 0f,
+            min = -2f,
+            max = 2f,
+            default = 0f,
+            intensity = 0.30f
+        )
+        val neutral = Live2DBreathParameterMapper.map(
+            normalized = 0.5f,
+            min = -2f,
+            max = 2f,
+            default = 0f,
+            intensity = 0.30f
+        )
+        val high = Live2DBreathParameterMapper.map(
+            normalized = 1f,
+            min = -2f,
+            max = 2f,
+            default = 0f,
+            intensity = 0.30f
+        )
+
+        assertEquals(-0.6f, low, 0.0001f)
+        assertEquals(0f, neutral, 0.0001f)
+        assertEquals(0.6f, high, 0.0001f)
+    }
+
+    @Test
+    fun breathConservativeAmplitudeDoesNotExceedConfiguredFraction() {
+        val value = Live2DBreathParameterMapper.map(
+            normalized = 1f,
+            min = 0f,
+            max = 10f,
+            default = 5f,
+            intensity = 0.30f
+        )
+
+        assertEquals(6.5f, value, 0.0001f)
+    }
+
     private fun frame(mouthOpen: Float) = CharacterParameterFrame(
         mouthOpen = mouthOpen,
         speaking = mouthOpen > 0f

@@ -38,6 +38,8 @@ constexpr const char* kDefaultModelJson = "Haru.model3.json";
 constexpr const char* kMouthParameterId = "ParamMouthOpenY";
 constexpr const char* kLeftEyeParameterId = "ParamEyeLOpen";
 constexpr const char* kRightEyeParameterId = "ParamEyeROpen";
+constexpr const char* kBreathParameterId = "ParamBreath";
+constexpr float kBreathIntensity = 0.30f;
 constexpr const char* kShaderAssetDir = "live2d/framework/shaders";
 
 class AituberCubismAllocator : public ICubismAllocator {
@@ -107,6 +109,12 @@ struct RuntimeStatus {
     float inputRightEyeOpen = 1.0f;
     float appliedLeftEyeOpen = 1.0f;
     float appliedRightEyeOpen = 1.0f;
+    bool breathParameterFound = false;
+    float inputBreathNormalized = 0.5f;
+    float appliedBreathValue = 0.5f;
+    float breathMin = 0.0f;
+    float breathMax = 1.0f;
+    float breathDefault = 0.5f;
     double renderFps = 0.0;
     long frameCount = 0;
     int surfaceWidth = 0;
@@ -133,6 +141,7 @@ struct Runtime {
     const CubismId* mouthId = nullptr;
     const CubismId* leftEyeId = nullptr;
     const CubismId* rightEyeId = nullptr;
+    const CubismId* breathId = nullptr;
     RuntimeStatus status;
     long lastFpsFrame = 0;
     double lastFpsMs = 0.0;
@@ -481,6 +490,7 @@ bool loadModel(Runtime& runtime) {
     runtime.mouthId = CubismFramework::GetIdManager()->GetId(kMouthParameterId);
     runtime.leftEyeId = CubismFramework::GetIdManager()->GetId(kLeftEyeParameterId);
     runtime.rightEyeId = CubismFramework::GetIdManager()->GetId(kRightEyeParameterId);
+    runtime.breathId = CubismFramework::GetIdManager()->GetId(kBreathParameterId);
     const csmInt32 mouthIndex = runtime.model->model()->GetParameterIndex(runtime.mouthId);
     const bool found = mouthIndex >= 0 && mouthIndex < runtime.model->model()->GetParameterCount();
     runtime.status.mouthParameterFound = found;
@@ -488,6 +498,14 @@ bool loadModel(Runtime& runtime) {
     runtime.status.leftEyeParameterFound = leftEyeIndex >= 0 && leftEyeIndex < runtime.model->model()->GetParameterCount();
     const csmInt32 rightEyeIndex = runtime.model->model()->GetParameterIndex(runtime.rightEyeId);
     runtime.status.rightEyeParameterFound = rightEyeIndex >= 0 && rightEyeIndex < runtime.model->model()->GetParameterCount();
+    const csmInt32 breathIndex = runtime.model->model()->GetParameterIndex(runtime.breathId);
+    runtime.status.breathParameterFound = breathIndex >= 0 && breathIndex < runtime.model->model()->GetParameterCount();
+    if (runtime.status.breathParameterFound) {
+        runtime.status.breathMin = runtime.model->model()->GetParameterMinimumValue(static_cast<csmUint32>(breathIndex));
+        runtime.status.breathMax = runtime.model->model()->GetParameterMaximumValue(static_cast<csmUint32>(breathIndex));
+        runtime.status.breathDefault = runtime.model->model()->GetParameterDefaultValue(static_cast<csmUint32>(breathIndex));
+        runtime.status.appliedBreathValue = runtime.status.breathDefault;
+    }
     runtime.status.modelLoaded = true;
     if (!found) {
         runtime.status.lastError = "ParamMouthOpenY not found";
@@ -505,8 +523,10 @@ void discardContextBoundResources(Runtime& runtime) {
     runtime.mouthId = nullptr;
     runtime.leftEyeId = nullptr;
     runtime.rightEyeId = nullptr;
+    runtime.breathId = nullptr;
     runtime.status.modelLoaded = false;
     runtime.status.mouthParameterFound = false;
+    runtime.status.breathParameterFound = false;
     runtime.status.texturesLoaded = 0;
     runtime.status.glTextureIds = "[]";
     runtime.status.poseLoaded = false;
@@ -520,6 +540,43 @@ RuntimeStatus copyStatusLocked() {
         return empty;
     }
     return g_runtime->status;
+}
+
+float mapBreathValue(float normalized, float minValue, float maxValue, float defaultValue) {
+    const float safeMin = std::min(minValue, maxValue);
+    const float safeMax = std::max(minValue, maxValue);
+    const float safeDefault = std::max(safeMin, std::min(safeMax, defaultValue));
+    const float safeNormalized = std::max(0.0f, std::min(1.0f, normalized));
+    const float lower = (safeDefault - safeMin) * kBreathIntensity;
+    const float upper = (safeMax - safeDefault) * kBreathIntensity;
+    const float mapped = safeNormalized < 0.5f
+        ? safeDefault - lower * ((0.5f - safeNormalized) / 0.5f)
+        : safeDefault + upper * ((safeNormalized - 0.5f) / 0.5f);
+    return std::max(safeMin, std::min(safeMax, mapped));
+}
+
+void applyBreathLocked(float normalized) {
+    if (!g_runtime) return;
+    g_runtime->status.inputBreathNormalized = std::max(0.0f, std::min(1.0f, normalized));
+    if (!g_runtime->model || !g_runtime->model->model() || !g_runtime->breathId) return;
+    auto* model = g_runtime->model->model();
+    const csmInt32 index = model->GetParameterIndex(g_runtime->breathId);
+    if (index >= 0 && index < model->GetParameterCount()) {
+        g_runtime->status.breathMin = model->GetParameterMinimumValue(static_cast<csmUint32>(index));
+        g_runtime->status.breathMax = model->GetParameterMaximumValue(static_cast<csmUint32>(index));
+        g_runtime->status.breathDefault = model->GetParameterDefaultValue(static_cast<csmUint32>(index));
+        const float value = mapBreathValue(
+            g_runtime->status.inputBreathNormalized,
+            g_runtime->status.breathMin,
+            g_runtime->status.breathMax,
+            g_runtime->status.breathDefault
+        );
+        model->SetParameterValue(index, value, 1.0f);
+        g_runtime->status.appliedBreathValue = value;
+        g_runtime->status.breathParameterFound = true;
+    } else {
+        g_runtime->status.breathParameterFound = false;
+    }
 }
 
 void throwIfNeeded(JNIEnv* env, const std::string& message) {
@@ -678,6 +735,16 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetEyeOpen(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetBreath(
+    JNIEnv*,
+    jobject,
+    jfloat normalized
+) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    applyBreathLocked(normalized);
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (!g_runtime || !g_runtime->model || !g_runtime->model->model()) {
@@ -720,6 +787,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
             g_runtime->status.rightEyeParameterFound = false;
         }
     }
+    applyBreathLocked(g_runtime->status.inputBreathNormalized);
     model->SaveParameters();
     const double currentMs = nowMs();
     const csmFloat32 deltaTimeSeconds = g_runtime->lastFrameMs == 0.0
@@ -786,7 +854,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
     jmethodID ctor = env->GetMethodID(
         clazz,
         "<init>",
-        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"
+        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFLjava/lang/String;FFFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"
     );
     if (!ctor) return nullptr;
     return env->NewObject(
@@ -804,6 +872,12 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
         status.inputRightEyeOpen,
         status.appliedLeftEyeOpen,
         status.appliedRightEyeOpen,
+        toJString(env, status.breathParameterFound ? "APPLIED" : "BREATH_NOT_FOUND"),
+        status.inputBreathNormalized,
+        status.appliedBreathValue,
+        status.breathMin,
+        status.breathMax,
+        status.breathDefault,
         status.renderFps,
         static_cast<jlong>(status.frameCount),
         static_cast<jint>(status.surfaceWidth),

@@ -3,6 +3,7 @@ package com.aituber.poc.character
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CharacterEngineTest {
@@ -17,6 +18,7 @@ class CharacterEngineTest {
         assertEquals(true, frame.speaking)
         assertEquals(1f, frame.eyeLeftOpen!!, 0.0001f)
         assertEquals(1f, frame.eyeRightOpen!!, 0.0001f)
+        assertTrue(frame.breath!! in 0f..1f)
         assertEquals(frame, frames.single())
     }
 
