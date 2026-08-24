@@ -91,6 +91,15 @@ class Live2DCharacterAdapter(
                 poseFile = native.poseFile,
                 poseLoaded = native.poseLoaded,
                 poseActive = native.poseActive,
+                idleMotionEnabled = native.idleMotionEnabled,
+                idleMotionStatus = native.idleMotionStatus,
+                idleMotionGroup = native.idleMotionGroup,
+                idleMotionFile = native.idleMotionFile,
+                idleMotionIndex = native.idleMotionIndex,
+                idleMotionPlaying = native.idleMotionPlaying,
+                idleMotionCount = native.idleMotionCount,
+                idleMotionPlayCount = native.idleMotionPlayCount,
+                lastIdleMotionError = native.lastIdleMotionError,
                 lifecycleState = when {
                     native.modelLoaded -> "READY"
                     native.lastError.isNotBlank() -> "FAILED"

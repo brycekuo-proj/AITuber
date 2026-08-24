@@ -33,7 +33,16 @@ data class Live2DNativeSnapshot(
     val glTextureIds: String,
     val poseFile: String,
     val poseLoaded: Boolean,
-    val poseActive: Boolean
+    val poseActive: Boolean,
+    val idleMotionEnabled: Boolean,
+    val idleMotionStatus: String,
+    val idleMotionGroup: String,
+    val idleMotionFile: String,
+    val idleMotionIndex: Int,
+    val idleMotionPlaying: Boolean,
+    val idleMotionCount: Int,
+    val idleMotionPlayCount: Long,
+    val lastIdleMotionError: String
 ) {
     companion object {
         fun unavailable(reason: String) = Live2DNativeSnapshot(
@@ -69,7 +78,16 @@ data class Live2DNativeSnapshot(
             glTextureIds = "[]",
             poseFile = "n/a",
             poseLoaded = false,
-            poseActive = false
+            poseActive = false,
+            idleMotionEnabled = false,
+            idleMotionStatus = "UNAVAILABLE",
+            idleMotionGroup = "Idle",
+            idleMotionFile = "n/a",
+            idleMotionIndex = -1,
+            idleMotionPlaying = false,
+            idleMotionCount = 0,
+            idleMotionPlayCount = 0L,
+            lastIdleMotionError = reason
         )
     }
 }

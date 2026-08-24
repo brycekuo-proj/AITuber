@@ -74,6 +74,13 @@ class Live2DOverlayView(
         }
     }
 
+    fun startIdleMotionForDebug() {
+        queueEvent {
+            bridge.startIdleMotion()
+            publishDiagnostics()
+        }
+    }
+
     fun release() {
         queueEvent {
             bridge.release()
@@ -116,6 +123,15 @@ class Live2DOverlayView(
                 poseFile = snapshot.poseFile,
                 poseLoaded = snapshot.poseLoaded,
                 poseActive = snapshot.poseActive,
+                idleMotionEnabled = snapshot.idleMotionEnabled,
+                idleMotionStatus = snapshot.idleMotionStatus,
+                idleMotionGroup = snapshot.idleMotionGroup,
+                idleMotionFile = snapshot.idleMotionFile,
+                idleMotionIndex = snapshot.idleMotionIndex,
+                idleMotionPlaying = snapshot.idleMotionPlaying,
+                idleMotionCount = snapshot.idleMotionCount,
+                idleMotionPlayCount = snapshot.idleMotionPlayCount,
+                lastIdleMotionError = snapshot.lastIdleMotionError,
                 lifecycleState = lifecycleState(snapshot),
                 fallbackReason = if (snapshot.lastError.isBlank()) "n/a" else snapshot.lastError,
                 mouthParameterStatus = if (snapshot.mouthParameterFound) {

@@ -640,6 +640,10 @@ class CharacterOverlayService : Service() {
         fun testBreathForDebug() {
             activeService?.runBreathTest()
         }
+
+        fun testIdleForDebug() {
+            activeService?.runIdleTest()
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -672,6 +676,12 @@ class CharacterOverlayService : Service() {
             characterEngine?.forceTestBreath()
             MouthRenderDiagnostics.recordCharacterEngineRender()
             characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
+        }
+    }
+
+    private fun runIdleTest() {
+        handler.post {
+            live2dView?.startIdleMotionForDebug()
         }
     }
 }

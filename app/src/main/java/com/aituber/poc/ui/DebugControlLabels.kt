@@ -27,4 +27,9 @@ object DebugControlLabels {
 
     fun testBreathEnabled(parameterStatus: String): Boolean =
         CharacterCapabilities.supportsBreath(parameterStatus)
+
+    fun testIdle(idleMotionCount: Int): String =
+        if (idleMotionCount > 0) "TEST IDLE" else "TEST IDLE - UNSUPPORTED"
+
+    fun testIdleEnabled(idleMotionCount: Int): Boolean = idleMotionCount > 0
 }

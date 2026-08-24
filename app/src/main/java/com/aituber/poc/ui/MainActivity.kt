@@ -78,6 +78,7 @@ class MainActivity : Activity() {
     private lateinit var characterModeToggleButton: Button
     private lateinit var diagnosticsToggleButton: Button
     private lateinit var testBreathButton: Button
+    private lateinit var testIdleButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -198,6 +199,15 @@ class MainActivity : Activity() {
     private lateinit var live2dPoseFileValue: TextView
     private lateinit var live2dPoseLoadedValue: TextView
     private lateinit var live2dPoseActiveValue: TextView
+    private lateinit var live2dIdleMotionEnabledValue: TextView
+    private lateinit var live2dIdleMotionStatusValue: TextView
+    private lateinit var live2dIdleMotionGroupValue: TextView
+    private lateinit var live2dIdleMotionFileValue: TextView
+    private lateinit var live2dIdleMotionIndexValue: TextView
+    private lateinit var live2dIdleMotionPlayingValue: TextView
+    private lateinit var live2dIdleMotionCountValue: TextView
+    private lateinit var live2dIdleMotionPlayCountValue: TextView
+    private lateinit var live2dLastIdleMotionErrorValue: TextView
     private lateinit var live2dLifecycleStateValue: TextView
     private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var live2dLastErrorValue: TextView
@@ -550,6 +560,14 @@ class MainActivity : Activity() {
         testBreathButton.isEnabled = DebugControlLabels.testBreathEnabled(
             CharacterDiagnostics.snapshot().live2dBreathParameterStatus
         )
+        testIdleButton = addButton(root, DebugControlLabels.testIdle(CharacterDiagnostics.snapshot().live2dIdleMotionCount)) {
+            if (DebugControlLabels.testIdleEnabled(CharacterDiagnostics.snapshot().live2dIdleMotionCount)) {
+                CharacterOverlayService.testIdleForDebug()
+            }
+        }
+        testIdleButton.isEnabled = DebugControlLabels.testIdleEnabled(
+            CharacterDiagnostics.snapshot().live2dIdleMotionCount
+        )
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
@@ -618,6 +636,15 @@ class MainActivity : Activity() {
         live2dPoseFileValue = addDiagnosticField(root, "Pose File")
         live2dPoseLoadedValue = addDiagnosticField(root, "Pose Loaded")
         live2dPoseActiveValue = addDiagnosticField(root, "Pose Active")
+        live2dIdleMotionEnabledValue = addDiagnosticField(root, "Idle Motion Enabled")
+        live2dIdleMotionStatusValue = addDiagnosticField(root, "Idle Motion Status")
+        live2dIdleMotionGroupValue = addDiagnosticField(root, "Idle Motion Group")
+        live2dIdleMotionFileValue = addDiagnosticField(root, "Idle Motion File")
+        live2dIdleMotionIndexValue = addDiagnosticField(root, "Idle Motion Index")
+        live2dIdleMotionPlayingValue = addDiagnosticField(root, "Idle Motion Playing")
+        live2dIdleMotionCountValue = addDiagnosticField(root, "Idle Motion Count")
+        live2dIdleMotionPlayCountValue = addDiagnosticField(root, "Idle Motion Play Count")
+        live2dLastIdleMotionErrorValue = addDiagnosticField(root, "Last Idle Motion Error")
         live2dLifecycleStateValue = addDiagnosticField(root, "Live2D Lifecycle State")
         live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
         live2dLastErrorValue = addDiagnosticField(root, "Last Live2D Error")
@@ -1165,6 +1192,8 @@ class MainActivity : Activity() {
             breathTestActiveValue.text = breath.testActive
             breathTestPhaseValue.text = breath.testPhase
             breathTestIntensityValue.text = "%.0f%%".format(breath.testIntensityPercent)
+            testIdleButton.text = DebugControlLabels.testIdle(character.live2dIdleMotionCount)
+            testIdleButton.isEnabled = DebugControlLabels.testIdleEnabled(character.live2dIdleMotionCount)
             live2dLeftEyeParameterStatusValue.text = character.live2dLeftEyeParameterStatus
             live2dRightEyeParameterStatusValue.text = character.live2dRightEyeParameterStatus
             live2dAvailableValue.text = character.live2dAvailable
@@ -1212,6 +1241,15 @@ class MainActivity : Activity() {
             live2dPoseFileValue.text = character.live2dPoseFile
             live2dPoseLoadedValue.text = character.live2dPoseLoaded
             live2dPoseActiveValue.text = character.live2dPoseActive
+            live2dIdleMotionEnabledValue.text = character.live2dIdleMotionEnabled
+            live2dIdleMotionStatusValue.text = character.live2dIdleMotionStatus
+            live2dIdleMotionGroupValue.text = character.live2dIdleMotionGroup
+            live2dIdleMotionFileValue.text = character.live2dIdleMotionFile
+            live2dIdleMotionIndexValue.text = character.live2dIdleMotionIndex.toString()
+            live2dIdleMotionPlayingValue.text = character.live2dIdleMotionPlaying
+            live2dIdleMotionCountValue.text = character.live2dIdleMotionCount.toString()
+            live2dIdleMotionPlayCountValue.text = character.live2dIdleMotionPlayCount.toString()
+            live2dLastIdleMotionErrorValue.text = character.live2dLastIdleMotionError
             live2dLifecycleStateValue.text = character.live2dLifecycleState
             live2dFallbackReasonValue.text = character.live2dFallbackReason
             live2dLastErrorValue.text = character.live2dLastError

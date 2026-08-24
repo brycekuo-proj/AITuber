@@ -22,6 +22,8 @@
 #include <Id/CubismIdManager.hpp>
 #include <Math/CubismMatrix44.hpp>
 #include <Model/CubismUserModel.hpp>
+#include <Motion/ACubismMotion.hpp>
+#include <Motion/CubismMotionQueueEntry.hpp>
 #include <Rendering/OpenGL/CubismRenderer_OpenGLES2.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -41,6 +43,8 @@ constexpr const char* kRightEyeParameterId = "ParamEyeROpen";
 constexpr const char* kBreathParameterId = "ParamBreath";
 constexpr float kBreathIntensity = 0.30f;
 constexpr const char* kShaderAssetDir = "live2d/framework/shaders";
+constexpr const char* kIdleMotionGroup = "Idle";
+constexpr int kPriorityIdle = 1;
 
 class AituberCubismAllocator : public ICubismAllocator {
 public:
@@ -94,6 +98,30 @@ public:
             _pose->UpdateParameters(_model, deltaTimeSeconds);
         }
     }
+
+    bool motionFinished() const {
+        return !_motionManager || _motionManager->IsFinished();
+    }
+
+    bool updateMotion(csmFloat32 deltaTimeSeconds) {
+        return _motionManager && _motionManager->UpdateMotion(_model, deltaTimeSeconds);
+    }
+
+    ACubismMotion* loadMotion(
+        const csmByte* buffer,
+        csmSizeInt size,
+        CubismModelSettingJson* setting,
+        const csmChar* group,
+        csmInt32 index
+    ) {
+        return LoadMotion(buffer, size, nullptr, nullptr, nullptr, setting, group, index);
+    }
+
+    CubismMotionQueueEntryHandle startMotion(ACubismMotion* motion, csmInt32 priority) {
+        return _motionManager
+            ? _motionManager->StartMotionPriority(motion, true, priority)
+            : InvalidMotionQueueEntryHandleValue;
+    }
 };
 
 struct RuntimeStatus {
@@ -124,6 +152,15 @@ struct RuntimeStatus {
     int texturesLoaded = 0;
     bool poseLoaded = false;
     bool poseActive = false;
+    bool idleMotionEnabled = false;
+    std::string idleMotionStatus = "UNAVAILABLE";
+    std::string idleMotionGroup = kIdleMotionGroup;
+    std::string idleMotionFile = "n/a";
+    int idleMotionIndex = -1;
+    bool idleMotionPlaying = false;
+    int idleMotionCount = 0;
+    long idleMotionPlayCount = 0;
+    std::string lastIdleMotionError = "n/a";
     std::string modelName = kDefaultModelName;
     std::string mouthParameterId = kMouthParameterId;
     std::string poseFile = "n/a";
@@ -143,6 +180,7 @@ struct Runtime {
     const CubismId* leftEyeId = nullptr;
     const CubismId* rightEyeId = nullptr;
     const CubismId* breathId = nullptr;
+    int nextIdleMotionIndex = 0;
     RuntimeStatus status;
     long lastFpsFrame = 0;
     double lastFpsMs = 0.0;
@@ -370,6 +408,90 @@ std::string textureIdsToString(const std::vector<GLuint>& textureIds) {
     return stream.str();
 }
 
+bool startIdleMotionLocked(Runtime& runtime, bool forceNext) {
+    if (!runtime.model || !runtime.model->model() || !runtime.modelSetting) {
+        runtime.status.idleMotionStatus = "UNAVAILABLE";
+        runtime.status.lastIdleMotionError = "Model not ready";
+        return false;
+    }
+
+    const csmInt32 count = runtime.modelSetting->GetMotionCount(kIdleMotionGroup);
+    runtime.status.idleMotionGroup = kIdleMotionGroup;
+    runtime.status.idleMotionCount = count;
+    runtime.status.idleMotionEnabled = count > 0;
+    if (count <= 0) {
+        runtime.status.idleMotionStatus = "UNSUPPORTED";
+        runtime.status.lastIdleMotionError = "Idle motion group empty";
+        return false;
+    }
+
+    if (!forceNext && !runtime.model->motionFinished()) {
+        runtime.status.idleMotionPlaying = true;
+        runtime.status.idleMotionStatus = "PLAYING";
+        return true;
+    }
+
+    const csmInt32 motionIndex = runtime.nextIdleMotionIndex % count;
+    const char* fileName = runtime.modelSetting->GetMotionFileName(kIdleMotionGroup, motionIndex);
+    if (!fileName || std::strlen(fileName) == 0) {
+        runtime.status.idleMotionStatus = "FAILED";
+        runtime.status.lastIdleMotionError = "Idle motion file missing in model3.json";
+        runtime.status.idleMotionPlaying = false;
+        return false;
+    }
+
+    std::string error;
+    std::vector<unsigned char> motionJson;
+    const std::string motionPath = joinAssetPath(runtime.modelAssetDir, fileName);
+    if (!readAsset(runtime.assetManager, motionPath, motionJson, error)) {
+        runtime.status.idleMotionStatus = "FAILED";
+        runtime.status.lastIdleMotionError = error;
+        runtime.status.idleMotionFile = fileName;
+        runtime.status.idleMotionIndex = motionIndex;
+        runtime.status.idleMotionPlaying = false;
+        logError("Idle motion unavailable: " + error);
+        return false;
+    }
+
+    ACubismMotion* motion = runtime.model->loadMotion(
+        reinterpret_cast<const csmByte*>(motionJson.data()),
+        static_cast<csmSizeInt>(motionJson.size()),
+        runtime.modelSetting.get(),
+        kIdleMotionGroup,
+        motionIndex
+    );
+    if (!motion) {
+        runtime.status.idleMotionStatus = "FAILED";
+        runtime.status.lastIdleMotionError = "Idle motion parse failed: " + motionPath;
+        runtime.status.idleMotionFile = fileName;
+        runtime.status.idleMotionIndex = motionIndex;
+        runtime.status.idleMotionPlaying = false;
+        logError(runtime.status.lastIdleMotionError);
+        return false;
+    }
+
+    const CubismMotionQueueEntryHandle handle = runtime.model->startMotion(motion, kPriorityIdle);
+    if (handle == InvalidMotionQueueEntryHandleValue) {
+        ACubismMotion::Delete(motion);
+        runtime.status.idleMotionStatus = "FAILED";
+        runtime.status.lastIdleMotionError = "Idle motion start rejected";
+        runtime.status.idleMotionFile = fileName;
+        runtime.status.idleMotionIndex = motionIndex;
+        runtime.status.idleMotionPlaying = false;
+        return false;
+    }
+
+    runtime.status.idleMotionFile = fileName;
+    runtime.status.idleMotionIndex = motionIndex;
+    runtime.status.idleMotionPlaying = true;
+    runtime.status.idleMotionStatus = "PLAYING";
+    runtime.status.lastIdleMotionError = "n/a";
+    runtime.status.idleMotionPlayCount += 1L;
+    runtime.nextIdleMotionIndex = (motionIndex + 1) % count;
+    logInfo("Idle motion started: " + motionPath);
+    return true;
+}
+
 bool loadModel(Runtime& runtime) {
     if (!ensureFramework(runtime)) {
         return false;
@@ -461,6 +583,15 @@ bool loadModel(Runtime& runtime) {
     runtime.status.poseFile = "n/a";
     runtime.status.poseLoaded = false;
     runtime.status.poseActive = false;
+    runtime.status.idleMotionGroup = kIdleMotionGroup;
+    runtime.status.idleMotionCount = runtime.modelSetting->GetMotionCount(kIdleMotionGroup);
+    runtime.status.idleMotionEnabled = runtime.status.idleMotionCount > 0;
+    runtime.status.idleMotionStatus = runtime.status.idleMotionEnabled ? "READY" : "UNSUPPORTED";
+    runtime.status.idleMotionFile = "n/a";
+    runtime.status.idleMotionIndex = -1;
+    runtime.status.idleMotionPlaying = false;
+    runtime.status.lastIdleMotionError = runtime.status.idleMotionEnabled ? "n/a" : "Idle motion group empty";
+    runtime.nextIdleMotionIndex = 0;
     bool poseError = false;
     const char* poseFile = runtime.modelSetting->GetPoseFileName();
     if (poseFile && std::strlen(poseFile) > 0) {
@@ -532,6 +663,12 @@ void discardContextBoundResources(Runtime& runtime) {
     runtime.status.glTextureIds = "[]";
     runtime.status.poseLoaded = false;
     runtime.status.poseActive = false;
+    runtime.status.idleMotionEnabled = false;
+    runtime.status.idleMotionStatus = "UNAVAILABLE";
+    runtime.status.idleMotionFile = "n/a";
+    runtime.status.idleMotionIndex = -1;
+    runtime.status.idleMotionPlaying = false;
+    runtime.status.idleMotionCount = 0;
 }
 
 RuntimeStatus copyStatusLocked() {
@@ -749,6 +886,13 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetBreath(
     applyBreathLocked(normalized, intensity);
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeStartIdleMotion(JNIEnv*, jobject) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_runtime) return JNI_FALSE;
+    return startIdleMotionLocked(*g_runtime, true) ? JNI_TRUE : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(g_mutex);
@@ -762,8 +906,23 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearDepthf(1.0f);
 
+    const double currentMs = nowMs();
+    const csmFloat32 deltaTimeSeconds = g_runtime->lastFrameMs == 0.0
+        ? 1.0f / 30.0f
+        : static_cast<csmFloat32>(std::max(0.0, currentMs - g_runtime->lastFrameMs) / 1000.0);
+    g_runtime->lastFrameMs = currentMs;
+
     auto* model = g_runtime->model->model();
     model->LoadParameters();
+    if (g_runtime->status.idleMotionEnabled) {
+        if (g_runtime->model->motionFinished()) {
+            startIdleMotionLocked(*g_runtime, true);
+        } else {
+            g_runtime->model->updateMotion(deltaTimeSeconds);
+            g_runtime->status.idleMotionPlaying = !g_runtime->model->motionFinished();
+            g_runtime->status.idleMotionStatus = g_runtime->status.idleMotionPlaying ? "PLAYING" : "FINISHED";
+        }
+    }
     if (g_runtime->mouthId) {
         const csmInt32 index = model->GetParameterIndex(g_runtime->mouthId);
         if (index >= 0 && index < model->GetParameterCount()) {
@@ -792,13 +951,10 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
             g_runtime->status.rightEyeParameterFound = false;
         }
     }
-    applyBreathLocked(g_runtime->status.inputBreathNormalized, g_runtime->status.inputBreathIntensity);
+    if (!g_runtime->status.idleMotionPlaying || g_runtime->status.inputBreathIntensity > kBreathIntensity + 0.001f) {
+        applyBreathLocked(g_runtime->status.inputBreathNormalized, g_runtime->status.inputBreathIntensity);
+    }
     model->SaveParameters();
-    const double currentMs = nowMs();
-    const csmFloat32 deltaTimeSeconds = g_runtime->lastFrameMs == 0.0
-        ? 1.0f / 30.0f
-        : static_cast<csmFloat32>(std::max(0.0, currentMs - g_runtime->lastFrameMs) / 1000.0);
-    g_runtime->lastFrameMs = currentMs;
     g_runtime->model->updatePose(deltaTimeSeconds);
     g_runtime->status.poseActive = g_runtime->model->poseLoaded();
     model->Update();
@@ -859,7 +1015,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
     jmethodID ctor = env->GetMethodID(
         clazz,
         "<init>",
-        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFLjava/lang/String;FFFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"
+        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFLjava/lang/String;FFFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;IZIJLjava/lang/String;)V"
     );
     if (!ctor) return nullptr;
     return env->NewObject(
@@ -897,6 +1053,15 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
         toJString(env, status.glTextureIds),
         toJString(env, status.poseFile),
         static_cast<jboolean>(status.poseLoaded),
-        static_cast<jboolean>(status.poseActive)
+        static_cast<jboolean>(status.poseActive),
+        static_cast<jboolean>(status.idleMotionEnabled),
+        toJString(env, status.idleMotionStatus),
+        toJString(env, status.idleMotionGroup),
+        toJString(env, status.idleMotionFile),
+        static_cast<jint>(status.idleMotionIndex),
+        static_cast<jboolean>(status.idleMotionPlaying),
+        static_cast<jint>(status.idleMotionCount),
+        static_cast<jlong>(status.idleMotionPlayCount),
+        toJString(env, status.lastIdleMotionError)
     );
 }

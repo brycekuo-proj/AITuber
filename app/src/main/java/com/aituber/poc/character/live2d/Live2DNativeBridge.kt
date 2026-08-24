@@ -66,6 +66,11 @@ class Live2DNativeBridge(
         }.getOrDefault(false)
     }
 
+    fun startIdleMotion(): Boolean {
+        if (!initialized) return false
+        return runCatching { nativeStartIdleMotion() }.getOrDefault(false)
+    }
+
     fun release() {
         if (!initialized) return
         runCatching { nativeRelease() }
@@ -86,6 +91,7 @@ class Live2DNativeBridge(
     private external fun nativeSetMouthOpen(value: Float)
     private external fun nativeSetEyeOpen(leftEyeOpen: Float, rightEyeOpen: Float)
     private external fun nativeSetBreath(normalized: Float, intensity: Float)
+    private external fun nativeStartIdleMotion(): Boolean
     private external fun nativeOnDrawFrame()
     private external fun nativeRelease()
     private external fun nativeSnapshot(): Live2DNativeSnapshot

@@ -71,4 +71,16 @@ class MainActivityControlsTest {
         assertEquals("TEST BREATH", DebugControlLabels.testBreath(CharacterCapabilities.BREATH_APPLIED))
         assertTrue(DebugControlLabels.testBreathEnabled(CharacterCapabilities.BREATH_APPLIED))
     }
+
+    @Test
+    fun unsupportedIdleTestIsClearlyMarkedAndDisabled() {
+        assertEquals("TEST IDLE - UNSUPPORTED", DebugControlLabels.testIdle(idleMotionCount = 0))
+        assertFalse(DebugControlLabels.testIdleEnabled(idleMotionCount = 0))
+    }
+
+    @Test
+    fun supportedIdleTestIsEnabled() {
+        assertEquals("TEST IDLE", DebugControlLabels.testIdle(idleMotionCount = 2))
+        assertTrue(DebugControlLabels.testIdleEnabled(idleMotionCount = 2))
+    }
 }
