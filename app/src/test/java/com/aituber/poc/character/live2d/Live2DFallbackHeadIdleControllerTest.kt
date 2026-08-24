@@ -24,11 +24,11 @@ class Live2DFallbackHeadIdleControllerTest {
     }
 
     @Test
-    fun dogFallbackUsesStrengthenedProfileAmplitude() {
+    fun dogFallbackIdleMatchesEarTestAmplitude() {
         val config = Live2DCharacterProfiles.LoafDog.fallbackHeadIdle
 
-        assertEquals(5.5f, config.headXAmplitude, 0.0001f)
-        assertEquals(2.8f, config.headYAmplitude, 0.0001f)
+        assertEquals(10.8f, config.headXAmplitude, 0.0001f)
+        assertEquals(6.0f, config.headYAmplitude, 0.0001f)
     }
 
     @Test
