@@ -22,6 +22,7 @@ import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.character.BlinkDiagnostics
 import com.aituber.poc.character.BreathDiagnostics
+import com.aituber.poc.character.CharacterCapabilities
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.overlay.CharacterOverlayService
@@ -72,7 +73,11 @@ class MainActivity : Activity() {
     private lateinit var mouthSmoothedOpenValue: TextView
 
     private lateinit var diagnosticsContainer: LinearLayout
+    private lateinit var captureToggleButton: Button
+    private lateinit var overlayToggleButton: Button
+    private lateinit var characterModeToggleButton: Button
     private lateinit var diagnosticsToggleButton: Button
+    private lateinit var testBreathButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -444,28 +449,33 @@ class MainActivity : Activity() {
     }
 
     private fun addControls(root: LinearLayout) {
-        addButton(root, primaryControlLabels[0]) { startDetection() }
-        addButton(root, primaryControlLabels[1]) { stopCaptureService() }
-        addButton(root, primaryControlLabels[2]) {
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+        captureToggleButton = addButton(root, DebugControlLabels.capture(CaptureSessionService.isRunning)) {
+            toggleCapture()
         }
-        addButton(root, primaryControlLabels[3]) { enableMouthOverlay() }
-        addButton(root, primaryControlLabels[4]) { disableMouthOverlay() }
-        addButton(root, primaryControlLabels[5]) { setCharacterMode(CharacterMode.MINIMAL_MOUTH) }
-        addButton(root, primaryControlLabels[6]) { setCharacterMode(CharacterMode.LIVE2D) }
+        overlayToggleButton = addButton(root, DebugControlLabels.overlay(CharacterOverlayService.isRunning)) {
+            toggleOverlay()
+        }
+        characterModeToggleButton = addButton(
+            root,
+            DebugControlLabels.character(CharacterOverlayService.requestedCharacterMode)
+        ) {
+            toggleCharacterMode()
+        }
 
         diagnosticsToggleButton = Button(this).apply {
-            text = "SHOW DIAGNOSTICS"
+            text = DebugControlLabels.diagnostics(diagnosticsExpanded)
             setOnClickListener { toggleDiagnostics() }
         }
         root.addView(diagnosticsToggleButton, buttonLayoutParams())
     }
 
-    private fun addButton(root: LinearLayout, label: String, action: () -> Unit) {
-        root.addView(Button(this).apply {
+    private fun addButton(root: LinearLayout, label: String, action: () -> Unit): Button {
+        val button = Button(this).apply {
             text = label
             setOnClickListener { action() }
-        }, buttonLayoutParams())
+        }
+        root.addView(button, buttonLayoutParams())
+        return button
     }
 
     private fun addDiagnosticsFields(root: LinearLayout) {
@@ -528,8 +538,15 @@ class MainActivity : Activity() {
         mouthPipelineDrawThreadValue = addDiagnosticField(root, "Draw Thread")
 
         root.addView(sectionTitle("Character Engine"))
-        addButton(root, "TEST BLINK") { CharacterOverlayService.testBlinkForDebug() }
-        addButton(root, "TEST BREATH") { CharacterOverlayService.testBreathForDebug() }
+        addButton(root, DebugControlLabels.TEST_BLINK) { CharacterOverlayService.testBlinkForDebug() }
+        testBreathButton = addButton(root, DebugControlLabels.testBreath(CharacterDiagnostics.snapshot().live2dBreathParameterStatus)) {
+            if (CharacterCapabilities.supportsBreath(CharacterDiagnostics.snapshot().live2dBreathParameterStatus)) {
+                CharacterOverlayService.testBreathForDebug()
+            }
+        }
+        testBreathButton.isEnabled = DebugControlLabels.testBreathEnabled(
+            CharacterDiagnostics.snapshot().live2dBreathParameterStatus
+        )
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
@@ -833,7 +850,50 @@ class MainActivity : Activity() {
     private fun toggleDiagnostics() {
         diagnosticsExpanded = !diagnosticsExpanded
         diagnosticsContainer.visibility = if (diagnosticsExpanded) View.VISIBLE else View.GONE
-        diagnosticsToggleButton.text = if (diagnosticsExpanded) "HIDE DIAGNOSTICS" else "SHOW DIAGNOSTICS"
+        refreshControlLabels()
+    }
+
+    private fun toggleCapture() {
+        if (CaptureSessionService.isRunning) {
+            stopCaptureService()
+        } else {
+            startDetection()
+        }
+        refreshControlLabels()
+    }
+
+    private fun toggleOverlay() {
+        if (CharacterOverlayService.isRunning) {
+            disableMouthOverlay()
+        } else {
+            enableMouthOverlay()
+        }
+        refreshControlLabels()
+    }
+
+    private fun toggleCharacterMode() {
+        val nextMode = if (CharacterOverlayService.requestedCharacterMode == CharacterMode.LIVE2D) {
+            CharacterMode.MINIMAL_MOUTH
+        } else {
+            CharacterMode.LIVE2D
+        }
+        setCharacterMode(nextMode)
+        refreshControlLabels()
+    }
+
+    private fun refreshControlLabels() {
+        if (::captureToggleButton.isInitialized) {
+            captureToggleButton.text = DebugControlLabels.capture(CaptureSessionService.isRunning)
+        }
+        if (::overlayToggleButton.isInitialized) {
+            overlayToggleButton.text = DebugControlLabels.overlay(CharacterOverlayService.isRunning)
+        }
+        if (::characterModeToggleButton.isInitialized) {
+            characterModeToggleButton.text = DebugControlLabels.character(CharacterOverlayService.requestedCharacterMode)
+        }
+        if (::diagnosticsToggleButton.isInitialized) {
+            diagnosticsToggleButton.text = DebugControlLabels.diagnostics(diagnosticsExpanded)
+        }
     }
 
     private fun startDetection() {
@@ -998,6 +1058,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderSnapshotOnUi(snapshot: UniversalStateSnapshot) {
+            refreshControlLabels()
             universalStateValue.text = snapshot.state.name
             voiceSessionValue.text = activeLabel(snapshot.playbackProbe.voiceSessionActive)
             playbackActiveValue.text = activeLabel(snapshot.playbackProbe.playbackSessionActive)
@@ -1084,6 +1145,8 @@ class MainActivity : Activity() {
             val breath = BreathDiagnostics.snapshot()
             breathEnabledValue.text = breath.enabled
             breathParameterStatusValue.text = character.live2dBreathParameterStatus
+            testBreathButton.text = DebugControlLabels.testBreath(character.live2dBreathParameterStatus)
+            testBreathButton.isEnabled = DebugControlLabels.testBreathEnabled(character.live2dBreathParameterStatus)
             breathNormalizedValue.text = "%.3f".format(breath.normalized)
             breathAppliedValue.text = character.live2dBreathAppliedValue?.let { "%.3f".format(it) } ?: "n/a"
             breathCycleDurationValue.text = "${breath.cycleDurationMs} ms"
@@ -1438,14 +1501,10 @@ class MainActivity : Activity() {
 
     companion object {
         internal val primaryControlLabels = listOf(
-            "START CHATGPT CAPTURE",
-            "STOP",
-            "OPEN OVERLAY PERMISSION",
-            "ENABLE MOUTH OVERLAY",
-            "DISABLE MOUTH OVERLAY",
-            "USE MINIMAL MOUTH",
-            "USE LIVE2D",
-            "SHOW DIAGNOSTICS"
+            DebugControlLabels.capture(captureActive = false),
+            DebugControlLabels.overlay(overlayEnabled = false),
+            DebugControlLabels.character(CharacterMode.MINIMAL_MOUTH),
+            DebugControlLabels.diagnostics(expanded = false)
         )
 
         internal val legacyProbeControlLabels = listOf(
