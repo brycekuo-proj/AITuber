@@ -101,4 +101,18 @@ class MainActivityControlsTest {
         assertEquals("TEST PHYSICS", DebugControlLabels.testPhysics("YES"))
         assertTrue(DebugControlLabels.testPhysicsEnabled("YES"))
     }
+
+    @Test
+    fun unsupportedEarTestIsClearlyMarkedAndDisabled() {
+        assertEquals("TEST EARS - UNSUPPORTED", DebugControlLabels.testEars("NO", "YES"))
+        assertEquals("TEST EARS - UNSUPPORTED", DebugControlLabels.testEars("YES", "NO"))
+        assertFalse(DebugControlLabels.testEarsEnabled("NO", "YES"))
+        assertFalse(DebugControlLabels.testEarsEnabled("YES", "NO"))
+    }
+
+    @Test
+    fun supportedEarTestIsEnabled() {
+        assertEquals("TEST EARS", DebugControlLabels.testEars("YES", "YES"))
+        assertTrue(DebugControlLabels.testEarsEnabled("YES", "YES"))
+    }
 }

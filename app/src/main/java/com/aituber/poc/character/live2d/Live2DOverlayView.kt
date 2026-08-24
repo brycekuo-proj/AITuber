@@ -16,6 +16,8 @@ class Live2DOverlayView(
     val bridge: Live2DNativeBridge = Live2DNativeBridge(profile),
     private val onRuntimeFailure: (String) -> Unit = {}
 ) : GLSurfaceView(context) {
+    private val fallbackHeadIdle = Live2DFallbackHeadIdleController(profile)
+
     @Volatile
     var initialized: Boolean = false
         private set
@@ -30,6 +32,10 @@ class Live2DOverlayView(
     private var lastBreath: Float = 0.5f
     @Volatile
     private var lastBreathIntensity: Float = 0.30f
+    @Volatile
+    private var lastMouthSemanticOpen: Float = 0f
+    @Volatile
+    private var lastMappedMouthOpen: Float = 0f
 
     init {
         holder.setFormat(PixelFormat.TRANSLUCENT)
@@ -44,7 +50,9 @@ class Live2DOverlayView(
     }
 
     fun setMouthOpenRatio(ratio: Float) {
-        lastMouthOpen = ratio.coerceIn(0f, 1f)
+        lastMouthSemanticOpen = ratio.coerceIn(0f, 1f)
+        lastMouthOpen = profile.mouthTuning.map(lastMouthSemanticOpen)
+        lastMappedMouthOpen = lastMouthOpen
         queueEvent {
             bridge.setMouthOpen(lastMouthOpen)
             publishDiagnostics()
@@ -53,12 +61,16 @@ class Live2DOverlayView(
 
     fun renderFrame(frame: CharacterParameterFrame) {
         val clamped = frame.clamped()
-        lastMouthOpen = clamped.mouthOpen
+        lastMouthSemanticOpen = clamped.mouthOpen
+        lastMouthOpen = profile.mouthTuning.map(lastMouthSemanticOpen)
+        lastMappedMouthOpen = lastMouthOpen
         lastLeftEyeOpen = clamped.eyeLeftOpen ?: 1f
         lastRightEyeOpen = clamped.eyeRightOpen ?: 1f
         lastBreath = clamped.breath ?: 0.5f
         lastBreathIntensity = clamped.breathIntensity ?: 0.30f
         queueEvent {
+            val headFrame = fallbackHeadIdle.update()
+            bridge.setHeadInput(headFrame.headX, headFrame.headY)
             bridge.setMouthOpen(lastMouthOpen)
             bridge.setEyeOpen(lastLeftEyeOpen, lastRightEyeOpen)
             bridge.setBreath(lastBreath, lastBreathIntensity)
@@ -84,6 +96,10 @@ class Live2DOverlayView(
 
     fun startPhysicsTestForDebug() {
         startIdleMotionForDebug()
+    }
+
+    fun startEarTestForDebug() {
+        fallbackHeadIdle.startEarTest()
     }
 
     fun release() {
@@ -117,6 +133,15 @@ class Live2DOverlayView(
                 mouthParameterId = snapshot.mouthParameterId,
                 mouthParameterValue = snapshot.appliedMouthOpen,
                 inputMouthOpen = snapshot.inputMouthOpen,
+                mouthSemanticValue = lastMouthSemanticOpen,
+                mouthProfileScale = profile.mouthTuning.outputMax,
+                fallbackIdleEnabled = fallbackHeadIdle.enabled,
+                fallbackHeadX = fallbackHeadIdle.snapshot().headX,
+                fallbackHeadY = fallbackHeadIdle.snapshot().headY,
+                fallbackIdleCycle = fallbackHeadIdle.snapshot().cycle,
+                physicsEarOutputsAvailable = snapshot.earOutputsAvailable,
+                physicsEarJiggleX = snapshot.earJiggleX,
+                physicsEarJiggleY = snapshot.earJiggleY,
                 leftEyeParameterStatus = snapshot.leftEyeParameterStatus,
                 rightEyeParameterStatus = snapshot.rightEyeParameterStatus,
                 leftEyeOpen = snapshot.appliedLeftEyeOpen,

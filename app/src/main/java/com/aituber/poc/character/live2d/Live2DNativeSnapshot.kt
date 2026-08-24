@@ -52,7 +52,10 @@ data class Live2DNativeSnapshot(
     val physicsInputCount: Int,
     val physicsOutputCount: Int,
     val physicsOutputParameterIds: String,
-    val lastPhysicsError: String
+    val lastPhysicsError: String,
+    val earOutputsAvailable: Boolean = false,
+    val earJiggleX: Float = 0f,
+    val earJiggleY: Float = 0f
 ) {
     companion object {
         fun unavailable(reason: String) = Live2DNativeSnapshot(
@@ -107,7 +110,10 @@ data class Live2DNativeSnapshot(
             physicsInputCount = 0,
             physicsOutputCount = 0,
             physicsOutputParameterIds = "[]",
-            lastPhysicsError = reason
+            lastPhysicsError = reason,
+            earOutputsAvailable = false,
+            earJiggleX = 0f,
+            earJiggleY = 0f
         )
     }
 }

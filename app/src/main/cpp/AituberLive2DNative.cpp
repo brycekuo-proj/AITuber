@@ -43,6 +43,10 @@ constexpr const char* kMouthParameterId = "ParamMouthOpenY";
 constexpr const char* kLeftEyeParameterId = "ParamEyeLOpen";
 constexpr const char* kRightEyeParameterId = "ParamEyeROpen";
 constexpr const char* kBreathParameterId = "ParamBreath";
+constexpr const char* kHeadXParameterId = "ParamAngleX";
+constexpr const char* kHeadYParameterId = "ParamAngleY";
+constexpr const char* kEarJiggleXParameterId = "physEarJiggleX";
+constexpr const char* kEarJiggleYParameterId = "physEarJiggleY";
 constexpr float kBreathIntensity = 0.30f;
 constexpr const char* kShaderAssetDir = "live2d/framework/shaders";
 constexpr const char* kIdleMotionGroup = "Idle";
@@ -191,6 +195,13 @@ struct RuntimeStatus {
     std::string leftEyeParameterId = kLeftEyeParameterId;
     std::string rightEyeParameterId = kRightEyeParameterId;
     std::string breathParameterId = kBreathParameterId;
+    bool headXParameterFound = false;
+    bool headYParameterFound = false;
+    float inputHeadX = 0.0f;
+    float inputHeadY = 0.0f;
+    bool earOutputsAvailable = false;
+    float earJiggleX = 0.0f;
+    float earJiggleY = 0.0f;
     std::string poseFile = "n/a";
     std::string lastTexturePath = "n/a";
     std::string lastTextureError = "n/a";
@@ -214,6 +225,10 @@ struct Runtime {
     const CubismId* leftEyeId = nullptr;
     const CubismId* rightEyeId = nullptr;
     const CubismId* breathId = nullptr;
+    const CubismId* headXId = nullptr;
+    const CubismId* headYId = nullptr;
+    const CubismId* earJiggleXId = nullptr;
+    const CubismId* earJiggleYId = nullptr;
     int nextIdleMotionIndex = 0;
     RuntimeStatus status;
     long lastFpsFrame = 0;
@@ -639,6 +654,11 @@ bool loadModel(Runtime& runtime) {
     releaseTextures(runtime);
     runtime.status.modelLoaded = false;
     runtime.status.mouthParameterFound = false;
+    runtime.status.headXParameterFound = false;
+    runtime.status.headYParameterFound = false;
+    runtime.status.earOutputsAvailable = false;
+    runtime.status.earJiggleX = 0.0f;
+    runtime.status.earJiggleY = 0.0f;
     runtime.status.textureCount = 0;
     runtime.status.texturesLoaded = 0;
     runtime.status.lastTexturePath = "n/a";
@@ -763,9 +783,22 @@ bool loadModel(Runtime& runtime) {
     runtime.leftEyeId = CubismFramework::GetIdManager()->GetId(runtime.leftEyeParameterId.c_str());
     runtime.rightEyeId = CubismFramework::GetIdManager()->GetId(runtime.rightEyeParameterId.c_str());
     runtime.breathId = CubismFramework::GetIdManager()->GetId(runtime.breathParameterId.c_str());
+    runtime.headXId = CubismFramework::GetIdManager()->GetId(kHeadXParameterId);
+    runtime.headYId = CubismFramework::GetIdManager()->GetId(kHeadYParameterId);
+    runtime.earJiggleXId = CubismFramework::GetIdManager()->GetId(kEarJiggleXParameterId);
+    runtime.earJiggleYId = CubismFramework::GetIdManager()->GetId(kEarJiggleYParameterId);
     const csmInt32 mouthIndex = runtime.model->model()->GetParameterIndex(runtime.mouthId);
     const bool found = mouthIndex >= 0 && mouthIndex < runtime.model->model()->GetParameterCount();
     runtime.status.mouthParameterFound = found;
+    const csmInt32 headXIndex = runtime.model->model()->GetParameterIndex(runtime.headXId);
+    const csmInt32 headYIndex = runtime.model->model()->GetParameterIndex(runtime.headYId);
+    runtime.status.headXParameterFound = headXIndex >= 0 && headXIndex < runtime.model->model()->GetParameterCount();
+    runtime.status.headYParameterFound = headYIndex >= 0 && headYIndex < runtime.model->model()->GetParameterCount();
+    const csmInt32 earXIndex = runtime.model->model()->GetParameterIndex(runtime.earJiggleXId);
+    const csmInt32 earYIndex = runtime.model->model()->GetParameterIndex(runtime.earJiggleYId);
+    runtime.status.earOutputsAvailable =
+        earXIndex >= 0 && earXIndex < runtime.model->model()->GetParameterCount() &&
+        earYIndex >= 0 && earYIndex < runtime.model->model()->GetParameterCount();
     const csmInt32 leftEyeIndex = runtime.model->model()->GetParameterIndex(runtime.leftEyeId);
     runtime.status.leftEyeParameterFound = leftEyeIndex >= 0 && leftEyeIndex < runtime.model->model()->GetParameterCount();
     const csmInt32 rightEyeIndex = runtime.model->model()->GetParameterIndex(runtime.rightEyeId);
@@ -796,6 +829,10 @@ void discardContextBoundResources(Runtime& runtime) {
     runtime.leftEyeId = nullptr;
     runtime.rightEyeId = nullptr;
     runtime.breathId = nullptr;
+    runtime.headXId = nullptr;
+    runtime.headYId = nullptr;
+    runtime.earJiggleXId = nullptr;
+    runtime.earJiggleYId = nullptr;
     runtime.status.modelLoaded = false;
     runtime.status.mouthParameterFound = false;
     runtime.status.breathParameterFound = false;
@@ -842,6 +879,30 @@ float mapBreathValue(float normalized, float minValue, float maxValue, float def
         ? safeDefault - lower * ((0.5f - safeNormalized) / 0.5f)
         : safeDefault + upper * ((safeNormalized - 0.5f) / 0.5f);
     return std::max(safeMin, std::min(safeMax, mapped));
+}
+
+bool setParameterLocked(CubismModel* model, const CubismId* id, float value, float* appliedValue = nullptr) {
+    if (!model || !id) return false;
+    const csmInt32 index = model->GetParameterIndex(id);
+    if (index < 0 || index >= model->GetParameterCount()) return false;
+    const float minValue = model->GetParameterMinimumValue(static_cast<csmUint32>(index));
+    const float maxValue = model->GetParameterMaximumValue(static_cast<csmUint32>(index));
+    const float safeMin = std::min(minValue, maxValue);
+    const float safeMax = std::max(minValue, maxValue);
+    const float clamped = std::max(safeMin, std::min(safeMax, value));
+    model->SetParameterValue(index, clamped, 1.0f);
+    if (appliedValue) {
+        *appliedValue = clamped;
+    }
+    return true;
+}
+
+bool readParameterLocked(CubismModel* model, const CubismId* id, float* value) {
+    if (!model || !id || !value) return false;
+    const csmInt32 index = model->GetParameterIndex(id);
+    if (index < 0 || index >= model->GetParameterCount()) return false;
+    *value = model->GetParameterValue(static_cast<csmUint32>(index));
+    return true;
 }
 
 void applyBreathLocked(float normalized, float intensity) {
@@ -1001,18 +1062,27 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetMouthOpen(
 ) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (!g_runtime) return;
-    const float clamped = std::max(0.0f, std::min(1.0f, value));
-    g_runtime->status.inputMouthOpen = clamped;
+    g_runtime->status.inputMouthOpen = value;
     if (!g_runtime->model || !g_runtime->model->model() || !g_runtime->mouthId) return;
-    const csmInt32 index = g_runtime->model->model()->GetParameterIndex(g_runtime->mouthId);
-    if (index >= 0 && index < g_runtime->model->model()->GetParameterCount()) {
-        g_runtime->model->model()->SetParameterValue(index, clamped, 1.0f);
-        g_runtime->status.appliedMouthOpen = clamped;
+    if (setParameterLocked(g_runtime->model->model(), g_runtime->mouthId, value, &g_runtime->status.appliedMouthOpen)) {
         g_runtime->status.mouthParameterFound = true;
     } else {
         g_runtime->status.mouthParameterFound = false;
         g_runtime->status.lastError = g_runtime->mouthParameterId + " not found";
     }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetHeadInput(
+    JNIEnv*,
+    jobject,
+    jfloat headX,
+    jfloat headY
+) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_runtime) return;
+    g_runtime->status.inputHeadX = headX;
+    g_runtime->status.inputHeadY = headY;
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -1102,6 +1172,10 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
     if (!g_runtime->status.idleMotionPlaying || g_runtime->status.inputBreathIntensity > kBreathIntensity + 0.001f) {
         applyBreathLocked(g_runtime->status.inputBreathNormalized, g_runtime->status.inputBreathIntensity);
     }
+    if (!g_runtime->status.idleMotionEnabled) {
+        g_runtime->status.headXParameterFound = setParameterLocked(model, g_runtime->headXId, g_runtime->status.inputHeadX);
+        g_runtime->status.headYParameterFound = setParameterLocked(model, g_runtime->headYId, g_runtime->status.inputHeadY);
+    }
     if (g_runtime->status.physicsLoaded) {
         const csmFloat32 boundedPhysicsDelta = std::max(
             0.0f,
@@ -1112,12 +1186,16 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
         g_runtime->status.physicsStatus = "ACTIVE";
         g_runtime->status.physicsUpdateCount += 1L;
         g_runtime->status.physicsLastDeltaMs = boundedPhysicsDelta * 1000.0f;
+        float earX = 0.0f;
+        float earY = 0.0f;
+        const bool hasEarX = readParameterLocked(model, g_runtime->earJiggleXId, &earX);
+        const bool hasEarY = readParameterLocked(model, g_runtime->earJiggleYId, &earY);
+        g_runtime->status.earOutputsAvailable = hasEarX && hasEarY;
+        g_runtime->status.earJiggleX = earX;
+        g_runtime->status.earJiggleY = earY;
     }
     if (g_runtime->mouthId) {
-        const csmInt32 index = model->GetParameterIndex(g_runtime->mouthId);
-        if (index >= 0 && index < model->GetParameterCount()) {
-            model->SetParameterValue(index, g_runtime->status.inputMouthOpen, 1.0f);
-            g_runtime->status.appliedMouthOpen = g_runtime->status.inputMouthOpen;
+        if (setParameterLocked(model, g_runtime->mouthId, g_runtime->status.inputMouthOpen, &g_runtime->status.appliedMouthOpen)) {
             g_runtime->status.mouthParameterFound = true;
         }
     }
@@ -1202,7 +1280,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
     jmethodID ctor = env->GetMethodID(
         clazz,
         "<init>",
-        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFLjava/lang/String;FFFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;IZIJLjava/lang/String;ZLjava/lang/String;Ljava/lang/String;ZJFIILjava/lang/String;Ljava/lang/String;)V"
+        "(ZZZZFFLjava/lang/String;Ljava/lang/String;FFFFLjava/lang/String;FFFFFDJIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;IZIJLjava/lang/String;ZLjava/lang/String;Ljava/lang/String;ZJFIILjava/lang/String;Ljava/lang/String;ZFF)V"
     );
     if (!ctor) return nullptr;
     return env->NewObject(
@@ -1259,6 +1337,9 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSnapshot(JNIEnv* 
         static_cast<jint>(status.physicsInputCount),
         static_cast<jint>(status.physicsOutputCount),
         toJString(env, status.physicsOutputParameterIds),
-        toJString(env, status.lastPhysicsError)
+        toJString(env, status.lastPhysicsError),
+        static_cast<jboolean>(status.earOutputsAvailable),
+        status.earJiggleX,
+        status.earJiggleY
     );
 }

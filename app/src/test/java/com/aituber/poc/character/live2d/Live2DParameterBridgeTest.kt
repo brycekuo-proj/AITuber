@@ -131,8 +131,27 @@ class Live2DParameterBridgeTest {
 
         assertEquals("ParamMouthOpen", result.parameterId)
         assertEquals(Live2DParameterStatus.APPLIED, result.status)
-        assertEquals(0.64f, sink.values["ParamMouthOpen"]!!, 0.0001f)
+        assertTrue(sink.values["ParamMouthOpen"]!! > 0.64f)
+        assertTrue(sink.values["ParamMouthOpen"]!! < 1.30f)
         assertEquals(null, sink.values["ParamMouthOpenY"])
+    }
+
+    @Test
+    fun dogMouthUsesProfileScalingAndNeverExceedsConfiguredSafeMax() {
+        val profile = Live2DCharacterProfiles.LoafDog
+
+        assertEquals(0f, profile.mouthTuning.map(0f), 0.0001f)
+        assertEquals(1.30f, profile.mouthTuning.map(1f), 0.0001f)
+        assertTrue(profile.mouthTuning.map(0.5f) < 0.65f)
+    }
+
+    @Test
+    fun haruMouthScalingIsUnchangedLinearZeroOne() {
+        val profile = Live2DCharacterProfiles.Haru
+
+        assertEquals(0f, profile.mouthTuning.map(0f), 0.0001f)
+        assertEquals(0.5f, profile.mouthTuning.map(0.5f), 0.0001f)
+        assertEquals(1f, profile.mouthTuning.map(1f), 0.0001f)
     }
 
     @Test

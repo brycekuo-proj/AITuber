@@ -666,17 +666,19 @@ class CharacterOverlayService : Service() {
     private fun runMouthFullyOpenTest() {
         handler.post {
             if (characterEngine == null) return@post
-            val openStep = MouthDebugFullOpenTest.forcedOpenStep()
             stopAnimation(closeMouth = false)
-            mouthView?.render(openStep.state)
-            characterEngine?.bind(CaptureSessionState.current(), openStep.ratio ?: 0f)
-            MouthRenderDiagnostics.recordMapper(MouthDriveMode.RMS, openStep.ratio?.toDouble(), openStep.ratio?.toDouble() ?: 0.0)
-            handler.postDelayed({
-                if (characterEngine == null) return@postDelayed
-                val restoreStep = MouthDebugFullOpenTest.restoreStep(CaptureSessionState.current().state)
-                mouthView?.render(restoreStep.state)
-                renderSnapshotOnMain(CaptureSessionState.current())
-            }, 2_000L)
+            MouthDebugSweep.RATIOS.forEachIndexed { index, ratio ->
+                handler.postDelayed({
+                    if (characterEngine == null) return@postDelayed
+                    val state = if (ratio > 0f) UniversalAiState.SPEAKING else UniversalAiState.IDLE
+                    mouthView?.render(state)
+                    MouthRenderDiagnostics.recordMapper(MouthDriveMode.RMS, ratio.toDouble(), ratio.toDouble())
+                    characterEngine?.bind(CaptureSessionState.current().copy(state = state), ratio)
+                    if (index == MouthDebugSweep.RATIOS.lastIndex) {
+                        renderSnapshotOnMain(CaptureSessionState.current())
+                    }
+                }, index * MouthDebugSweep.STEP_MS)
+            }
         }
     }
 
@@ -707,6 +709,7 @@ class CharacterOverlayService : Service() {
             if (requestedLive2DProfile().capabilities.idleMotion) {
                 live2dView?.startPhysicsTestForDebug()
             } else {
+                live2dView?.startEarTestForDebug()
                 characterEngine?.forceTestBreath()
                 MouthRenderDiagnostics.recordCharacterEngineRender()
                 characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)

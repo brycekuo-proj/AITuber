@@ -39,4 +39,10 @@ object DebugControlLabels {
         if (testPhysicsEnabled(physicsLoaded)) "TEST PHYSICS" else "TEST PHYSICS - UNSUPPORTED"
 
     fun testPhysicsEnabled(physicsLoaded: String): Boolean = physicsLoaded == "YES"
+
+    fun testEars(fallbackIdleEnabled: String, earOutputsAvailable: String): String =
+        if (testEarsEnabled(fallbackIdleEnabled, earOutputsAvailable)) "TEST EARS" else "TEST EARS - UNSUPPORTED"
+
+    fun testEarsEnabled(fallbackIdleEnabled: String, earOutputsAvailable: String): Boolean =
+        fallbackIdleEnabled == "YES" && earOutputsAvailable == "YES"
 }

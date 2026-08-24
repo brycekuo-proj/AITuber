@@ -7,5 +7,6 @@ data class Live2DModelConfig(
     val leftEyeParameterId: String = "ParamEyeLOpen",
     val rightEyeParameterId: String = "ParamEyeROpen",
     val breathParameterId: String = "ParamBreath",
-    val breathIntensity: Float = 0.30f
+    val breathIntensity: Float = 0.30f,
+    val mouthTuning: Live2DMouthTuning = Live2DMouthTuning()
 )

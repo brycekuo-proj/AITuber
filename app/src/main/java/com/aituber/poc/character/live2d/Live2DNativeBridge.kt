@@ -51,7 +51,15 @@ class Live2DNativeBridge(
     fun setMouthOpen(value: Float): Boolean {
         if (!initialized) return false
         return runCatching {
-            nativeSetMouthOpen(value.coerceIn(0f, 1f))
+            nativeSetMouthOpen(value)
+            true
+        }.getOrDefault(false)
+    }
+
+    fun setHeadInput(headX: Float, headY: Float): Boolean {
+        if (!initialized) return false
+        return runCatching {
+            nativeSetHeadInput(headX, headY)
             true
         }.getOrDefault(false)
     }
@@ -107,6 +115,7 @@ class Live2DNativeBridge(
     private external fun nativeOnSurfaceCreated(): Boolean
     private external fun nativeOnSurfaceChanged(width: Int, height: Int): Boolean
     private external fun nativeSetMouthOpen(value: Float)
+    private external fun nativeSetHeadInput(headX: Float, headY: Float)
     private external fun nativeSetEyeOpen(leftEyeOpen: Float, rightEyeOpen: Float)
     private external fun nativeSetBreath(normalized: Float, intensity: Float)
     private external fun nativeStartIdleMotion(): Boolean

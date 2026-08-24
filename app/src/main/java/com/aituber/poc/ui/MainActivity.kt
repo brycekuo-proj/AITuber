@@ -83,6 +83,7 @@ class MainActivity : Activity() {
     private lateinit var testBreathButton: Button
     private lateinit var testIdleButton: Button
     private lateinit var testPhysicsButton: Button
+    private lateinit var testEarsButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -151,6 +152,15 @@ class MainActivity : Activity() {
     private lateinit var live2dCapabilityPhysicsValue: TextView
     private lateinit var live2dCapabilityPoseValue: TextView
     private lateinit var live2dCapabilityExpressionsValue: TextView
+    private lateinit var live2dMouthSemanticValue: TextView
+    private lateinit var live2dMouthProfileScaleValue: TextView
+    private lateinit var live2dFallbackIdleEnabledValue: TextView
+    private lateinit var live2dFallbackHeadXValue: TextView
+    private lateinit var live2dFallbackHeadYValue: TextView
+    private lateinit var live2dFallbackIdleCycleValue: TextView
+    private lateinit var live2dPhysicsEarOutputsAvailableValue: TextView
+    private lateinit var live2dPhysicsEarJiggleXValue: TextView
+    private lateinit var live2dPhysicsEarJiggleYValue: TextView
     private lateinit var blinkEnabledValue: TextView
     private lateinit var blinkStateValue: TextView
     private lateinit var blinkLeftEyeOpenValue: TextView
@@ -557,7 +567,7 @@ class MainActivity : Activity() {
         mouthGateActivityValue = addDiagnosticField(root, "Mouth Gate Activity Ratio")
 
         root.addView(sectionTitle("Mouth Render Pipeline"))
-        addButton(root, "TEST MOUTH 100%") { CharacterOverlayService.testMouthFullyOpenForDebug() }
+        addButton(root, "TEST MOUTH") { CharacterOverlayService.testMouthFullyOpenForDebug() }
         mouthPipelineDriveModeValue = addDiagnosticField(root, "Drive Mode")
         mouthPipelineMapperTargetValue = addDiagnosticField(root, "Mapper Target")
         mouthPipelineSmoothedOpenValue = addDiagnosticField(root, "Smoothed Open")
@@ -608,6 +618,22 @@ class MainActivity : Activity() {
         testPhysicsButton.isEnabled = DebugControlLabels.testPhysicsEnabled(
             CharacterDiagnostics.snapshot().live2dPhysicsLoaded
         )
+        testEarsButton = addButton(
+            root,
+            DebugControlLabels.testEars(
+                CharacterDiagnostics.snapshot().live2dFallbackIdleEnabled,
+                CharacterDiagnostics.snapshot().live2dPhysicsEarOutputsAvailable
+            )
+        ) {
+            val character = CharacterDiagnostics.snapshot()
+            if (DebugControlLabels.testEarsEnabled(character.live2dFallbackIdleEnabled, character.live2dPhysicsEarOutputsAvailable)) {
+                CharacterOverlayService.testPhysicsForDebug()
+            }
+        }
+        testEarsButton.isEnabled = DebugControlLabels.testEarsEnabled(
+            CharacterDiagnostics.snapshot().live2dFallbackIdleEnabled,
+            CharacterDiagnostics.snapshot().live2dPhysicsEarOutputsAvailable
+        )
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
@@ -624,6 +650,15 @@ class MainActivity : Activity() {
         live2dCapabilityPhysicsValue = addDiagnosticField(root, "Capability Physics")
         live2dCapabilityPoseValue = addDiagnosticField(root, "Capability Pose")
         live2dCapabilityExpressionsValue = addDiagnosticField(root, "Capability Expressions")
+        live2dMouthSemanticValue = addDiagnosticField(root, "Mouth Semantic Value")
+        live2dMouthProfileScaleValue = addDiagnosticField(root, "Mouth Profile Scale")
+        live2dFallbackIdleEnabledValue = addDiagnosticField(root, "Fallback Idle Enabled")
+        live2dFallbackHeadXValue = addDiagnosticField(root, "Fallback Head X")
+        live2dFallbackHeadYValue = addDiagnosticField(root, "Fallback Head Y")
+        live2dFallbackIdleCycleValue = addDiagnosticField(root, "Fallback Idle Cycle/Target")
+        live2dPhysicsEarOutputsAvailableValue = addDiagnosticField(root, "Physics Ear Outputs available")
+        live2dPhysicsEarJiggleXValue = addDiagnosticField(root, "physEarJiggleX current")
+        live2dPhysicsEarJiggleYValue = addDiagnosticField(root, "physEarJiggleY current")
         blinkEnabledValue = addDiagnosticField(root, "Blink Enabled")
         blinkStateValue = addDiagnosticField(root, "Blink State")
         blinkLeftEyeOpenValue = addDiagnosticField(root, "Eye L Open")
@@ -1286,6 +1321,14 @@ class MainActivity : Activity() {
             testIdleButton.isEnabled = DebugControlLabels.testIdleEnabled(character.live2dIdleMotionCount)
             testPhysicsButton.text = DebugControlLabels.testPhysics(character.live2dPhysicsLoaded)
             testPhysicsButton.isEnabled = DebugControlLabels.testPhysicsEnabled(character.live2dPhysicsLoaded)
+            testEarsButton.text = DebugControlLabels.testEars(
+                character.live2dFallbackIdleEnabled,
+                character.live2dPhysicsEarOutputsAvailable
+            )
+            testEarsButton.isEnabled = DebugControlLabels.testEarsEnabled(
+                character.live2dFallbackIdleEnabled,
+                character.live2dPhysicsEarOutputsAvailable
+            )
             live2dLeftEyeParameterStatusValue.text = character.live2dLeftEyeParameterStatus
             live2dRightEyeParameterStatusValue.text = character.live2dRightEyeParameterStatus
             live2dAvailableValue.text = character.live2dAvailable
@@ -1294,9 +1337,18 @@ class MainActivity : Activity() {
             live2dModelLoadedValue.text = character.live2dModelLoaded
             live2dModelNameValue.text = character.live2dModelName
             live2dMouthParameterIdValue.text = character.live2dMouthParameterId
+            live2dMouthSemanticValue.text = "%.3f".format(character.live2dMouthSemanticValue)
+            live2dMouthProfileScaleValue.text = "%.3f".format(character.live2dMouthProfileScale)
             live2dInputMouthOpenValue.text = "%.3f".format(character.live2dInputMouthOpen)
             live2dMouthParameterValue.text = character.live2dMouthParameterValue?.let { "%.3f".format(it) } ?: "n/a"
             live2dMouthParameterStatusValue.text = character.live2dMouthParameterStatus
+            live2dFallbackIdleEnabledValue.text = character.live2dFallbackIdleEnabled
+            live2dFallbackHeadXValue.text = "%.3f".format(character.live2dFallbackHeadX)
+            live2dFallbackHeadYValue.text = "%.3f".format(character.live2dFallbackHeadY)
+            live2dFallbackIdleCycleValue.text = character.live2dFallbackIdleCycle
+            live2dPhysicsEarOutputsAvailableValue.text = character.live2dPhysicsEarOutputsAvailable
+            live2dPhysicsEarJiggleXValue.text = character.live2dPhysicsEarJiggleX?.let { "%.3f".format(it) } ?: "n/a"
+            live2dPhysicsEarJiggleYValue.text = character.live2dPhysicsEarJiggleY?.let { "%.3f".format(it) } ?: "n/a"
             live2dRenderFpsValue.text = "%.1f".format(character.live2dRenderFps)
             live2dNativeFrameCountValue.text = character.live2dNativeFrameCount.toString()
             live2dSurfaceSizeValue.text = "${character.live2dSurfaceWidth} x ${character.live2dSurfaceHeight}"
