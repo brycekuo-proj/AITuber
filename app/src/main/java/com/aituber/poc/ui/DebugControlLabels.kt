@@ -13,7 +13,13 @@ object DebugControlLabels {
         if (overlayEnabled) "OVERLAY: ON" else "OVERLAY: OFF"
 
     fun character(mode: CharacterMode): String =
-        if (mode == CharacterMode.LIVE2D) "CHARACTER: LIVE2D" else "CHARACTER: MINIMAL"
+        character(mode, "Live2D")
+
+    fun character(mode: CharacterMode, live2dProfileName: String): String = when (mode) {
+        CharacterMode.MINIMAL_MOUTH -> "CHARACTER: MINIMAL"
+        CharacterMode.LIVE2D -> "CHARACTER: ${live2dProfileName.uppercase()}"
+        CharacterMode.STATE_VIDEO -> "CHARACTER: WHITEHAIR FEMALE"
+    }
 
     fun diagnostics(expanded: Boolean): String =
         if (expanded) "HIDE DIAGNOSTICS" else "SHOW DIAGNOSTICS"
@@ -45,4 +51,8 @@ object DebugControlLabels {
 
     fun testEarsEnabled(fallbackIdleEnabled: String, earOutputsAvailable: String): Boolean =
         fallbackIdleEnabled == "YES" && earOutputsAvailable == "YES"
+
+    fun stateVideoTestButton(stateName: String): String = "TEST $stateName"
+
+    fun stateVideoControlsVisible(mode: CharacterMode): Boolean = mode == CharacterMode.STATE_VIDEO
 }

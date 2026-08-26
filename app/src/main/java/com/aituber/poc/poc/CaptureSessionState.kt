@@ -105,6 +105,14 @@ object CaptureSessionState {
         listeners.forEach { listener -> listener(currentSnapshot) }
     }
 
+    fun forceStateForDebug(state: UniversalAiState, writer: String = "Manual debug state") {
+        currentSnapshot = currentSnapshot.copy(
+            state = state,
+            speakingSignalSource = writer
+        )
+        listeners.forEach { listener -> listener(currentSnapshot) }
+    }
+
     fun subscribe(listener: (UniversalStateSnapshot) -> Unit) {
         listeners.add(listener)
         listener(currentSnapshot)

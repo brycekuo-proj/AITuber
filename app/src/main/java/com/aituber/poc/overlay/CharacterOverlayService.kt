@@ -23,6 +23,9 @@ import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DOverlayView
 import com.aituber.poc.character.live2d.Live2DProfileStore
+import com.aituber.poc.character.statevideo.StateVideoCharacterAdapter
+import com.aituber.poc.character.statevideo.StateVideoCharacterPackageLoader
+import com.aituber.poc.character.statevideo.StateVideoOverlayView
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -35,6 +38,7 @@ class CharacterOverlayService : Service() {
     private var frameIndex = 0
     private var mouthView: MouthOverlayView? = null
     private var live2dView: Live2DOverlayView? = null
+    private var stateVideoView: StateVideoOverlayView? = null
     private var overlayView: View? = null
     private var characterEngine: CharacterEngine? = null
     private var windowManager: WindowManager? = null
@@ -434,6 +438,24 @@ class CharacterOverlayService : Service() {
     }
 
     private fun createOverlaySelection(): OverlaySelection {
+        if (requestedCharacterMode == CharacterMode.STATE_VIDEO) {
+            val stateVideoPackage = StateVideoCharacterPackageLoader.loadWhitehairFemale(this)
+            val stateVideo = StateVideoOverlayView(this, stateVideoPackage)
+            stateVideoView = stateVideo
+            live2dView = null
+            mouthView = null
+            return OverlaySelection(
+                view = stateVideo,
+                live2dActive = true,
+                live2dLifecycleState = "STATE_VIDEO_ACTIVE",
+                selection = CharacterAdapterFactory.create(
+                    requestedMode = CharacterMode.STATE_VIDEO,
+                    mouthView = fallbackMouthView(),
+                    stateVideoAdapter = StateVideoCharacterAdapter(stateVideo, stateVideoPackage)
+                )
+            )
+        }
+
         if (requestedCharacterMode == CharacterMode.LIVE2D) {
             val profile = requestedLive2DProfile()
             val live2d = Live2DOverlayView(this, profile = profile) { reason ->
@@ -462,6 +484,7 @@ class CharacterOverlayService : Service() {
         val profile = requestedLive2DProfile()
         mouthView = minimal
         live2dView = null
+        stateVideoView = null
         return OverlaySelection(
             view = minimal,
             live2dActive = false,
@@ -484,11 +507,13 @@ class CharacterOverlayService : Service() {
         stopBlinkTick()
         val oldView = overlayView
         live2dView?.release()
+        stateVideoView?.release()
         oldView?.let { runCatching { windowManager?.removeView(it) } }
 
         val minimal = MouthOverlayView(this)
         mouthView = minimal
         live2dView = null
+        stateVideoView = null
         overlayView = minimal
         val selection = CharacterAdapterFactory.create(
             requestedMode = CharacterMode.LIVE2D,
@@ -533,6 +558,12 @@ class CharacterOverlayService : Service() {
         requireMainThread("renderSnapshotOnMain")
         if (characterEngine == null) return
         currentState = snapshot.state
+        if (requestedCharacterMode == CharacterMode.STATE_VIDEO) {
+            stopAnimation(closeMouth = false)
+            MouthRenderDiagnostics.recordCharacterEngineRender()
+            characterEngine?.bind(snapshot, 0f)
+            return
+        }
         applyMouthAmplitude(snapshot)
     }
 
@@ -545,10 +576,12 @@ class CharacterOverlayService : Service() {
         MouthRenderDiagnostics.reset()
         CharacterDiagnostics.reset(requestedMode = requestedCharacterMode)
         live2dView?.release()
+        stateVideoView?.release()
         overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
         live2dView = null
+        stateVideoView = null
         overlayView = null
         characterEngine = null
         windowManager = null
@@ -660,6 +693,10 @@ class CharacterOverlayService : Service() {
 
         fun testPhysicsForDebug() {
             activeService?.runPhysicsTest()
+        }
+
+        fun testStateVideoForDebug(state: UniversalAiState) {
+            CaptureSessionState.forceStateForDebug(state, "State video manual test")
         }
     }
 

@@ -14,6 +14,7 @@ object CharacterDiagnostics {
     ) {
         current = current.copy(
             characterMode = requestedMode.name,
+            runtimeType = requestedMode.runtimeTypeLabel(),
             activeCharacterAdapter = if (overlayRunning) current.activeCharacterAdapter else "none",
             live2dLifecycleState = if (requestedMode == CharacterMode.LIVE2D) {
                 if (overlayRunning) "REQUESTED" else "REQUESTED_OVERLAY_DISABLED"
@@ -22,6 +23,8 @@ object CharacterDiagnostics {
             },
             live2dFallbackReason = if (requestedMode == CharacterMode.LIVE2D) {
                 if (overlayRunning) "WAITING_FOR_SURFACE" else "WAITING_FOR_OVERLAY"
+            } else if (requestedMode == CharacterMode.STATE_VIDEO) {
+                if (overlayRunning) "WAITING_FOR_PLAYER" else "WAITING_FOR_OVERLAY"
             } else {
                 "n/a"
             }
@@ -37,9 +40,28 @@ object CharacterDiagnostics {
     ) {
         current = current.copy(
             characterMode = requestedMode.name,
+            runtimeType = requestedMode.runtimeTypeLabel(),
             activeCharacterAdapter = activeAdapterId,
             live2dFallbackReason = fallbackReason,
             live2dLifecycleState = live2dLifecycleState
+        )
+    }
+
+    @Synchronized
+    fun recordStateVideo(snapshot: StateVideoDiagnosticsSnapshot) {
+        current = current.copy(
+            runtimeType = "STATE_VIDEO",
+            stateVideoStatus = snapshot.status,
+            stateVideoCurrentState = snapshot.currentState,
+            stateVideoCurrentClip = snapshot.currentClip,
+            stateVideoPlayerReady = if (snapshot.playerReady) "YES" else "NO",
+            stateVideoPlayerPlaying = if (snapshot.playerPlaying) "YES" else "NO",
+            stateVideoLoopEnabled = if (snapshot.loopEnabled) "YES" else "NO",
+            stateVideoMuted = if (snapshot.muted) "YES" else "NO",
+            stateVideoWidth = snapshot.videoWidth,
+            stateVideoHeight = snapshot.videoHeight,
+            stateVideoLastStateSwitchMs = snapshot.lastStateSwitchMs,
+            stateVideoLastVideoError = snapshot.lastVideoError
         )
     }
 
@@ -240,6 +262,7 @@ object CharacterDiagnostics {
     fun reset(requestedMode: CharacterMode = CharacterMode.MINIMAL_MOUTH) {
         current = CharacterDiagnosticsSnapshot.empty().copy(
             characterMode = requestedMode.name,
+            runtimeType = requestedMode.runtimeTypeLabel(),
             activeCharacterAdapter = "none",
             live2dLifecycleState = if (requestedMode == CharacterMode.LIVE2D) {
                 "REQUESTED_OVERLAY_DISABLED"
@@ -247,6 +270,8 @@ object CharacterDiagnostics {
                 "DISABLED"
             },
             live2dFallbackReason = if (requestedMode == CharacterMode.LIVE2D) {
+                "WAITING_FOR_OVERLAY"
+            } else if (requestedMode == CharacterMode.STATE_VIDEO) {
                 "WAITING_FOR_OVERLAY"
             } else {
                 "LIVE2D_DISABLED"
@@ -263,6 +288,7 @@ object CharacterDiagnostics {
 
 data class CharacterDiagnosticsSnapshot(
     val characterMode: String,
+    val runtimeType: String,
     val activeCharacterAdapter: String,
     val characterFrameCount: Long,
     val mouthParameterInput: Double,
@@ -368,11 +394,23 @@ data class CharacterDiagnosticsSnapshot(
     val live2dFallbackReason: String,
     val live2dMouthParameterStatus: String,
     val live2dLastError: String,
+    val stateVideoStatus: String,
+    val stateVideoCurrentState: String,
+    val stateVideoCurrentClip: String,
+    val stateVideoPlayerReady: String,
+    val stateVideoPlayerPlaying: String,
+    val stateVideoLoopEnabled: String,
+    val stateVideoMuted: String,
+    val stateVideoWidth: Int,
+    val stateVideoHeight: Int,
+    val stateVideoLastStateSwitchMs: Long?,
+    val stateVideoLastVideoError: String,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
         fun empty() = CharacterDiagnosticsSnapshot(
             characterMode = CharacterMode.MINIMAL_MOUTH.name,
+            runtimeType = CharacterMode.MINIMAL_MOUTH.runtimeTypeLabel(),
             activeCharacterAdapter = "minimal-mouth-overlay",
             characterFrameCount = 0L,
             mouthParameterInput = 0.0,
@@ -478,10 +516,35 @@ data class CharacterDiagnosticsSnapshot(
             live2dFallbackReason = "LIVE2D_DISABLED",
             live2dMouthParameterStatus = "UNAVAILABLE",
             live2dLastError = "n/a",
+            stateVideoStatus = "DISABLED",
+            stateVideoCurrentState = "UNKNOWN",
+            stateVideoCurrentClip = "n/a",
+            stateVideoPlayerReady = "NO",
+            stateVideoPlayerPlaying = "NO",
+            stateVideoLoopEnabled = "NO",
+            stateVideoMuted = "YES",
+            stateVideoWidth = 0,
+            stateVideoHeight = 0,
+            stateVideoLastStateSwitchMs = null,
+            stateVideoLastVideoError = "n/a",
             lastFrameTimestampMs = null
         )
     }
 }
+
+data class StateVideoDiagnosticsSnapshot(
+    val status: String,
+    val currentState: String,
+    val currentClip: String,
+    val playerReady: Boolean,
+    val playerPlaying: Boolean,
+    val loopEnabled: Boolean,
+    val muted: Boolean,
+    val videoWidth: Int,
+    val videoHeight: Int,
+    val lastStateSwitchMs: Long?,
+    val lastVideoError: String
+)
 
 data class Live2DDiagnosticsSnapshot(
     val available: Boolean,
@@ -563,5 +626,12 @@ data class Live2DDiagnosticsSnapshot(
 
 enum class CharacterMode {
     MINIMAL_MOUTH,
-    LIVE2D
+    LIVE2D,
+    STATE_VIDEO
+}
+
+fun CharacterMode.runtimeTypeLabel(): String = when (this) {
+    CharacterMode.STATE_VIDEO -> "STATE_VIDEO"
+    CharacterMode.LIVE2D -> "LIVE2D"
+    CharacterMode.MINIMAL_MOUTH -> "MINIMAL_MOUTH"
 }

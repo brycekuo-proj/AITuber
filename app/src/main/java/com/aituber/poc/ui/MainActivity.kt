@@ -84,6 +84,10 @@ class MainActivity : Activity() {
     private lateinit var testIdleButton: Button
     private lateinit var testPhysicsButton: Button
     private lateinit var testEarsButton: Button
+    private lateinit var testStateVideoIdleButton: Button
+    private lateinit var testStateVideoListeningButton: Button
+    private lateinit var testStateVideoThinkingButton: Button
+    private lateinit var testStateVideoSpeakingButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -137,6 +141,7 @@ class MainActivity : Activity() {
     private lateinit var mouthPipelineRenderThreadValue: TextView
     private lateinit var mouthPipelineDrawThreadValue: TextView
     private lateinit var characterModeValue: TextView
+    private lateinit var runtimeTypeValue: TextView
     private lateinit var activeCharacterAdapterValue: TextView
     private lateinit var characterFrameCountValue: TextView
     private lateinit var characterMouthInputValue: TextView
@@ -248,6 +253,16 @@ class MainActivity : Activity() {
     private lateinit var live2dLifecycleStateValue: TextView
     private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var live2dLastErrorValue: TextView
+    private lateinit var stateVideoStatusValue: TextView
+    private lateinit var stateVideoCurrentStateValue: TextView
+    private lateinit var stateVideoCurrentClipValue: TextView
+    private lateinit var stateVideoPlayerReadyValue: TextView
+    private lateinit var stateVideoPlayerPlayingValue: TextView
+    private lateinit var stateVideoLoopEnabledValue: TextView
+    private lateinit var stateVideoMutedValue: TextView
+    private lateinit var stateVideoSizeValue: TextView
+    private lateinit var stateVideoLastStateSwitchValue: TextView
+    private lateinit var stateVideoLastVideoErrorValue: TextView
     private lateinit var startButtonClickCountValue: TextView
     private lateinit var projectionRequestCountValue: TextView
     private lateinit var projectionResultOkCountValue: TextView
@@ -510,7 +525,10 @@ class MainActivity : Activity() {
         }
         characterModeToggleButton = addButton(
             root,
-            DebugControlLabels.character(CharacterOverlayService.requestedCharacterMode)
+            DebugControlLabels.character(
+                CharacterOverlayService.requestedCharacterMode,
+                CharacterOverlayService.requestedLive2DProfile().displayName
+            )
         ) {
             toggleCharacterMode()
         }
@@ -636,7 +654,21 @@ class MainActivity : Activity() {
             CharacterDiagnostics.snapshot().live2dFallbackIdleEnabled,
             CharacterDiagnostics.snapshot().live2dPhysicsEarOutputsAvailable
         )
+        testStateVideoIdleButton = addButton(root, DebugControlLabels.stateVideoTestButton("IDLE")) {
+            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.IDLE)
+        }
+        testStateVideoListeningButton = addButton(root, DebugControlLabels.stateVideoTestButton("LISTENING")) {
+            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.LISTENING)
+        }
+        testStateVideoThinkingButton = addButton(root, DebugControlLabels.stateVideoTestButton("THINKING")) {
+            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.THINKING)
+        }
+        testStateVideoSpeakingButton = addButton(root, DebugControlLabels.stateVideoTestButton("SPEAKING")) {
+            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.SPEAKING)
+        }
+        updateStateVideoControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
+        runtimeTypeValue = addDiagnosticField(root, "Runtime Type")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
         characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
@@ -748,6 +780,18 @@ class MainActivity : Activity() {
         live2dLifecycleStateValue = addDiagnosticField(root, "Live2D Lifecycle State")
         live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
         live2dLastErrorValue = addDiagnosticField(root, "Last Live2D Error")
+
+        root.addView(sectionTitle("STATE_VIDEO Runtime"))
+        stateVideoStatusValue = addDiagnosticField(root, "STATE_VIDEO Status")
+        stateVideoCurrentStateValue = addDiagnosticField(root, "Current State")
+        stateVideoCurrentClipValue = addDiagnosticField(root, "Current Clip")
+        stateVideoPlayerReadyValue = addDiagnosticField(root, "Player Ready")
+        stateVideoPlayerPlayingValue = addDiagnosticField(root, "Player Playing")
+        stateVideoLoopEnabledValue = addDiagnosticField(root, "Loop Enabled")
+        stateVideoMutedValue = addDiagnosticField(root, "Muted")
+        stateVideoSizeValue = addDiagnosticField(root, "Video Size")
+        stateVideoLastStateSwitchValue = addDiagnosticField(root, "Last State Switch")
+        stateVideoLastVideoErrorValue = addDiagnosticField(root, "Last Video Error")
 
         root.addView(sectionTitle("Capture Startup Trace"))
         captureStartupTraceValue = addLogField(root, "Capture Startup Trace")
@@ -1005,12 +1049,36 @@ class MainActivity : Activity() {
     }
 
     private fun toggleCharacterMode() {
-        val nextMode = if (CharacterOverlayService.requestedCharacterMode == CharacterMode.LIVE2D) {
-            CharacterMode.MINIMAL_MOUTH
-        } else {
-            CharacterMode.LIVE2D
+        when (CharacterOverlayService.requestedCharacterMode) {
+            CharacterMode.MINIMAL_MOUTH -> {
+                val haru = Live2DCharacterProfiles.Haru
+                Live2DProfileStore.save(this, haru)
+                CharacterOverlayService.requestedLive2DProfileId = haru.id
+                setCharacterMode(CharacterMode.LIVE2D)
+            }
+            CharacterMode.LIVE2D -> {
+                val currentProfile = CharacterOverlayService.requestedLive2DProfile()
+                if (currentProfile.id == Live2DCharacterProfiles.HARU_ID) {
+                    val dog = Live2DCharacterProfiles.LoafDog
+                    Live2DProfileStore.save(this, dog)
+                    CharacterOverlayService.requestedLive2DProfileId = dog.id
+                    CharacterDiagnostics.recordLive2DProfile(dog)
+                    if (CharacterOverlayService.isRunning) {
+                        stopService(Intent(this, CharacterOverlayService::class.java))
+                        uiHandler.postDelayed({ enableMouthOverlay() }, 150L)
+                    }
+                } else {
+                    setCharacterMode(CharacterMode.STATE_VIDEO)
+                }
+            }
+            CharacterMode.STATE_VIDEO -> {
+                val haru = Live2DCharacterProfiles.Haru
+                Live2DProfileStore.save(this, haru)
+                CharacterOverlayService.requestedLive2DProfileId = haru.id
+                CharacterDiagnostics.recordLive2DProfile(haru)
+                setCharacterMode(CharacterMode.LIVE2D)
+            }
         }
-        setCharacterMode(nextMode)
         refreshControlLabels()
     }
 
@@ -1035,7 +1103,10 @@ class MainActivity : Activity() {
             overlayToggleButton.text = DebugControlLabels.overlay(CharacterOverlayService.isRunning)
         }
         if (::characterModeToggleButton.isInitialized) {
-            characterModeToggleButton.text = DebugControlLabels.character(CharacterOverlayService.requestedCharacterMode)
+            characterModeToggleButton.text = DebugControlLabels.character(
+                CharacterOverlayService.requestedCharacterMode,
+                CharacterOverlayService.requestedLive2DProfile().displayName
+            )
         }
         if (::diagnosticsToggleButton.isInitialized) {
             diagnosticsToggleButton.text = DebugControlLabels.diagnostics(diagnosticsExpanded)
@@ -1045,6 +1116,19 @@ class MainActivity : Activity() {
                 CharacterOverlayService.requestedLive2DProfile().displayName
             )
         }
+        updateStateVideoControlVisibility()
+    }
+
+    private fun updateStateVideoControlVisibility() {
+        val visibility = if (DebugControlLabels.stateVideoControlsVisible(CharacterOverlayService.requestedCharacterMode)) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        if (::testStateVideoIdleButton.isInitialized) testStateVideoIdleButton.visibility = visibility
+        if (::testStateVideoListeningButton.isInitialized) testStateVideoListeningButton.visibility = visibility
+        if (::testStateVideoThinkingButton.isInitialized) testStateVideoThinkingButton.visibility = visibility
+        if (::testStateVideoSpeakingButton.isInitialized) testStateVideoSpeakingButton.visibility = visibility
     }
 
     private fun startDetection() {
@@ -1282,6 +1366,7 @@ class MainActivity : Activity() {
             mouthPipelineDrawThreadValue.text = mouthRender.drawThread
             val character = CharacterDiagnostics.snapshot()
             characterModeValue.text = character.characterMode
+            runtimeTypeValue.text = character.runtimeType
             activeCharacterAdapterValue.text = character.activeCharacterAdapter
             characterFrameCountValue.text = character.characterFrameCount.toString()
             characterMouthInputValue.text = "%.3f".format(character.mouthParameterInput)
@@ -1413,6 +1498,16 @@ class MainActivity : Activity() {
             live2dLifecycleStateValue.text = character.live2dLifecycleState
             live2dFallbackReasonValue.text = character.live2dFallbackReason
             live2dLastErrorValue.text = character.live2dLastError
+            stateVideoStatusValue.text = character.stateVideoStatus
+            stateVideoCurrentStateValue.text = character.stateVideoCurrentState
+            stateVideoCurrentClipValue.text = character.stateVideoCurrentClip
+            stateVideoPlayerReadyValue.text = character.stateVideoPlayerReady
+            stateVideoPlayerPlayingValue.text = character.stateVideoPlayerPlaying
+            stateVideoLoopEnabledValue.text = character.stateVideoLoopEnabled
+            stateVideoMutedValue.text = character.stateVideoMuted
+            stateVideoSizeValue.text = "${character.stateVideoWidth} x ${character.stateVideoHeight}"
+            stateVideoLastStateSwitchValue.text = character.stateVideoLastStateSwitchMs?.let { "$it ms" } ?: "n/a"
+            stateVideoLastVideoErrorValue.text = character.stateVideoLastVideoError
 
             captureStartupTraceValue.text = snapshot.captureStartupTrace.trace.joinToString("\n").ifBlank { "n/a" }
             startButtonClickCountValue.text = snapshot.captureStartupTrace.startButtonClickCount.toString()

@@ -1,8 +1,11 @@
 package com.aituber.poc.character
 
+import com.aituber.poc.state.UniversalAiState
+
 data class CharacterParameterFrame(
     val mouthOpen: Float,
     val speaking: Boolean,
+    val universalState: UniversalAiState = UniversalAiState.UNKNOWN,
     val eyeLeftOpen: Float? = null,
     val eyeRightOpen: Float? = null,
     val eyeBlinkLeft: Float? = null,

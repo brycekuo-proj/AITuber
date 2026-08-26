@@ -14,6 +14,7 @@ class CharacterEngine(
         val frame = CharacterParameterFrame(
             mouthOpen = if (snapshot.state == UniversalAiState.SPEAKING) mouthOpen else 0f,
             speaking = snapshot.state == UniversalAiState.SPEAKING,
+            universalState = snapshot.state,
             eyeLeftOpen = blink.leftEyeOpen,
             eyeRightOpen = blink.rightEyeOpen,
             breath = breath.normalized,

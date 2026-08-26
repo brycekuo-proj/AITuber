@@ -45,7 +45,9 @@ class MainActivityControlsTest {
     @Test
     fun characterModeControlLabelReflectsRequestedMode() {
         assertEquals("CHARACTER: MINIMAL", DebugControlLabels.character(CharacterMode.MINIMAL_MOUTH))
-        assertEquals("CHARACTER: LIVE2D", DebugControlLabels.character(CharacterMode.LIVE2D))
+        assertEquals("CHARACTER: HARU", DebugControlLabels.character(CharacterMode.LIVE2D, "Haru"))
+        assertEquals("CHARACTER: LOAF DOG", DebugControlLabels.character(CharacterMode.LIVE2D, "Loaf Dog"))
+        assertEquals("CHARACTER: WHITEHAIR FEMALE", DebugControlLabels.character(CharacterMode.STATE_VIDEO))
     }
 
     @Test
@@ -63,6 +65,14 @@ class MainActivityControlsTest {
     @Test
     fun blinkTestRemainsAvailableInDiagnostics() {
         assertEquals("TEST BLINK", DebugControlLabels.TEST_BLINK)
+    }
+
+    @Test
+    fun stateVideoManualControlsAreVisibleOnlyForStateVideo() {
+        assertEquals("TEST IDLE", DebugControlLabels.stateVideoTestButton("IDLE"))
+        assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.MINIMAL_MOUTH))
+        assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.LIVE2D))
+        assertTrue(DebugControlLabels.stateVideoControlsVisible(CharacterMode.STATE_VIDEO))
     }
 
     @Test
