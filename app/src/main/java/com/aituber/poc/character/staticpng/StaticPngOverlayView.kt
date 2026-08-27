@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import com.aituber.poc.character.CharacterDiagnostics
-import kotlin.math.roundToInt
 
 class StaticPngOverlayView(
     context: Context,
@@ -42,8 +41,15 @@ class StaticPngOverlayView(
         }
         mouthLayerView.visibility = View.GONE
         mouthLayerView.setBackgroundColor(Color.TRANSPARENT)
-        mouthLayerView.scaleType = ImageView.ScaleType.FIT_XY
-        addView(mouthLayerView, LayoutParams(1, 1))
+        mouthLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
+        mouthLayerView.adjustViewBounds = false
+        mouthLayerView.clipToOutline = false
+        clipChildren = false
+        clipToPadding = false
+        addView(
+            mouthLayerView,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
         recordMouthShape()
     }
 
@@ -62,33 +68,21 @@ class StaticPngOverlayView(
         recordMouthShape()
     }
 
-    override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
-        super.onSizeChanged(width, height, oldWidth, oldHeight)
+    fun setMouthShapeForDebug(shape: StaticPngMouthShape) {
+        activeShape = shape
+        activeRatio = StaticPngMouthShape.debugRatio(shape)
         updateMouthLayer()
+        recordMouthShape()
     }
 
     private fun updateMouthLayer() {
         val layer = characterPackage.mouthLayers[activeShape]
         val bitmap = mouthBitmaps[activeShape]
-        if (layer == null || bitmap == null || width <= 0 || height <= 0) {
+        if (layer == null || bitmap == null) {
             mouthLayerView.visibility = View.GONE
             mouthLayerView.setImageDrawable(null)
             return
         }
-        val scale = minOf(
-            width.toFloat() / characterPackage.sourceWidthPx.toFloat(),
-            height.toFloat() / characterPackage.sourceHeightPx.toFloat()
-        )
-        val displayedWidth = characterPackage.sourceWidthPx * scale
-        val displayedHeight = characterPackage.sourceHeightPx * scale
-        val displayedLeft = (width - displayedWidth) / 2f
-        val displayedTop = (height - displayedHeight) / 2f
-        val params = mouthLayerView.layoutParams as LayoutParams
-        params.width = (layer.width * scale).roundToInt().coerceAtLeast(1)
-        params.height = (layer.height * scale).roundToInt().coerceAtLeast(1)
-        params.leftMargin = (displayedLeft + layer.x * scale).roundToInt()
-        params.topMargin = (displayedTop + layer.y * scale).roundToInt()
-        mouthLayerView.layoutParams = params
         mouthLayerView.setImageBitmap(bitmap)
         mouthLayerView.visibility = View.VISIBLE
     }

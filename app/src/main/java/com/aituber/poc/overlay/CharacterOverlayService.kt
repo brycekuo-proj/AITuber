@@ -25,6 +25,7 @@ import com.aituber.poc.character.live2d.Live2DOverlayView
 import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.character.staticpng.StaticPngCharacterAdapter
 import com.aituber.poc.character.staticpng.StaticPngCharacterPackage
+import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.character.statevideo.StateVideoCharacterAdapter
 import com.aituber.poc.character.statevideo.StateVideoCharacterPackageLoader
@@ -785,6 +786,10 @@ class CharacterOverlayService : Service() {
             activeService?.runStateVideoTest(state)
             CaptureSessionState.forceStateForDebug(state, "State video manual test")
         }
+
+        fun testStaticPngMouthForDebug(shape: StaticPngMouthShape) {
+            activeService?.runStaticPngMouthTest(shape)
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -855,6 +860,16 @@ class CharacterOverlayService : Service() {
             stateVideoView?.renderManualTestState(state)
             MouthRenderDiagnostics.recordCharacterEngineRender()
             characterEngine?.bind(snapshot, 0f)
+        }
+    }
+
+    private fun runStaticPngMouthTest(shape: StaticPngMouthShape) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            stopAnimation(closeMouth = false)
+            lastCharacterMouthOpen = StaticPngMouthShape.debugRatio(shape)
+            staticPngView?.setMouthShapeForDebug(shape)
         }
     }
 }

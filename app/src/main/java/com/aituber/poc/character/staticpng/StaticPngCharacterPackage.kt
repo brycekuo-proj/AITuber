@@ -17,18 +17,10 @@ data class StaticPngCharacterPackage(
             sourceHeightPx = 2000,
             mouthLayers = mapOf(
                 StaticPngMouthShape.HALF to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__v1.png",
-                    x = 466,
-                    y = 267,
-                    width = 91,
-                    height = 59
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__fullcanvas__v2.png"
                 ),
                 StaticPngMouthShape.OPEN to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__v1.png",
-                    x = 466,
-                    y = 267,
-                    width = 91,
-                    height = 59
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__fullcanvas__v2.png"
                 )
             )
         )
@@ -36,11 +28,7 @@ data class StaticPngCharacterPackage(
 }
 
 data class StaticPngMouthLayer(
-    val assetPath: String,
-    val x: Int,
-    val y: Int,
-    val width: Int,
-    val height: Int
+    val assetPath: String
 )
 
 enum class StaticPngMouthShape {
@@ -49,6 +37,12 @@ enum class StaticPngMouthShape {
     OPEN;
 
     companion object {
+        fun debugRatio(shape: StaticPngMouthShape): Float = when (shape) {
+            CLOSED -> 0f
+            HALF -> 0.45f
+            OPEN -> 1f
+        }
+
         fun fromRatio(ratio: Float): StaticPngMouthShape {
             val clamped = ratio.coerceIn(0f, 1f)
             return when {

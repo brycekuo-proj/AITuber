@@ -33,31 +33,34 @@ class StaticPngCharacterPackageTest {
     }
 
     @Test
-    fun xianxiaStaticPngPackageDefinesAlignedMouthLayers() {
+    fun xianxiaStaticPngPackageDefinesFullCanvasMouthLayers() {
         val characterPackage = StaticPngCharacterPackage.XianxiaFemale
 
         val half = characterPackage.mouthLayers.getValue(StaticPngMouthShape.HALF)
         val open = characterPackage.mouthLayers.getValue(StaticPngMouthShape.OPEN)
 
-        assertEquals("characters/xianxia_female/static/xianxia_female__mouth__half__v1.png", half.assetPath)
-        assertEquals("characters/xianxia_female/static/xianxia_female__mouth__open__v1.png", open.assetPath)
-        assertEquals(half.copy(assetPath = open.assetPath), open)
-        assertEquals(466, half.x)
-        assertEquals(267, half.y)
-        assertEquals(91, half.width)
-        assertEquals(59, half.height)
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__mouth__half__fullcanvas__v2.png",
+            half.assetPath
+        )
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__mouth__open__fullcanvas__v2.png",
+            open.assetPath
+        )
     }
 
     @Test
-    fun xianxiaMouthLayerAssetsAreSmallRgbaPngs() {
+    fun xianxiaMouthLayerAssetsAreFullCanvasRgbaPngs() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
         StaticPngCharacterPackage.XianxiaFemale.mouthLayers.values.forEach { layer ->
             val asset = File("src/main/assets/${layer.assetPath}")
 
             assertTrue("Missing mouth layer asset: ${asset.path}", asset.isFile)
             val header = asset.readPngHeader()
 
-            assertEquals(layer.width, header.width)
-            assertEquals(layer.height, header.height)
+            assertEquals(characterPackage.sourceWidthPx, header.width)
+            assertEquals(characterPackage.sourceHeightPx, header.height)
             assertEquals(PNG_COLOR_TYPE_RGBA, header.colorType)
         }
     }

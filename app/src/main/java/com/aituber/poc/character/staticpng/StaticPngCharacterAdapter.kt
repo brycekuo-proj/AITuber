@@ -12,4 +12,9 @@ class StaticPngCharacterAdapter(
         overlayView?.show()
         overlayView?.setMouthOpenRatio(frame.mouthOpen)
     }
+
+    fun renderDebugShape(shape: StaticPngMouthShape) {
+        overlayView?.show()
+        overlayView?.setMouthShapeForDebug(shape)
+    }
 }

@@ -27,6 +27,7 @@ import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
+import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
@@ -88,6 +89,9 @@ class MainActivity : Activity() {
     private lateinit var testStateVideoListeningButton: Button
     private lateinit var testStateVideoThinkingButton: Button
     private lateinit var testStateVideoSpeakingButton: Button
+    private lateinit var testStaticPngClosedButton: Button
+    private lateinit var testStaticPngHalfButton: Button
+    private lateinit var testStaticPngOpenButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -671,7 +675,17 @@ class MainActivity : Activity() {
         testStateVideoSpeakingButton = addButton(root, DebugControlLabels.stateVideoTestButton("SPEAKING")) {
             CharacterOverlayService.testStateVideoForDebug(UniversalAiState.SPEAKING)
         }
+        testStaticPngClosedButton = addButton(root, "TEST STATIC CLOSED") {
+            CharacterOverlayService.testStaticPngMouthForDebug(StaticPngMouthShape.CLOSED)
+        }
+        testStaticPngHalfButton = addButton(root, "TEST STATIC HALF") {
+            CharacterOverlayService.testStaticPngMouthForDebug(StaticPngMouthShape.HALF)
+        }
+        testStaticPngOpenButton = addButton(root, "TEST STATIC OPEN") {
+            CharacterOverlayService.testStaticPngMouthForDebug(StaticPngMouthShape.OPEN)
+        }
         updateStateVideoControlVisibility()
+        updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         runtimeTypeValue = addDiagnosticField(root, "Runtime Type")
         activeCharacterAdapterValue = addDiagnosticField(root, "Active Character Adapter")
@@ -1127,6 +1141,7 @@ class MainActivity : Activity() {
             )
         }
         updateStateVideoControlVisibility()
+        updateStaticPngControlVisibility()
     }
 
     private fun updateStateVideoControlVisibility() {
@@ -1139,6 +1154,17 @@ class MainActivity : Activity() {
         if (::testStateVideoListeningButton.isInitialized) testStateVideoListeningButton.visibility = visibility
         if (::testStateVideoThinkingButton.isInitialized) testStateVideoThinkingButton.visibility = visibility
         if (::testStateVideoSpeakingButton.isInitialized) testStateVideoSpeakingButton.visibility = visibility
+    }
+
+    private fun updateStaticPngControlVisibility() {
+        val visibility = if (CharacterOverlayService.requestedCharacterMode == CharacterMode.STATIC_PNG) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        if (::testStaticPngClosedButton.isInitialized) testStaticPngClosedButton.visibility = visibility
+        if (::testStaticPngHalfButton.isInitialized) testStaticPngHalfButton.visibility = visibility
+        if (::testStaticPngOpenButton.isInitialized) testStaticPngOpenButton.visibility = visibility
     }
 
     private fun startDetection() {
