@@ -17,17 +17,17 @@ data class StaticPngCharacterPackage(
             sourceWidthPx = 1023,
             sourceHeightPx = 2000,
             mouthReplacementPatch = StaticPngMouthPatch(
-                x = 452,
-                y = 238,
-                width = 120,
-                height = 86
+                x = 456,
+                y = 246,
+                width = 112,
+                height = 68
             ),
             mouthLayers = mapOf(
                 StaticPngMouthShape.HALF to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__replacement__v2.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__replacement__v3.png"
                 ),
                 StaticPngMouthShape.OPEN to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__replacement__v2.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__replacement__v3.png"
                 )
             )
         )
