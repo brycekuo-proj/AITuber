@@ -701,6 +701,7 @@ class CharacterOverlayService : Service() {
 
         fun testStateVideoForDebug(state: UniversalAiState) {
             CaptureSessionState.forceStateForDebug(state, "State video manual test")
+            activeService?.runStateVideoTest(state)
         }
     }
 
@@ -755,6 +756,21 @@ class CharacterOverlayService : Service() {
                 MouthRenderDiagnostics.recordCharacterEngineRender()
                 characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
             }
+        }
+    }
+
+    private fun runStateVideoTest(state: UniversalAiState) {
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATE_VIDEO) return@post
+            stopAnimation(closeMouth = false)
+            val snapshot = CaptureSessionState.current().copy(
+                state = state,
+                speakingSignalSource = "State video manual test"
+            )
+            currentState = state
+            stateVideoView?.renderManualTestState(state)
+            MouthRenderDiagnostics.recordCharacterEngineRender()
+            characterEngine?.bind(snapshot, 0f)
         }
     }
 }

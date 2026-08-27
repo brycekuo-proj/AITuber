@@ -24,8 +24,11 @@ class StateVideoOverlayView(
     private var currentState = UniversalAiState.UNKNOWN
     private var currentClip = "n/a"
     private var resolvedClipPath = "n/a"
+    private var requestedTestState = "n/a"
+    private var preparing = false
     private var prepared = false
     private var playing = false
+    private var stateSwitchCount = 0L
     private var lastStateSwitchMs: Long? = null
     private var lastVideoError = "n/a"
     private var videoWidth = 0
@@ -61,12 +64,22 @@ class StateVideoOverlayView(
     }
 
     override fun renderState(state: UniversalAiState) {
+        renderState(state, requestedTestState = null)
+    }
+
+    fun renderManualTestState(state: UniversalAiState) {
+        renderState(state, requestedTestState = state.diagnosticName())
+    }
+
+    private fun renderState(state: UniversalAiState, requestedTestState: String?) {
+        requestedTestState?.let { this.requestedTestState = it }
         val resolvedState = if (state == UniversalAiState.UNKNOWN) UniversalAiState.IDLE else state
         val nextClip = characterPackage.clipFor(resolvedState)
         if (nextClip == null) {
             currentState = resolvedState
             currentClip = "n/a"
             resolvedClipPath = "n/a"
+            preparing = false
             lastVideoError = "STATE_VIDEO_CLIP_MISSING state=${resolvedState.name}"
             record("STATE_VIDEO_CLIP_MISSING")
             return
@@ -80,6 +93,8 @@ class StateVideoOverlayView(
         resolvedClipPath = "asset:///$nextClip"
         prepared = false
         playing = false
+        preparing = false
+        stateSwitchCount += 1L
         lastStateSwitchMs = elapsedRealtime()
         lastVideoError = "n/a"
         startClip(nextClip)
@@ -92,6 +107,7 @@ class StateVideoOverlayView(
     private fun startClip(assetPath: String) {
         val playbackSurface = surface
         if (playbackSurface == null) {
+            preparing = false
             record("WAITING_FOR_SURFACE")
             return
         }
@@ -99,6 +115,7 @@ class StateVideoOverlayView(
         releasePlayer(status = "SWITCHING_CLIP")
         val nextPlayer = MediaPlayer()
         player = nextPlayer
+        preparing = true
         runCatching {
             context.assets.openFd(assetPath).use { afd ->
                 nextPlayer.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
@@ -107,6 +124,7 @@ class StateVideoOverlayView(
             nextPlayer.isLooping = true
             nextPlayer.setVolume(0f, 0f)
             nextPlayer.setOnPreparedListener { preparedPlayer ->
+                preparing = false
                 prepared = true
                 playing = true
                 videoWidth = preparedPlayer.videoWidth
@@ -116,6 +134,7 @@ class StateVideoOverlayView(
                 record("READY")
             }
             nextPlayer.setOnErrorListener { _, what, extra ->
+                preparing = false
                 prepared = false
                 playing = false
                 lastVideoError = "STATE_VIDEO_PLAYBACK_FAILED what=$what extra=$extra"
@@ -125,6 +144,7 @@ class StateVideoOverlayView(
             nextPlayer.prepareAsync()
             record("LOADING")
         }.onFailure { error ->
+            preparing = false
             prepared = false
             playing = false
             lastVideoError = "STATE_VIDEO_PLAYBACK_FAILED ${error.javaClass.simpleName}: ${error.message ?: "n/a"}"
@@ -142,6 +162,7 @@ class StateVideoOverlayView(
             runCatching { existing.release() }
         }
         player = null
+        preparing = false
         prepared = false
         playing = false
         record(status)
@@ -151,15 +172,18 @@ class StateVideoOverlayView(
         CharacterDiagnostics.recordStateVideo(
             StateVideoDiagnosticsSnapshot(
                 status = status,
+                requestedTestState = requestedTestState,
                 currentState = currentState.name,
                 currentClip = currentClip,
                 resolvedClipPath = resolvedClipPath,
+                playerPreparing = preparing,
                 playerReady = prepared,
                 playerPlaying = playing,
                 loopEnabled = true,
                 muted = true,
                 videoWidth = videoWidth,
                 videoHeight = videoHeight,
+                stateSwitchCount = stateSwitchCount,
                 lastStateSwitchMs = lastStateSwitchMs,
                 lastVideoError = lastVideoError
             )
@@ -169,4 +193,6 @@ class StateVideoOverlayView(
     private fun elapsedRealtime(): Long {
         return runCatching { SystemClock.elapsedRealtime() }.getOrElse { System.currentTimeMillis() }
     }
+
+    private fun UniversalAiState.diagnosticName(): String = "AI_$name"
 }

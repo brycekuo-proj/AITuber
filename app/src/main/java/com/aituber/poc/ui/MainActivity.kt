@@ -254,14 +254,17 @@ class MainActivity : Activity() {
     private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var live2dLastErrorValue: TextView
     private lateinit var stateVideoStatusValue: TextView
+    private lateinit var stateVideoRequestedTestStateValue: TextView
     private lateinit var stateVideoCurrentStateValue: TextView
     private lateinit var stateVideoCurrentClipValue: TextView
     private lateinit var stateVideoResolvedClipPathValue: TextView
+    private lateinit var stateVideoPlayerPreparingValue: TextView
     private lateinit var stateVideoPlayerReadyValue: TextView
     private lateinit var stateVideoPlayerPlayingValue: TextView
     private lateinit var stateVideoLoopEnabledValue: TextView
     private lateinit var stateVideoMutedValue: TextView
     private lateinit var stateVideoSizeValue: TextView
+    private lateinit var stateVideoSwitchCountValue: TextView
     private lateinit var stateVideoLastStateSwitchValue: TextView
     private lateinit var stateVideoLastVideoErrorValue: TextView
     private lateinit var startButtonClickCountValue: TextView
@@ -784,14 +787,17 @@ class MainActivity : Activity() {
 
         root.addView(sectionTitle("STATE_VIDEO Runtime"))
         stateVideoStatusValue = addDiagnosticField(root, "STATE_VIDEO Status")
+        stateVideoRequestedTestStateValue = addDiagnosticField(root, "Requested Test State")
         stateVideoCurrentStateValue = addDiagnosticField(root, "Current State")
         stateVideoCurrentClipValue = addDiagnosticField(root, "Current Clip")
         stateVideoResolvedClipPathValue = addDiagnosticField(root, "Resolved Clip URI/Path")
+        stateVideoPlayerPreparingValue = addDiagnosticField(root, "Player Preparing")
         stateVideoPlayerReadyValue = addDiagnosticField(root, "Player Ready")
         stateVideoPlayerPlayingValue = addDiagnosticField(root, "Player Playing")
         stateVideoLoopEnabledValue = addDiagnosticField(root, "Loop Enabled")
         stateVideoMutedValue = addDiagnosticField(root, "Muted")
         stateVideoSizeValue = addDiagnosticField(root, "Video Size")
+        stateVideoSwitchCountValue = addDiagnosticField(root, "State Switch Count")
         stateVideoLastStateSwitchValue = addDiagnosticField(root, "Last State Switch")
         stateVideoLastVideoErrorValue = addDiagnosticField(root, "Last Video Error")
 
@@ -1501,14 +1507,17 @@ class MainActivity : Activity() {
             live2dFallbackReasonValue.text = character.live2dFallbackReason
             live2dLastErrorValue.text = character.live2dLastError
             stateVideoStatusValue.text = character.stateVideoStatus
+            stateVideoRequestedTestStateValue.text = character.stateVideoRequestedTestState
             stateVideoCurrentStateValue.text = character.stateVideoCurrentState
             stateVideoCurrentClipValue.text = character.stateVideoCurrentClip
             stateVideoResolvedClipPathValue.text = character.stateVideoResolvedClipPath
+            stateVideoPlayerPreparingValue.text = character.stateVideoPlayerPreparing
             stateVideoPlayerReadyValue.text = character.stateVideoPlayerReady
             stateVideoPlayerPlayingValue.text = character.stateVideoPlayerPlaying
             stateVideoLoopEnabledValue.text = character.stateVideoLoopEnabled
             stateVideoMutedValue.text = character.stateVideoMuted
             stateVideoSizeValue.text = "${character.stateVideoWidth} x ${character.stateVideoHeight}"
+            stateVideoSwitchCountValue.text = character.stateVideoSwitchCount.toString()
             stateVideoLastStateSwitchValue.text = character.stateVideoLastStateSwitchMs?.let { "$it ms" } ?: "n/a"
             stateVideoLastVideoErrorValue.text = character.stateVideoLastVideoError
 

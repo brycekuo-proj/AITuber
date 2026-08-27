@@ -53,6 +53,48 @@ class StateVideoCharacterPackageTest {
     }
 
     @Test
+    fun manualListeningStateReachesAdapter() {
+        val renderedStates = mutableListOf<UniversalAiState>()
+        val adapter = StateVideoCharacterAdapter(object : StateVideoStateSink {
+            override fun renderState(state: UniversalAiState) {
+                renderedStates += state
+            }
+        })
+
+        adapter.render(CharacterParameterFrame(mouthOpen = 0f, speaking = false, universalState = UniversalAiState.LISTENING))
+
+        assertEquals(listOf(UniversalAiState.LISTENING), renderedStates)
+    }
+
+    @Test
+    fun manualThinkingStateReachesAdapter() {
+        val renderedStates = mutableListOf<UniversalAiState>()
+        val adapter = StateVideoCharacterAdapter(object : StateVideoStateSink {
+            override fun renderState(state: UniversalAiState) {
+                renderedStates += state
+            }
+        })
+
+        adapter.render(CharacterParameterFrame(mouthOpen = 0f, speaking = false, universalState = UniversalAiState.THINKING))
+
+        assertEquals(listOf(UniversalAiState.THINKING), renderedStates)
+    }
+
+    @Test
+    fun manualSpeakingStateReachesAdapter() {
+        val renderedStates = mutableListOf<UniversalAiState>()
+        val adapter = StateVideoCharacterAdapter(object : StateVideoStateSink {
+            override fun renderState(state: UniversalAiState) {
+                renderedStates += state
+            }
+        })
+
+        adapter.render(CharacterParameterFrame(mouthOpen = 1f, speaking = true, universalState = UniversalAiState.SPEAKING))
+
+        assertEquals(listOf(UniversalAiState.SPEAKING), renderedStates)
+    }
+
+    @Test
     fun adapterUsesGenericStateVideoIdentity() {
         val adapter = StateVideoCharacterAdapter(object : StateVideoStateSink {
             override fun renderState(state: UniversalAiState) = Unit
@@ -83,5 +125,17 @@ class StateVideoCharacterPackageTest {
             "characters/whitehair_female/clips/whitehair_female__hailuo__idle__3s__v1.mp4",
             characterPackage.clipFor(UniversalAiState.IDLE)
         )
+    }
+
+    @Test
+    fun missingStateClipIsRepresentableWithoutFallingBackToIdle() {
+        val partialPackage = StateVideoCharacterPackage(
+            id = "partial",
+            displayName = "Partial",
+            runtimeType = "STATE_VIDEO",
+            states = mapOf(UniversalAiState.IDLE to "characters/partial/clips/idle.mp4")
+        )
+
+        assertNull(partialPackage.clipFor(UniversalAiState.SPEAKING))
     }
 }
