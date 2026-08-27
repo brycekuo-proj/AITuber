@@ -40,11 +40,11 @@ class StaticPngCharacterPackageTest {
         val open = characterPackage.mouthLayers.getValue(StaticPngMouthShape.OPEN)
 
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__mouth__half__fullcanvas__v3.png",
+            "characters/xianxia_female/static/xianxia_female__mouth__half__from_master__v1.png",
             half.assetPath
         )
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__mouth__open__fullcanvas__v3.png",
+            "characters/xianxia_female/static/xianxia_female__mouth__open__from_master__v1.png",
             open.assetPath
         )
     }
