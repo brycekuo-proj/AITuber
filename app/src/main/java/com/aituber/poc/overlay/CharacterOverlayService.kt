@@ -49,6 +49,7 @@ class CharacterOverlayService : Service() {
     private var live2dCurrentScale = Live2DOverlayScaleMath.DEFAULT_SCALE
     private var blinkTickRunning = false
     private var lastCharacterMouthOpen = 0f
+    private var serviceCharacterMode: CharacterMode = CharacterMode.MINIMAL_MOUTH
 
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
@@ -95,6 +96,7 @@ class CharacterOverlayService : Service() {
             return
         }
         isRunning = true
+        serviceCharacterMode = requestedCharacterMode
         requestedLive2DProfileId = Live2DProfileStore.load(this).id
         CharacterDiagnostics.recordLive2DProfile(requestedLive2DProfile())
         OverlayLifecycleTrace.setAlive(true)
@@ -438,7 +440,7 @@ class CharacterOverlayService : Service() {
     }
 
     private fun createOverlaySelection(): OverlaySelection {
-        if (requestedCharacterMode == CharacterMode.STATE_VIDEO) {
+        if (serviceCharacterMode == CharacterMode.STATE_VIDEO) {
             val stateVideoPackage = StateVideoCharacterPackageLoader.loadWhitehairFemale(this)
             val stateVideo = StateVideoOverlayView(this, stateVideoPackage)
             stateVideoView = stateVideo
@@ -456,7 +458,7 @@ class CharacterOverlayService : Service() {
             )
         }
 
-        if (requestedCharacterMode == CharacterMode.LIVE2D) {
+        if (serviceCharacterMode == CharacterMode.LIVE2D) {
             val profile = requestedLive2DProfile()
             val live2d = Live2DOverlayView(this, profile = profile) { reason ->
                 fallbackToMinimalMouthOnMain("LIVE2D_RUNTIME_FAILURE: $reason")
@@ -488,9 +490,9 @@ class CharacterOverlayService : Service() {
         return OverlaySelection(
             view = minimal,
             live2dActive = false,
-            live2dLifecycleState = if (requestedCharacterMode == CharacterMode.LIVE2D) "FAILED" else "DISABLED",
+            live2dLifecycleState = if (serviceCharacterMode == CharacterMode.LIVE2D) "FAILED" else "DISABLED",
             selection = CharacterAdapterFactory.create(
-                requestedMode = requestedCharacterMode,
+                requestedMode = serviceCharacterMode,
                 mouthView = minimal,
                 live2dAdapter = Live2DCharacterAdapter(profile = profile, sdkAvailable = false)
             )
@@ -558,7 +560,7 @@ class CharacterOverlayService : Service() {
         requireMainThread("renderSnapshotOnMain")
         if (characterEngine == null) return
         currentState = snapshot.state
-        if (requestedCharacterMode == CharacterMode.STATE_VIDEO) {
+        if (serviceCharacterMode == CharacterMode.STATE_VIDEO) {
             stopAnimation(closeMouth = false)
             MouthRenderDiagnostics.recordCharacterEngineRender()
             characterEngine?.bind(snapshot, 0f)
@@ -574,7 +576,6 @@ class CharacterOverlayService : Service() {
         silenceGate.reset()
         MouthDriveDiagnostics.reset()
         MouthRenderDiagnostics.reset()
-        CharacterDiagnostics.reset(requestedMode = requestedCharacterMode)
         live2dView?.release()
         stateVideoView?.release()
         overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
@@ -585,9 +586,12 @@ class CharacterOverlayService : Service() {
         overlayView = null
         characterEngine = null
         windowManager = null
-        isRunning = false
-        activeService = null
-        OverlayLifecycleTrace.setAlive(false)
+        if (activeService === this) {
+            CharacterDiagnostics.reset(requestedMode = serviceCharacterMode)
+            isRunning = false
+            activeService = null
+            OverlayLifecycleTrace.setAlive(false)
+        }
     }
 
     private fun requireMainThread(operation: String) {

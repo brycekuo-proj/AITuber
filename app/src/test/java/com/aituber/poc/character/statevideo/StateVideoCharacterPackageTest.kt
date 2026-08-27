@@ -51,4 +51,37 @@ class StateVideoCharacterPackageTest {
 
         assertEquals(listOf(UniversalAiState.THINKING), renderedStates)
     }
+
+    @Test
+    fun adapterUsesGenericStateVideoIdentity() {
+        val adapter = StateVideoCharacterAdapter(object : StateVideoStateSink {
+            override fun renderState(state: UniversalAiState) = Unit
+        })
+
+        assertEquals("state-video-character-adapter", adapter.characterId)
+    }
+
+    @Test
+    fun metadataParserResolvesPackagePathsToStagedAssetPaths() {
+        val characterPackage = StateVideoCharacterPackageLoader.parse(
+            """
+            {
+              "id": "whitehair_female",
+              "displayName": "White Hair Female",
+              "runtimeType": "STATE_VIDEO",
+              "states": {
+                "AI_IDLE": "clips/whitehair_female__hailuo__idle__3s__v1.mp4",
+                "AI_LISTENING": "clips/whitehair_female__hailuo__listening__3s__v1.mp4",
+                "AI_THINKING": "clips/whitehair_female__hailuo__thinking__3s__v1.mp4",
+                "AI_SPEAKING": "clips/whitehair_female__hailuo__speaking__3s__v2.mp4"
+              }
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(
+            "characters/whitehair_female/clips/whitehair_female__hailuo__idle__3s__v1.mp4",
+            characterPackage.clipFor(UniversalAiState.IDLE)
+        )
+    }
 }

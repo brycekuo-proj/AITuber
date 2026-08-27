@@ -2,7 +2,6 @@ package com.aituber.poc.character.statevideo
 
 import android.content.Context
 import com.aituber.poc.state.UniversalAiState
-import org.json.JSONObject
 
 object StateVideoCharacterPackageLoader {
     private const val CHARACTER_ID = "whitehair_female"
@@ -17,22 +16,28 @@ object StateVideoCharacterPackageLoader {
     }
 
     fun parse(json: String): StateVideoCharacterPackage {
-        val root = JSONObject(json)
-        val states = root.getJSONObject("states")
         return StateVideoCharacterPackage(
-            id = root.getString("id"),
-            displayName = root.optString("displayName", "Whitehair Female"),
-            runtimeType = root.getString("runtimeType"),
+            id = stringField(json, "id"),
+            displayName = stringField(json, "displayName", "Whitehair Female"),
+            runtimeType = stringField(json, "runtimeType"),
             states = mapOf(
-                UniversalAiState.IDLE to assetPath(CHARACTER_ID, states.getString("AI_IDLE")),
-                UniversalAiState.LISTENING to assetPath(CHARACTER_ID, states.getString("AI_LISTENING")),
-                UniversalAiState.THINKING to assetPath(CHARACTER_ID, states.getString("AI_THINKING")),
-                UniversalAiState.SPEAKING to assetPath(CHARACTER_ID, states.getString("AI_SPEAKING"))
+                UniversalAiState.IDLE to assetPath(CHARACTER_ID, stringField(json, "AI_IDLE")),
+                UniversalAiState.LISTENING to assetPath(CHARACTER_ID, stringField(json, "AI_LISTENING")),
+                UniversalAiState.THINKING to assetPath(CHARACTER_ID, stringField(json, "AI_THINKING")),
+                UniversalAiState.SPEAKING to assetPath(CHARACTER_ID, stringField(json, "AI_SPEAKING"))
             )
         )
     }
 
     private fun assetPath(characterId: String, packageRelativePath: String): String {
         return "characters/$characterId/${packageRelativePath.removePrefix("/")}"
+    }
+
+    private fun stringField(json: String, key: String, default: String? = null): String {
+        val value = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"([^\"]+)\"")
+            .find(json)
+            ?.groupValues
+            ?.get(1)
+        return value ?: default ?: error("Missing state video metadata field: $key")
     }
 }

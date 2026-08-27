@@ -16,6 +16,13 @@ object CharacterDiagnostics {
             characterMode = requestedMode.name,
             runtimeType = requestedMode.runtimeTypeLabel(),
             activeCharacterAdapter = if (overlayRunning) current.activeCharacterAdapter else "none",
+            live2dProfileId = if (requestedMode == CharacterMode.LIVE2D) current.live2dProfileId else "n/a",
+            live2dProfileName = if (requestedMode == CharacterMode.LIVE2D) current.live2dProfileName else "n/a",
+            live2dModel3File = if (requestedMode == CharacterMode.LIVE2D) current.live2dModel3File else "n/a",
+            live2dMappedMouthParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedMouthParameter else "n/a",
+            live2dMappedLeftEyeParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedLeftEyeParameter else "n/a",
+            live2dMappedRightEyeParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedRightEyeParameter else "n/a",
+            live2dMappedBreathParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedBreathParameter else "n/a",
             live2dLifecycleState = if (requestedMode == CharacterMode.LIVE2D) {
                 if (overlayRunning) "REQUESTED" else "REQUESTED_OVERLAY_DISABLED"
             } else {
@@ -42,6 +49,13 @@ object CharacterDiagnostics {
             characterMode = requestedMode.name,
             runtimeType = requestedMode.runtimeTypeLabel(),
             activeCharacterAdapter = activeAdapterId,
+            live2dProfileId = if (requestedMode == CharacterMode.LIVE2D) current.live2dProfileId else "n/a",
+            live2dProfileName = if (requestedMode == CharacterMode.LIVE2D) current.live2dProfileName else "n/a",
+            live2dModel3File = if (requestedMode == CharacterMode.LIVE2D) current.live2dModel3File else "n/a",
+            live2dMappedMouthParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedMouthParameter else "n/a",
+            live2dMappedLeftEyeParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedLeftEyeParameter else "n/a",
+            live2dMappedRightEyeParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedRightEyeParameter else "n/a",
+            live2dMappedBreathParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedBreathParameter else "n/a",
             live2dFallbackReason = fallbackReason,
             live2dLifecycleState = live2dLifecycleState
         )
@@ -54,6 +68,7 @@ object CharacterDiagnostics {
             stateVideoStatus = snapshot.status,
             stateVideoCurrentState = snapshot.currentState,
             stateVideoCurrentClip = snapshot.currentClip,
+            stateVideoResolvedClipPath = snapshot.resolvedClipPath,
             stateVideoPlayerReady = if (snapshot.playerReady) "YES" else "NO",
             stateVideoPlayerPlaying = if (snapshot.playerPlaying) "YES" else "NO",
             stateVideoLoopEnabled = if (snapshot.loopEnabled) "YES" else "NO",
@@ -264,6 +279,13 @@ object CharacterDiagnostics {
             characterMode = requestedMode.name,
             runtimeType = requestedMode.runtimeTypeLabel(),
             activeCharacterAdapter = "none",
+            live2dProfileId = if (requestedMode == CharacterMode.LIVE2D) current.live2dProfileId else "n/a",
+            live2dProfileName = if (requestedMode == CharacterMode.LIVE2D) current.live2dProfileName else "n/a",
+            live2dModel3File = if (requestedMode == CharacterMode.LIVE2D) current.live2dModel3File else "n/a",
+            live2dMappedMouthParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedMouthParameter else "n/a",
+            live2dMappedLeftEyeParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedLeftEyeParameter else "n/a",
+            live2dMappedRightEyeParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedRightEyeParameter else "n/a",
+            live2dMappedBreathParameter = if (requestedMode == CharacterMode.LIVE2D) current.live2dMappedBreathParameter else "n/a",
             live2dLifecycleState = if (requestedMode == CharacterMode.LIVE2D) {
                 "REQUESTED_OVERLAY_DISABLED"
             } else {
@@ -397,6 +419,7 @@ data class CharacterDiagnosticsSnapshot(
     val stateVideoStatus: String,
     val stateVideoCurrentState: String,
     val stateVideoCurrentClip: String,
+    val stateVideoResolvedClipPath: String,
     val stateVideoPlayerReady: String,
     val stateVideoPlayerPlaying: String,
     val stateVideoLoopEnabled: String,
@@ -519,6 +542,7 @@ data class CharacterDiagnosticsSnapshot(
             stateVideoStatus = "DISABLED",
             stateVideoCurrentState = "UNKNOWN",
             stateVideoCurrentClip = "n/a",
+            stateVideoResolvedClipPath = "n/a",
             stateVideoPlayerReady = "NO",
             stateVideoPlayerPlaying = "NO",
             stateVideoLoopEnabled = "NO",
@@ -536,6 +560,7 @@ data class StateVideoDiagnosticsSnapshot(
     val status: String,
     val currentState: String,
     val currentClip: String,
+    val resolvedClipPath: String,
     val playerReady: Boolean,
     val playerPlaying: Boolean,
     val loopEnabled: Boolean,

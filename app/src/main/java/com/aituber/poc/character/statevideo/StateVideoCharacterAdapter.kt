@@ -7,7 +7,7 @@ class StateVideoCharacterAdapter(
     private val stateSink: StateVideoStateSink,
     private val characterPackage: StateVideoCharacterPackage = StateVideoCharacterPackage.WhitehairFemale
 ) : CharacterAdapter {
-    override val characterId: String = "state-video-${characterPackage.id}"
+    override val characterId: String = "state-video-character-adapter"
 
     override fun render(frame: CharacterParameterFrame) {
         stateSink.renderState(frame.universalState)

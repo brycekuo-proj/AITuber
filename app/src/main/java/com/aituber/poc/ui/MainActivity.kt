@@ -256,6 +256,7 @@ class MainActivity : Activity() {
     private lateinit var stateVideoStatusValue: TextView
     private lateinit var stateVideoCurrentStateValue: TextView
     private lateinit var stateVideoCurrentClipValue: TextView
+    private lateinit var stateVideoResolvedClipPathValue: TextView
     private lateinit var stateVideoPlayerReadyValue: TextView
     private lateinit var stateVideoPlayerPlayingValue: TextView
     private lateinit var stateVideoLoopEnabledValue: TextView
@@ -785,6 +786,7 @@ class MainActivity : Activity() {
         stateVideoStatusValue = addDiagnosticField(root, "STATE_VIDEO Status")
         stateVideoCurrentStateValue = addDiagnosticField(root, "Current State")
         stateVideoCurrentClipValue = addDiagnosticField(root, "Current Clip")
+        stateVideoResolvedClipPathValue = addDiagnosticField(root, "Resolved Clip URI/Path")
         stateVideoPlayerReadyValue = addDiagnosticField(root, "Player Ready")
         stateVideoPlayerPlayingValue = addDiagnosticField(root, "Player Playing")
         stateVideoLoopEnabledValue = addDiagnosticField(root, "Loop Enabled")
@@ -1501,6 +1503,7 @@ class MainActivity : Activity() {
             stateVideoStatusValue.text = character.stateVideoStatus
             stateVideoCurrentStateValue.text = character.stateVideoCurrentState
             stateVideoCurrentClipValue.text = character.stateVideoCurrentClip
+            stateVideoResolvedClipPathValue.text = character.stateVideoResolvedClipPath
             stateVideoPlayerReadyValue.text = character.stateVideoPlayerReady
             stateVideoPlayerPlayingValue.text = character.stateVideoPlayerPlaying
             stateVideoLoopEnabledValue.text = character.stateVideoLoopEnabled
