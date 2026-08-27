@@ -29,7 +29,7 @@ class StaticPngCharacterPackageTest {
         assertEquals("xianxia_female_static", characterPackage.id)
         assertEquals("Xianxia Static", characterPackage.displayName)
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__static__master__2000px__v1.png",
+            "characters/xianxia_female/static/xianxia_female__static__master__2000px__v2.png",
             characterPackage.assetPath
         )
         assertEquals(2000, characterPackage.sourceHeightPx)

@@ -10,7 +10,7 @@ data class StaticPngCharacterPackage(
         val XianxiaFemale = StaticPngCharacterPackage(
             id = "xianxia_female_static",
             displayName = "Xianxia Static",
-            assetPath = "characters/xianxia_female/static/xianxia_female__static__master__2000px__v1.png",
+            assetPath = "characters/xianxia_female/static/xianxia_female__static__master__2000px__v2.png",
             sourceHeightPx = 2000
         )
     }
