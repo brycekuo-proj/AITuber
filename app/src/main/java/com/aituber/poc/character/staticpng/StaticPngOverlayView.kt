@@ -88,9 +88,14 @@ class StaticPngOverlayView(
     }
 
     private fun recordMouthShape() {
+        val patch = characterPackage.mouthReplacementPatch
         CharacterDiagnostics.recordStaticPngMouth(
             shape = activeShape.name,
-            ratio = activeRatio
+            ratio = activeRatio,
+            patchX = patch.x,
+            patchY = patch.y,
+            patchWidth = patch.width,
+            patchHeight = patch.height
         )
     }
 }

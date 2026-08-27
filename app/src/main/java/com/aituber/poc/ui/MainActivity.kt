@@ -151,6 +151,10 @@ class MainActivity : Activity() {
     private lateinit var characterMouthInputValue: TextView
     private lateinit var characterMouthOutputValue: TextView
     private lateinit var staticPngMouthShapeValue: TextView
+    private lateinit var staticPngMouthPatchXValue: TextView
+    private lateinit var staticPngMouthPatchYValue: TextView
+    private lateinit var staticPngMouthPatchWidthValue: TextView
+    private lateinit var staticPngMouthPatchHeightValue: TextView
     private lateinit var live2dProfileIdValue: TextView
     private lateinit var live2dProfileNameValue: TextView
     private lateinit var live2dModel3FileValue: TextView
@@ -692,7 +696,11 @@ class MainActivity : Activity() {
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
         characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
         characterMouthOutputValue = addDiagnosticField(root, "Mouth Parameter Output")
-        staticPngMouthShapeValue = addDiagnosticField(root, "Static PNG Mouth Shape")
+        staticPngMouthShapeValue = addDiagnosticField(root, "Mouth Shape")
+        staticPngMouthPatchXValue = addDiagnosticField(root, "Mouth Patch X")
+        staticPngMouthPatchYValue = addDiagnosticField(root, "Mouth Patch Y")
+        staticPngMouthPatchWidthValue = addDiagnosticField(root, "Mouth Patch Width")
+        staticPngMouthPatchHeightValue = addDiagnosticField(root, "Mouth Patch Height")
         live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
         live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
         live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
@@ -1408,6 +1416,10 @@ class MainActivity : Activity() {
             characterMouthInputValue.text = "%.3f".format(character.mouthParameterInput)
             characterMouthOutputValue.text = "%.3f".format(character.mouthParameterOutput)
             staticPngMouthShapeValue.text = "${character.staticPngMouthShape} (${ "%.3f".format(character.staticPngMouthRatio) })"
+            staticPngMouthPatchXValue.text = character.staticPngMouthPatchX.toString()
+            staticPngMouthPatchYValue.text = character.staticPngMouthPatchY.toString()
+            staticPngMouthPatchWidthValue.text = character.staticPngMouthPatchWidth.toString()
+            staticPngMouthPatchHeightValue.text = character.staticPngMouthPatchHeight.toString()
             live2dProfileIdValue.text = character.live2dProfileId
             live2dProfileNameValue.text = character.live2dProfileName
             live2dModel3FileValue.text = character.live2dModel3File

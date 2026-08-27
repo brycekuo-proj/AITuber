@@ -6,6 +6,7 @@ data class StaticPngCharacterPackage(
     val assetPath: String,
     val sourceWidthPx: Int,
     val sourceHeightPx: Int,
+    val mouthReplacementPatch: StaticPngMouthPatch,
     val mouthLayers: Map<StaticPngMouthShape, StaticPngMouthLayer>
 ) {
     companion object {
@@ -15,17 +16,30 @@ data class StaticPngCharacterPackage(
             assetPath = "characters/xianxia_female/static/xianxia_female__static__master__2000px__v2.png",
             sourceWidthPx = 1023,
             sourceHeightPx = 2000,
+            mouthReplacementPatch = StaticPngMouthPatch(
+                x = 452,
+                y = 238,
+                width = 120,
+                height = 86
+            ),
             mouthLayers = mapOf(
                 StaticPngMouthShape.HALF to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__from_master__v1.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__replacement__v2.png"
                 ),
                 StaticPngMouthShape.OPEN to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__from_master__v1.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__replacement__v2.png"
                 )
             )
         )
     }
 }
+
+data class StaticPngMouthPatch(
+    val x: Int,
+    val y: Int,
+    val width: Int,
+    val height: Int
+)
 
 data class StaticPngMouthLayer(
     val assetPath: String
