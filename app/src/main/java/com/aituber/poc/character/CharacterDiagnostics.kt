@@ -84,6 +84,14 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordStaticPngMouth(shape: String, ratio: Float) {
+        current = current.copy(
+            staticPngMouthShape = shape,
+            staticPngMouthRatio = ratio.toDouble()
+        )
+    }
+
+    @Synchronized
     fun recordFrame(
         adapterId: String,
         frame: CharacterParameterFrame,
@@ -434,6 +442,8 @@ data class CharacterDiagnosticsSnapshot(
     val stateVideoSwitchCount: Long,
     val stateVideoLastStateSwitchMs: Long?,
     val stateVideoLastVideoError: String,
+    val staticPngMouthShape: String,
+    val staticPngMouthRatio: Double,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
@@ -560,6 +570,8 @@ data class CharacterDiagnosticsSnapshot(
             stateVideoSwitchCount = 0L,
             stateVideoLastStateSwitchMs = null,
             stateVideoLastVideoError = "n/a",
+            staticPngMouthShape = "CLOSED",
+            staticPngMouthRatio = 0.0,
             lastFrameTimestampMs = null
         )
     }

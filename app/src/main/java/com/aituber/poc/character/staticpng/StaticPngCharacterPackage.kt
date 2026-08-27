@@ -4,14 +4,58 @@ data class StaticPngCharacterPackage(
     val id: String,
     val displayName: String,
     val assetPath: String,
-    val sourceHeightPx: Int
+    val sourceWidthPx: Int,
+    val sourceHeightPx: Int,
+    val mouthLayers: Map<StaticPngMouthShape, StaticPngMouthLayer>
 ) {
     companion object {
         val XianxiaFemale = StaticPngCharacterPackage(
             id = "xianxia_female_static",
             displayName = "Xianxia Static",
             assetPath = "characters/xianxia_female/static/xianxia_female__static__master__2000px__v2.png",
-            sourceHeightPx = 2000
+            sourceWidthPx = 1023,
+            sourceHeightPx = 2000,
+            mouthLayers = mapOf(
+                StaticPngMouthShape.HALF to StaticPngMouthLayer(
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__v1.png",
+                    x = 466,
+                    y = 267,
+                    width = 91,
+                    height = 59
+                ),
+                StaticPngMouthShape.OPEN to StaticPngMouthLayer(
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__v1.png",
+                    x = 466,
+                    y = 267,
+                    width = 91,
+                    height = 59
+                )
+            )
         )
+    }
+}
+
+data class StaticPngMouthLayer(
+    val assetPath: String,
+    val x: Int,
+    val y: Int,
+    val width: Int,
+    val height: Int
+)
+
+enum class StaticPngMouthShape {
+    CLOSED,
+    HALF,
+    OPEN;
+
+    companion object {
+        fun fromRatio(ratio: Float): StaticPngMouthShape {
+            val clamped = ratio.coerceIn(0f, 1f)
+            return when {
+                clamped <= 0.25f -> CLOSED
+                clamped <= 0.65f -> HALF
+                else -> OPEN
+            }
+        }
     }
 }

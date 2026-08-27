@@ -11,15 +11,11 @@ class StaticPngCharacterPackageTest {
         val asset = File("src/main/assets/${StaticPngCharacterPackage.XianxiaFemale.assetPath}")
 
         assertTrue("Missing static PNG asset: ${asset.path}", asset.isFile)
-        val png = asset.readBytes()
-        assertTrue("Invalid PNG signature", png.copyOfRange(0, 8).contentEquals(PNG_SIGNATURE))
-        val width = png.readPngInt(offset = 16)
-        val height = png.readPngInt(offset = 20)
-        val colorType = png[25].toInt() and 0xff
+        val header = asset.readPngHeader()
 
-        assertEquals(1023, width)
-        assertEquals(2000, height)
-        assertEquals(PNG_COLOR_TYPE_RGBA, colorType)
+        assertEquals(1023, header.width)
+        assertEquals(2000, header.height)
+        assertEquals(PNG_COLOR_TYPE_RGBA, header.colorType)
     }
 
     @Test
@@ -32,7 +28,58 @@ class StaticPngCharacterPackageTest {
             "characters/xianxia_female/static/xianxia_female__static__master__2000px__v2.png",
             characterPackage.assetPath
         )
+        assertEquals(1023, characterPackage.sourceWidthPx)
         assertEquals(2000, characterPackage.sourceHeightPx)
+    }
+
+    @Test
+    fun xianxiaStaticPngPackageDefinesAlignedMouthLayers() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
+        val half = characterPackage.mouthLayers.getValue(StaticPngMouthShape.HALF)
+        val open = characterPackage.mouthLayers.getValue(StaticPngMouthShape.OPEN)
+
+        assertEquals("characters/xianxia_female/static/xianxia_female__mouth__half__v1.png", half.assetPath)
+        assertEquals("characters/xianxia_female/static/xianxia_female__mouth__open__v1.png", open.assetPath)
+        assertEquals(half.copy(assetPath = open.assetPath), open)
+        assertEquals(466, half.x)
+        assertEquals(267, half.y)
+        assertEquals(91, half.width)
+        assertEquals(59, half.height)
+    }
+
+    @Test
+    fun xianxiaMouthLayerAssetsAreSmallRgbaPngs() {
+        StaticPngCharacterPackage.XianxiaFemale.mouthLayers.values.forEach { layer ->
+            val asset = File("src/main/assets/${layer.assetPath}")
+
+            assertTrue("Missing mouth layer asset: ${asset.path}", asset.isFile)
+            val header = asset.readPngHeader()
+
+            assertEquals(layer.width, header.width)
+            assertEquals(layer.height, header.height)
+            assertEquals(PNG_COLOR_TYPE_RGBA, header.colorType)
+        }
+    }
+
+    @Test
+    fun mouthShapeThresholdsMatchPocRules() {
+        assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.00f))
+        assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.25f))
+        assertEquals(StaticPngMouthShape.HALF, StaticPngMouthShape.fromRatio(0.251f))
+        assertEquals(StaticPngMouthShape.HALF, StaticPngMouthShape.fromRatio(0.65f))
+        assertEquals(StaticPngMouthShape.OPEN, StaticPngMouthShape.fromRatio(0.651f))
+        assertEquals(StaticPngMouthShape.OPEN, StaticPngMouthShape.fromRatio(1.00f))
+    }
+
+    private fun File.readPngHeader(): PngHeader {
+        val png = readBytes()
+        assertTrue("Invalid PNG signature", png.copyOfRange(0, 8).contentEquals(PNG_SIGNATURE))
+        return PngHeader(
+            width = png.readPngInt(offset = 16),
+            height = png.readPngInt(offset = 20),
+            colorType = png[25].toInt() and 0xff
+        )
     }
 
     private fun ByteArray.readPngInt(offset: Int): Int =
@@ -40,6 +87,12 @@ class StaticPngCharacterPackageTest {
             ((this[offset + 1].toInt() and 0xff) shl 16) or
             ((this[offset + 2].toInt() and 0xff) shl 8) or
             (this[offset + 3].toInt() and 0xff)
+
+    data class PngHeader(
+        val width: Int,
+        val height: Int,
+        val colorType: Int
+    )
 
     companion object {
         private val PNG_SIGNATURE = byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10)

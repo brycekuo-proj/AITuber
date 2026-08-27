@@ -605,10 +605,7 @@ class CharacterOverlayService : Service() {
             return
         }
         if (serviceCharacterMode == CharacterMode.STATIC_PNG) {
-            currentState = snapshot.state
-            stopAnimation(closeMouth = false)
-            MouthRenderDiagnostics.recordCharacterEngineRender()
-            characterEngine?.bind(snapshot, 0f)
+            renderStaticPngSnapshot(snapshot)
             return
         }
         currentState = snapshot.state
@@ -691,6 +688,43 @@ class CharacterOverlayService : Service() {
                 characterEngine?.bind(snapshot, 0f)
             }
         }
+    }
+
+    private fun renderStaticPngSnapshot(snapshot: UniversalStateSnapshot) {
+        val nowMs = SystemClock.elapsedRealtime()
+        val visualizerAvailable = snapshot.visualizerProbe.enabled == "YES" &&
+            snapshot.visualizerProbe.waveformCallbackCount > 0L
+        val gateFrame = silenceGate.evaluate(
+            universalState = snapshot.state,
+            metrics = snapshot.visualizerProbe.currentMetrics,
+            visualizerAvailable = visualizerAvailable,
+            nowMs = nowMs
+        )
+        val frame = amplitudeMapper.evaluate(
+            state = snapshot.state,
+            metrics = snapshot.visualizerProbe.currentMetrics,
+            mouthActive = gateFrame.mouthActive,
+            visualizerAvailable = visualizerAvailable,
+            nowMs = nowMs
+        )
+        mouthDriveMode = frame.mode
+        MouthDriveDiagnostics.update(frame, gateFrame)
+        MouthRenderDiagnostics.recordMapper(frame.mode, frame.targetOpen, frame.smoothedOpen)
+        MouthRenderDiagnostics.recordOverlaySnapshot(
+            state = snapshot.state,
+            metrics = snapshot.visualizerProbe.currentMetrics,
+            targetOpen = frame.targetOpen,
+            smoothedOpen = frame.smoothedOpen
+        )
+        stopAnimation(closeMouth = false)
+        currentState = snapshot.state
+        lastCharacterMouthOpen = if (frame.mode == MouthDriveMode.RMS && frame.shouldRender) {
+            frame.smoothedOpen.toFloat()
+        } else {
+            0f
+        }
+        MouthRenderDiagnostics.recordCharacterEngineRender()
+        characterEngine?.bind(snapshot, lastCharacterMouthOpen)
     }
 
     private fun startBlinkTick() {

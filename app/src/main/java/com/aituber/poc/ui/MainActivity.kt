@@ -146,6 +146,7 @@ class MainActivity : Activity() {
     private lateinit var characterFrameCountValue: TextView
     private lateinit var characterMouthInputValue: TextView
     private lateinit var characterMouthOutputValue: TextView
+    private lateinit var staticPngMouthShapeValue: TextView
     private lateinit var live2dProfileIdValue: TextView
     private lateinit var live2dProfileNameValue: TextView
     private lateinit var live2dModel3FileValue: TextView
@@ -677,6 +678,7 @@ class MainActivity : Activity() {
         characterFrameCountValue = addDiagnosticField(root, "Character Frame Count")
         characterMouthInputValue = addDiagnosticField(root, "Mouth Parameter Input")
         characterMouthOutputValue = addDiagnosticField(root, "Mouth Parameter Output")
+        staticPngMouthShapeValue = addDiagnosticField(root, "Static PNG Mouth Shape")
         live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
         live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
         live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
@@ -1379,6 +1381,7 @@ class MainActivity : Activity() {
             characterFrameCountValue.text = character.characterFrameCount.toString()
             characterMouthInputValue.text = "%.3f".format(character.mouthParameterInput)
             characterMouthOutputValue.text = "%.3f".format(character.mouthParameterOutput)
+            staticPngMouthShapeValue.text = "${character.staticPngMouthShape} (${ "%.3f".format(character.staticPngMouthRatio) })"
             live2dProfileIdValue.text = character.live2dProfileId
             live2dProfileNameValue.text = character.live2dProfileName
             live2dModel3FileValue.text = character.live2dModel3File
