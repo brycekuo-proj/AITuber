@@ -17,10 +17,10 @@ data class StaticPngCharacterPackage(
             sourceHeightPx = 2000,
             mouthLayers = mapOf(
                 StaticPngMouthShape.HALF to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__fullcanvas__v2.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__half__fullcanvas__v3.png"
                 ),
                 StaticPngMouthShape.OPEN to StaticPngMouthLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__fullcanvas__v2.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__mouth__open__fullcanvas__v3.png"
                 )
             )
         )
