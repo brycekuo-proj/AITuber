@@ -48,6 +48,7 @@ class MainActivityControlsTest {
         assertEquals("CHARACTER: HARU", DebugControlLabels.character(CharacterMode.LIVE2D, "Haru"))
         assertEquals("CHARACTER: LOAF DOG", DebugControlLabels.character(CharacterMode.LIVE2D, "Loaf Dog"))
         assertEquals("CHARACTER: WHITEHAIR FEMALE", DebugControlLabels.character(CharacterMode.STATE_VIDEO))
+        assertEquals("CHARACTER: XIANXIA STATIC", DebugControlLabels.character(CharacterMode.STATIC_PNG))
     }
 
     @Test
@@ -72,6 +73,7 @@ class MainActivityControlsTest {
         assertEquals("TEST IDLE", DebugControlLabels.stateVideoTestButton("IDLE"))
         assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.MINIMAL_MOUTH))
         assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.LIVE2D))
+        assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.STATIC_PNG))
         assertTrue(DebugControlLabels.stateVideoControlsVisible(CharacterMode.STATE_VIDEO))
     }
 

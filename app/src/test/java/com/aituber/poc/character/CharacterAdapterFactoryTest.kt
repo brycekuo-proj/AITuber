@@ -1,6 +1,7 @@
 package com.aituber.poc.character
 
 import com.aituber.poc.character.live2d.Live2DCharacterAdapter
+import com.aituber.poc.character.staticpng.StaticPngCharacterAdapter
 import com.aituber.poc.character.statevideo.StateVideoCharacterAdapter
 import com.aituber.poc.character.statevideo.StateVideoStateSink
 import com.aituber.poc.overlay.MouthViewPort
@@ -82,6 +83,33 @@ class CharacterAdapterFactoryTest {
         assertEquals(CharacterMode.STATE_VIDEO, selection.requestedMode)
         assertTrue(selection.adapter is MinimalMouthCharacterAdapter)
         assertEquals("STATE_VIDEO_UNAVAILABLE_FALLBACK_MINIMAL_MOUTH", selection.fallbackReason)
+    }
+
+    @Test
+    fun staticPngModeUsesStaticPngAdapter() {
+        val staticPng = StaticPngCharacterAdapter()
+
+        val selection = CharacterAdapterFactory.create(
+            requestedMode = CharacterMode.STATIC_PNG,
+            mouthView = FakeMouthView(),
+            staticPngAdapter = staticPng
+        )
+
+        assertEquals(CharacterMode.STATIC_PNG, selection.requestedMode)
+        assertTrue(selection.adapter is StaticPngCharacterAdapter)
+        assertEquals("n/a", selection.fallbackReason)
+    }
+
+    @Test
+    fun missingStaticPngAdapterFallsBackSafely() {
+        val selection = CharacterAdapterFactory.create(
+            requestedMode = CharacterMode.STATIC_PNG,
+            mouthView = FakeMouthView()
+        )
+
+        assertEquals(CharacterMode.STATIC_PNG, selection.requestedMode)
+        assertTrue(selection.adapter is MinimalMouthCharacterAdapter)
+        assertEquals("STATIC_PNG_UNAVAILABLE_FALLBACK_MINIMAL_MOUTH", selection.fallbackReason)
     }
 
     private class FakeMouthView : MouthViewPort {

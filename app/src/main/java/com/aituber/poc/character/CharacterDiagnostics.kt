@@ -664,11 +664,13 @@ data class Live2DDiagnosticsSnapshot(
 enum class CharacterMode {
     MINIMAL_MOUTH,
     LIVE2D,
-    STATE_VIDEO
+    STATE_VIDEO,
+    STATIC_PNG
 }
 
 fun CharacterMode.runtimeTypeLabel(): String = when (this) {
     CharacterMode.STATE_VIDEO -> "STATE_VIDEO"
+    CharacterMode.STATIC_PNG -> "STATIC_PNG"
     CharacterMode.LIVE2D -> "LIVE2D"
     CharacterMode.MINIMAL_MOUTH -> "MINIMAL_MOUTH"
 }

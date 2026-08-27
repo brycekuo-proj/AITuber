@@ -23,6 +23,9 @@ import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DOverlayView
 import com.aituber.poc.character.live2d.Live2DProfileStore
+import com.aituber.poc.character.staticpng.StaticPngCharacterAdapter
+import com.aituber.poc.character.staticpng.StaticPngCharacterPackage
+import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.character.statevideo.StateVideoCharacterAdapter
 import com.aituber.poc.character.statevideo.StateVideoCharacterPackageLoader
 import com.aituber.poc.character.statevideo.StateVideoOverlayView
@@ -39,6 +42,7 @@ class CharacterOverlayService : Service() {
     private var mouthView: MouthOverlayView? = null
     private var live2dView: Live2DOverlayView? = null
     private var stateVideoView: StateVideoOverlayView? = null
+    private var staticPngView: StaticPngOverlayView? = null
     private var overlayView: View? = null
     private var characterEngine: CharacterEngine? = null
     private var windowManager: WindowManager? = null
@@ -443,11 +447,30 @@ class CharacterOverlayService : Service() {
     }
 
     private fun createOverlaySelection(): OverlaySelection {
+        if (serviceCharacterMode == CharacterMode.STATIC_PNG) {
+            val staticPng = StaticPngOverlayView(this, StaticPngCharacterPackage.XianxiaFemale)
+            staticPngView = staticPng
+            live2dView = null
+            stateVideoView = null
+            mouthView = null
+            return OverlaySelection(
+                view = staticPng,
+                live2dActive = true,
+                live2dLifecycleState = "STATIC_PNG_ACTIVE",
+                selection = CharacterAdapterFactory.create(
+                    requestedMode = CharacterMode.STATIC_PNG,
+                    mouthView = fallbackMouthView(),
+                    staticPngAdapter = StaticPngCharacterAdapter(staticPng)
+                )
+            )
+        }
+
         if (serviceCharacterMode == CharacterMode.STATE_VIDEO) {
             val stateVideoPackage = StateVideoCharacterPackageLoader.loadWhitehairFemale(this)
             val stateVideo = StateVideoOverlayView(this, stateVideoPackage)
             stateVideoView = stateVideo
             live2dView = null
+            staticPngView = null
             mouthView = null
             return OverlaySelection(
                 view = stateVideo,
@@ -470,6 +493,7 @@ class CharacterOverlayService : Service() {
             if (live2dAdapter.available) {
                 live2dView = live2d
                 mouthView = null
+                staticPngView = null
                 return OverlaySelection(
                     view = live2d,
                     live2dActive = true,
@@ -490,6 +514,7 @@ class CharacterOverlayService : Service() {
         mouthView = minimal
         live2dView = null
         stateVideoView = null
+        staticPngView = null
         return OverlaySelection(
             view = minimal,
             live2dActive = false,
@@ -519,6 +544,7 @@ class CharacterOverlayService : Service() {
         mouthView = minimal
         live2dView = null
         stateVideoView = null
+        staticPngView = null
         overlayView = minimal
         val selection = CharacterAdapterFactory.create(
             requestedMode = CharacterMode.LIVE2D,
@@ -578,6 +604,13 @@ class CharacterOverlayService : Service() {
             characterEngine?.bind(effectiveSnapshot, 0f)
             return
         }
+        if (serviceCharacterMode == CharacterMode.STATIC_PNG) {
+            currentState = snapshot.state
+            stopAnimation(closeMouth = false)
+            MouthRenderDiagnostics.recordCharacterEngineRender()
+            characterEngine?.bind(snapshot, 0f)
+            return
+        }
         currentState = snapshot.state
         applyMouthAmplitude(snapshot)
     }
@@ -597,6 +630,7 @@ class CharacterOverlayService : Service() {
         mouthView = null
         live2dView = null
         stateVideoView = null
+        staticPngView = null
         overlayView = null
         characterEngine = null
         windowManager = null

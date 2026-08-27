@@ -1067,17 +1067,17 @@ class MainActivity : Activity() {
             CharacterMode.LIVE2D -> {
                 val currentProfile = CharacterOverlayService.requestedLive2DProfile()
                 if (currentProfile.id == Live2DCharacterProfiles.HARU_ID) {
-                    val dog = Live2DCharacterProfiles.LoafDog
-                    Live2DProfileStore.save(this, dog)
-                    CharacterOverlayService.requestedLive2DProfileId = dog.id
-                    CharacterDiagnostics.recordLive2DProfile(dog)
-                    if (CharacterOverlayService.isRunning) {
-                        stopService(Intent(this, CharacterOverlayService::class.java))
-                        uiHandler.postDelayed({ enableMouthOverlay() }, 150L)
-                    }
+                    setCharacterMode(CharacterMode.STATIC_PNG)
                 } else {
                     setCharacterMode(CharacterMode.STATE_VIDEO)
                 }
+            }
+            CharacterMode.STATIC_PNG -> {
+                val dog = Live2DCharacterProfiles.LoafDog
+                Live2DProfileStore.save(this, dog)
+                CharacterOverlayService.requestedLive2DProfileId = dog.id
+                CharacterDiagnostics.recordLive2DProfile(dog)
+                setCharacterMode(CharacterMode.LIVE2D)
             }
             CharacterMode.STATE_VIDEO -> {
                 val haru = Live2DCharacterProfiles.Haru

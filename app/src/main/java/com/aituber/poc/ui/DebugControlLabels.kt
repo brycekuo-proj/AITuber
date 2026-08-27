@@ -19,6 +19,7 @@ object DebugControlLabels {
         CharacterMode.MINIMAL_MOUTH -> "CHARACTER: MINIMAL"
         CharacterMode.LIVE2D -> "CHARACTER: ${live2dProfileName.uppercase()}"
         CharacterMode.STATE_VIDEO -> "CHARACTER: WHITEHAIR FEMALE"
+        CharacterMode.STATIC_PNG -> "CHARACTER: XIANXIA STATIC"
     }
 
     fun diagnostics(expanded: Boolean): String =
