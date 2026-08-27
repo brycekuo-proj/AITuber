@@ -539,6 +539,7 @@ class CharacterOverlayService : Service() {
         val oldView = overlayView
         live2dView?.release()
         stateVideoView?.release()
+        staticPngView?.release()
         oldView?.let { runCatching { windowManager?.removeView(it) } }
 
         val minimal = MouthOverlayView(this)
@@ -622,6 +623,7 @@ class CharacterOverlayService : Service() {
         MouthRenderDiagnostics.reset()
         live2dView?.release()
         stateVideoView?.release()
+        staticPngView?.release()
         stateVideoDebugState = null
         overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
@@ -790,6 +792,10 @@ class CharacterOverlayService : Service() {
         fun testStaticPngMouthForDebug(shape: StaticPngMouthShape) {
             activeService?.runStaticPngMouthTest(shape)
         }
+
+        fun setStaticPngIdleMotionForDebug(enabled: Boolean) {
+            activeService?.runStaticPngIdleMotionTest(enabled)
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -870,6 +876,14 @@ class CharacterOverlayService : Service() {
             stopAnimation(closeMouth = false)
             lastCharacterMouthOpen = StaticPngMouthShape.debugRatio(shape)
             staticPngView?.setMouthShapeForDebug(shape)
+        }
+    }
+
+    private fun runStaticPngIdleMotionTest(enabled: Boolean) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setIdleMotionEnabled(enabled)
         }
     }
 }

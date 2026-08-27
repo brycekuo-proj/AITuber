@@ -103,6 +103,21 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordStaticPngIdleMotion(
+        active: Boolean,
+        phase: Float,
+        offsetYDp: Float,
+        scale: Float
+    ) {
+        current = current.copy(
+            staticPngIdleMotionActive = if (active) "YES" else "NO",
+            staticPngIdleMotionPhase = phase.toDouble(),
+            staticPngIdleMotionOffsetY = offsetYDp.toDouble(),
+            staticPngIdleMotionScale = scale.toDouble()
+        )
+    }
+
+    @Synchronized
     fun recordFrame(
         adapterId: String,
         frame: CharacterParameterFrame,
@@ -459,6 +474,10 @@ data class CharacterDiagnosticsSnapshot(
     val staticPngMouthPatchY: Int,
     val staticPngMouthPatchWidth: Int,
     val staticPngMouthPatchHeight: Int,
+    val staticPngIdleMotionActive: String,
+    val staticPngIdleMotionPhase: Double,
+    val staticPngIdleMotionOffsetY: Double,
+    val staticPngIdleMotionScale: Double,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
@@ -591,6 +610,10 @@ data class CharacterDiagnosticsSnapshot(
             staticPngMouthPatchY = 0,
             staticPngMouthPatchWidth = 0,
             staticPngMouthPatchHeight = 0,
+            staticPngIdleMotionActive = "NO",
+            staticPngIdleMotionPhase = 0.0,
+            staticPngIdleMotionOffsetY = 0.0,
+            staticPngIdleMotionScale = 1.0,
             lastFrameTimestampMs = null
         )
     }

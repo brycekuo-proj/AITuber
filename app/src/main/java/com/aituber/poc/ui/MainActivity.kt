@@ -92,6 +92,8 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngClosedButton: Button
     private lateinit var testStaticPngHalfButton: Button
     private lateinit var testStaticPngOpenButton: Button
+    private lateinit var testStaticPngIdleMotionOnButton: Button
+    private lateinit var testStaticPngIdleMotionOffButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -155,6 +157,10 @@ class MainActivity : Activity() {
     private lateinit var staticPngMouthPatchYValue: TextView
     private lateinit var staticPngMouthPatchWidthValue: TextView
     private lateinit var staticPngMouthPatchHeightValue: TextView
+    private lateinit var staticPngIdleMotionActiveValue: TextView
+    private lateinit var staticPngIdleMotionPhaseValue: TextView
+    private lateinit var staticPngIdleMotionOffsetYValue: TextView
+    private lateinit var staticPngIdleMotionScaleValue: TextView
     private lateinit var live2dProfileIdValue: TextView
     private lateinit var live2dProfileNameValue: TextView
     private lateinit var live2dModel3FileValue: TextView
@@ -688,6 +694,12 @@ class MainActivity : Activity() {
         testStaticPngOpenButton = addButton(root, "TEST STATIC OPEN") {
             CharacterOverlayService.testStaticPngMouthForDebug(StaticPngMouthShape.OPEN)
         }
+        testStaticPngIdleMotionOnButton = addButton(root, "TEST STATIC IDLE MOTION ON") {
+            CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled = true)
+        }
+        testStaticPngIdleMotionOffButton = addButton(root, "TEST STATIC IDLE MOTION OFF") {
+            CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled = false)
+        }
         updateStateVideoControlVisibility()
         updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
@@ -701,6 +713,10 @@ class MainActivity : Activity() {
         staticPngMouthPatchYValue = addDiagnosticField(root, "Mouth Patch Y")
         staticPngMouthPatchWidthValue = addDiagnosticField(root, "Mouth Patch Width")
         staticPngMouthPatchHeightValue = addDiagnosticField(root, "Mouth Patch Height")
+        staticPngIdleMotionActiveValue = addDiagnosticField(root, "Idle Motion Active")
+        staticPngIdleMotionPhaseValue = addDiagnosticField(root, "Idle Motion Phase")
+        staticPngIdleMotionOffsetYValue = addDiagnosticField(root, "Idle Motion OffsetY")
+        staticPngIdleMotionScaleValue = addDiagnosticField(root, "Idle Motion Scale")
         live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
         live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
         live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
@@ -1173,6 +1189,8 @@ class MainActivity : Activity() {
         if (::testStaticPngClosedButton.isInitialized) testStaticPngClosedButton.visibility = visibility
         if (::testStaticPngHalfButton.isInitialized) testStaticPngHalfButton.visibility = visibility
         if (::testStaticPngOpenButton.isInitialized) testStaticPngOpenButton.visibility = visibility
+        if (::testStaticPngIdleMotionOnButton.isInitialized) testStaticPngIdleMotionOnButton.visibility = visibility
+        if (::testStaticPngIdleMotionOffButton.isInitialized) testStaticPngIdleMotionOffButton.visibility = visibility
     }
 
     private fun startDetection() {
@@ -1420,6 +1438,10 @@ class MainActivity : Activity() {
             staticPngMouthPatchYValue.text = character.staticPngMouthPatchY.toString()
             staticPngMouthPatchWidthValue.text = character.staticPngMouthPatchWidth.toString()
             staticPngMouthPatchHeightValue.text = character.staticPngMouthPatchHeight.toString()
+            staticPngIdleMotionActiveValue.text = character.staticPngIdleMotionActive
+            staticPngIdleMotionPhaseValue.text = "%.3f".format(character.staticPngIdleMotionPhase)
+            staticPngIdleMotionOffsetYValue.text = "%.3f dp".format(character.staticPngIdleMotionOffsetY)
+            staticPngIdleMotionScaleValue.text = "%.4f".format(character.staticPngIdleMotionScale)
             live2dProfileIdValue.text = character.live2dProfileId
             live2dProfileNameValue.text = character.live2dProfileName
             live2dModel3FileValue.text = character.live2dModel3File
