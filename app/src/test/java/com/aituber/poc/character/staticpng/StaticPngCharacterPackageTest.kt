@@ -40,11 +40,11 @@ class StaticPngCharacterPackageTest {
         val open = characterPackage.mouthLayers.getValue(StaticPngMouthShape.OPEN)
 
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__mouth__half__replacement__v4.png",
+            "characters/xianxia_female/static/xianxia_female__mouth__half__replacement__v5.png",
             half.assetPath
         )
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__mouth__open__replacement__v4.png",
+            "characters/xianxia_female/static/xianxia_female__mouth__open__replacement__v5.png",
             open.assetPath
         )
     }
@@ -53,10 +53,10 @@ class StaticPngCharacterPackageTest {
     fun xianxiaStaticPngPackageDefinesMouthReplacementPatchBounds() {
         val patch = StaticPngCharacterPackage.XianxiaFemale.mouthReplacementPatch
 
-        assertEquals(459, patch.x)
-        assertEquals(246, patch.y)
-        assertEquals(107, patch.width)
-        assertEquals(57, patch.height)
+        assertEquals(471, patch.x)
+        assertEquals(252, patch.y)
+        assertEquals(82, patch.width)
+        assertEquals(48, patch.height)
     }
 
     @Test
