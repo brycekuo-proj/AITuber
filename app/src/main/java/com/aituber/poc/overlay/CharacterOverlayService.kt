@@ -51,6 +51,9 @@ class CharacterOverlayService : Service() {
     private var lastCharacterMouthOpen = 0f
     private var serviceCharacterMode: CharacterMode = CharacterMode.MINIMAL_MOUTH
 
+    @Volatile
+    private var stateVideoDebugState: UniversalAiState? = null
+
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
         postToMainDelayed = { block, delayMs -> handler.postDelayed({ block() }, delayMs) },
@@ -559,13 +562,23 @@ class CharacterOverlayService : Service() {
     private fun renderSnapshotOnMain(snapshot: UniversalStateSnapshot) {
         requireMainThread("renderSnapshotOnMain")
         if (characterEngine == null) return
-        currentState = snapshot.state
         if (serviceCharacterMode == CharacterMode.STATE_VIDEO) {
+            val debugState = stateVideoDebugState
+            val effectiveSnapshot = if (debugState != null) {
+                snapshot.copy(
+                    state = debugState,
+                    speakingSignalSource = "State video manual test"
+                )
+            } else {
+                snapshot
+            }
+            currentState = effectiveSnapshot.state
             stopAnimation(closeMouth = false)
             MouthRenderDiagnostics.recordCharacterEngineRender()
-            characterEngine?.bind(snapshot, 0f)
+            characterEngine?.bind(effectiveSnapshot, 0f)
             return
         }
+        currentState = snapshot.state
         applyMouthAmplitude(snapshot)
     }
 
@@ -578,6 +591,7 @@ class CharacterOverlayService : Service() {
         MouthRenderDiagnostics.reset()
         live2dView?.release()
         stateVideoView?.release()
+        stateVideoDebugState = null
         overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
@@ -700,8 +714,8 @@ class CharacterOverlayService : Service() {
         }
 
         fun testStateVideoForDebug(state: UniversalAiState) {
-            CaptureSessionState.forceStateForDebug(state, "State video manual test")
             activeService?.runStateVideoTest(state)
+            CaptureSessionState.forceStateForDebug(state, "State video manual test")
         }
     }
 
@@ -760,6 +774,8 @@ class CharacterOverlayService : Service() {
     }
 
     private fun runStateVideoTest(state: UniversalAiState) {
+        if (serviceCharacterMode != CharacterMode.STATE_VIDEO) return
+        stateVideoDebugState = state
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATE_VIDEO) return@post
             stopAnimation(closeMouth = false)
