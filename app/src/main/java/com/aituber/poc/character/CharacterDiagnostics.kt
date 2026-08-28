@@ -158,6 +158,35 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordStaticPngHairLayer(
+        shape: String,
+        assetPath: String,
+        visible: Boolean,
+        drawableWidth: Int,
+        drawableHeight: Int,
+        viewWidth: Int,
+        viewHeight: Int,
+        motionActive: Boolean,
+        nextTransitionInMs: Long?,
+        background: String,
+        tint: String,
+        colorFilter: String
+    ) {
+        current = current.copy(
+            staticPngHairShape = shape,
+            staticPngCurrentHairAssetPath = assetPath,
+            staticPngHairLayerVisible = if (visible) "YES" else "NO",
+            staticPngHairLayerDrawableSize = "${drawableWidth}x${drawableHeight}",
+            staticPngHairLayerViewBounds = "${viewWidth}x${viewHeight}",
+            staticPngHairMotionActive = if (motionActive) "YES" else "NO",
+            staticPngNextHairTransitionInMs = nextTransitionInMs,
+            staticPngHairLayerBackground = background,
+            staticPngHairLayerTint = tint,
+            staticPngHairLayerColorFilter = colorFilter
+        )
+    }
+
+    @Synchronized
     fun recordFrame(
         adapterId: String,
         frame: CharacterParameterFrame,
@@ -530,6 +559,16 @@ data class CharacterDiagnosticsSnapshot(
     val staticPngEyeLayerBackground: String,
     val staticPngEyeLayerTint: String,
     val staticPngEyeLayerColorFilter: String,
+    val staticPngHairShape: String,
+    val staticPngCurrentHairAssetPath: String,
+    val staticPngHairLayerVisible: String,
+    val staticPngHairLayerDrawableSize: String,
+    val staticPngHairLayerViewBounds: String,
+    val staticPngHairMotionActive: String,
+    val staticPngNextHairTransitionInMs: Long?,
+    val staticPngHairLayerBackground: String,
+    val staticPngHairLayerTint: String,
+    val staticPngHairLayerColorFilter: String,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
@@ -678,6 +717,16 @@ data class CharacterDiagnosticsSnapshot(
             staticPngEyeLayerBackground = "n/a",
             staticPngEyeLayerTint = "n/a",
             staticPngEyeLayerColorFilter = "n/a",
+            staticPngHairShape = "BASE",
+            staticPngCurrentHairAssetPath = "n/a",
+            staticPngHairLayerVisible = "NO",
+            staticPngHairLayerDrawableSize = "0x0",
+            staticPngHairLayerViewBounds = "0x0",
+            staticPngHairMotionActive = "NO",
+            staticPngNextHairTransitionInMs = null,
+            staticPngHairLayerBackground = "n/a",
+            staticPngHairLayerTint = "n/a",
+            staticPngHairLayerColorFilter = "n/a",
             lastFrameTimestampMs = null
         )
     }

@@ -119,6 +119,39 @@ class StaticPngCharacterPackageTest {
     }
 
     @Test
+    fun xianxiaStaticPngPackageDefinesHairFloatLayers() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
+        val floatA = characterPackage.hairLayers.getValue(StaticPngHairShape.FLOAT_A)
+        val floatB = characterPackage.hairLayers.getValue(StaticPngHairShape.FLOAT_B)
+
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v1.png",
+            floatA.assetPath
+        )
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__hair__float_b__replacement__v1.png",
+            floatB.assetPath
+        )
+    }
+
+    @Test
+    fun xianxiaHairFloatLayerAssetsAreFullCanvasRgbaPngs() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
+        characterPackage.hairLayers.values.forEach { layer ->
+            val asset = File("src/main/assets/${layer.assetPath}")
+
+            assertTrue("Missing hair layer asset: ${asset.path}", asset.isFile)
+            val header = asset.readPngHeader()
+
+            assertEquals(characterPackage.sourceWidthPx, header.width)
+            assertEquals(characterPackage.sourceHeightPx, header.height)
+            assertEquals(PNG_COLOR_TYPE_RGBA, header.colorType)
+        }
+    }
+
+    @Test
     fun mouthShapeThresholdsMatchPocRules() {
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.00f))
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.25f))

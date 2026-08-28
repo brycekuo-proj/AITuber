@@ -21,10 +21,13 @@ class StaticPngOverlayView(
     private val handler = Handler(Looper.getMainLooper())
     private val contentView = FrameLayout(context)
     private val imageView = ImageView(context)
+    private val hairLayerView = ImageView(context)
     private val eyeLayerView = ImageView(context)
     private val mouthLayerView = ImageView(context)
+    private val hairBitmaps: Map<StaticPngHairShape, Bitmap>
     private val eyeBitmaps: Map<StaticPngEyeShape, Bitmap>
     private val mouthBitmaps: Map<StaticPngMouthShape, Bitmap>
+    private var activeHairShape = StaticPngHairShape.BASE
     private var activeShape = StaticPngMouthShape.CLOSED
     private var activeEyeShape = StaticPngEyeShape.OPEN
     private var activeRatio = 0f
@@ -37,6 +40,10 @@ class StaticPngOverlayView(
     private var blinkScheduled = false
     private var nextBlinkAtMs: Long? = null
     private var blinkCount = 0L
+    private var hairMotionEnabled = true
+    private var hairMotionRunning = false
+    private var hairSequenceIndex = 0
+    private var nextHairTransitionAtMs: Long? = null
     private val idleMotionRunnable = object : Runnable {
         override fun run() {
             if (!idleMotionRunning) return
@@ -54,6 +61,22 @@ class StaticPngOverlayView(
                 return
             }
             triggerBlink(scheduleNext = true)
+        }
+    }
+    private val hairMotionRunnable = object : Runnable {
+        override fun run() {
+            if (!hairMotionRunning || !isAttachedToWindow) {
+                recordHairLayer()
+                return
+            }
+            hairSequenceIndex = if (hairSequenceIndex >= StaticPngHairMotion.SEQUENCE.lastIndex) {
+                1
+            } else {
+                hairSequenceIndex + 1
+            }
+            activeHairShape = StaticPngHairMotion.SEQUENCE[hairSequenceIndex].shape
+            updateHairLayer()
+            scheduleNextHairTransition()
         }
     }
 
@@ -81,6 +104,22 @@ class StaticPngOverlayView(
         context.assets.open(characterPackage.assetPath).use { input ->
             imageView.setImageBitmap(BitmapFactory.decodeStream(input))
         }
+        hairBitmaps = characterPackage.hairLayers.mapValues { (_, layer) ->
+            context.assets.open(layer.assetPath).use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        }
+        hairLayerView.visibility = View.GONE
+        hairLayerView.background = null
+        hairLayerView.imageTintList = null
+        hairLayerView.clearColorFilter()
+        hairLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
+        hairLayerView.adjustViewBounds = false
+        hairLayerView.clipToOutline = false
+        contentView.addView(
+            hairLayerView,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
         eyeBitmaps = characterPackage.eyeLayers.mapValues { (_, layer) ->
             context.assets.open(layer.assetPath).use { input ->
                 BitmapFactory.decodeStream(input)
@@ -115,6 +154,7 @@ class StaticPngOverlayView(
         recordIdleMotion()
         recordBlink()
         recordEyeLayer()
+        recordHairLayer()
     }
 
     fun show() {
@@ -170,7 +210,24 @@ class StaticPngOverlayView(
         recordEyeLayer()
     }
 
+    fun setHairShapeForDebug(shape: StaticPngHairShape) {
+        stopHairMotion(resetShape = false)
+        activeHairShape = shape
+        updateHairLayer()
+        recordHairLayer()
+    }
+
+    fun setHairMotionEnabled(enabled: Boolean) {
+        hairMotionEnabled = enabled
+        if (enabled) {
+            startHairMotion()
+        } else {
+            stopHairMotion(resetShape = true)
+        }
+    }
+
     fun release() {
+        stopHairMotion(resetShape = true)
         cancelBlinkCallbacks(resetShape = true)
         stopIdleMotion(resetTransform = true)
     }
@@ -183,9 +240,13 @@ class StaticPngOverlayView(
         if (autoBlinkEnabled) {
             scheduleNextBlink()
         }
+        if (hairMotionEnabled) {
+            startHairMotion()
+        }
     }
 
     override fun onDetachedFromWindow() {
+        stopHairMotion(resetShape = true)
         cancelBlinkCallbacks(resetShape = true)
         stopIdleMotion(resetTransform = true)
         super.onDetachedFromWindow()
@@ -194,6 +255,21 @@ class StaticPngOverlayView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         recordEyeLayer()
+        recordHairLayer()
+    }
+
+    private fun updateHairLayer() {
+        val layer = characterPackage.hairLayers[activeHairShape]
+        val bitmap = hairBitmaps[activeHairShape]
+        if (layer == null || bitmap == null) {
+            hairLayerView.visibility = View.GONE
+            hairLayerView.setImageDrawable(null)
+            recordHairLayer()
+            return
+        }
+        hairLayerView.setImageBitmap(bitmap)
+        hairLayerView.visibility = View.VISIBLE
+        recordHairLayer()
     }
 
     private fun updateMouthLayer() {
@@ -272,6 +348,40 @@ class StaticPngOverlayView(
             offsetYDp = idleMotionFrame.offsetYDp,
             scale = idleMotionFrame.scale
         )
+    }
+
+    private fun startHairMotion() {
+        if (hairMotionRunning || !isAttachedToWindow) {
+            recordHairLayer()
+            return
+        }
+        hairMotionRunning = true
+        hairSequenceIndex = 0
+        activeHairShape = StaticPngHairShape.BASE
+        updateHairLayer()
+        scheduleNextHairTransition()
+    }
+
+    private fun stopHairMotion(resetShape: Boolean) {
+        hairMotionRunning = false
+        nextHairTransitionAtMs = null
+        handler.removeCallbacks(hairMotionRunnable)
+        if (resetShape) {
+            activeHairShape = StaticPngHairShape.BASE
+            updateHairLayer()
+        }
+        recordHairLayer()
+    }
+
+    private fun scheduleNextHairTransition() {
+        if (!hairMotionRunning || !hairMotionEnabled || !isAttachedToWindow) {
+            recordHairLayer()
+            return
+        }
+        nextHairTransitionAtMs = SystemClock.uptimeMillis() + StaticPngHairMotion.STEP_MS
+        handler.removeCallbacks(hairMotionRunnable)
+        handler.postDelayed(hairMotionRunnable, StaticPngHairMotion.STEP_MS)
+        recordHairLayer()
     }
 
     private fun triggerBlink(scheduleNext: Boolean) {
@@ -367,6 +477,24 @@ class StaticPngOverlayView(
             background = if (eyeLayerView.background == null) "null" else eyeLayerView.background.javaClass.simpleName,
             tint = if (eyeLayerView.imageTintList == null) "null" else "present",
             colorFilter = if (eyeLayerView.colorFilter == null) "null" else "present"
+        )
+    }
+
+    private fun recordHairLayer() {
+        val drawable = hairLayerView.drawable
+        CharacterDiagnostics.recordStaticPngHairLayer(
+            shape = activeHairShape.name,
+            assetPath = characterPackage.hairLayers[activeHairShape]?.assetPath ?: "n/a",
+            visible = hairLayerView.visibility == View.VISIBLE,
+            drawableWidth = drawable?.intrinsicWidth ?: 0,
+            drawableHeight = drawable?.intrinsicHeight ?: 0,
+            viewWidth = hairLayerView.width,
+            viewHeight = hairLayerView.height,
+            motionActive = hairMotionRunning,
+            nextTransitionInMs = nextHairTransitionAtMs?.let { (it - SystemClock.uptimeMillis()).coerceAtLeast(0L) },
+            background = if (hairLayerView.background == null) "null" else hairLayerView.background.javaClass.simpleName,
+            tint = if (hairLayerView.imageTintList == null) "null" else "present",
+            colorFilter = if (hairLayerView.colorFilter == null) "null" else "present"
         )
     }
 }

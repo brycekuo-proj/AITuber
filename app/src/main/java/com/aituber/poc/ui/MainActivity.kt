@@ -28,6 +28,7 @@ import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.character.staticpng.StaticPngEyeShape
+import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
@@ -101,6 +102,11 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngEyeOpenButton: Button
     private lateinit var testStaticPngEyeHalfButton: Button
     private lateinit var testStaticPngEyeClosedButton: Button
+    private lateinit var testStaticPngHairBaseButton: Button
+    private lateinit var testStaticPngHairAButton: Button
+    private lateinit var testStaticPngHairBButton: Button
+    private lateinit var testStaticPngHairMotionOnButton: Button
+    private lateinit var testStaticPngHairMotionOffButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -208,6 +214,16 @@ class MainActivity : Activity() {
     private lateinit var staticPngEyeLayerBackgroundValue: TextView
     private lateinit var staticPngEyeLayerTintValue: TextView
     private lateinit var staticPngEyeLayerColorFilterValue: TextView
+    private lateinit var staticPngHairShapeValue: TextView
+    private lateinit var staticPngCurrentHairAssetPathValue: TextView
+    private lateinit var staticPngHairLayerVisibleValue: TextView
+    private lateinit var staticPngHairLayerDrawableSizeValue: TextView
+    private lateinit var staticPngHairLayerViewBoundsValue: TextView
+    private lateinit var staticPngHairMotionActiveValue: TextView
+    private lateinit var staticPngNextHairTransitionInValue: TextView
+    private lateinit var staticPngHairLayerBackgroundValue: TextView
+    private lateinit var staticPngHairLayerTintValue: TextView
+    private lateinit var staticPngHairLayerColorFilterValue: TextView
     private lateinit var breathEnabledValue: TextView
     private lateinit var breathParameterStatusValue: TextView
     private lateinit var breathNormalizedValue: TextView
@@ -737,6 +753,21 @@ class MainActivity : Activity() {
         testStaticPngEyeClosedButton = addButton(root, "TEST STATIC EYE CLOSED") {
             CharacterOverlayService.testStaticPngEyeForDebug(StaticPngEyeShape.CLOSED)
         }
+        testStaticPngHairBaseButton = addButton(root, "TEST STATIC HAIR BASE") {
+            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.BASE)
+        }
+        testStaticPngHairAButton = addButton(root, "TEST STATIC HAIR A") {
+            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.FLOAT_A)
+        }
+        testStaticPngHairBButton = addButton(root, "TEST STATIC HAIR B") {
+            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.FLOAT_B)
+        }
+        testStaticPngHairMotionOnButton = addButton(root, "TEST STATIC HAIR MOTION ON") {
+            CharacterOverlayService.setStaticPngHairMotionForDebug(enabled = true)
+        }
+        testStaticPngHairMotionOffButton = addButton(root, "TEST STATIC HAIR MOTION OFF") {
+            CharacterOverlayService.setStaticPngHairMotionForDebug(enabled = false)
+        }
         updateStateVideoControlVisibility()
         updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
@@ -766,6 +797,16 @@ class MainActivity : Activity() {
         staticPngEyeLayerBackgroundValue = addDiagnosticField(root, "Eye Layer Background")
         staticPngEyeLayerTintValue = addDiagnosticField(root, "Eye Layer Tint")
         staticPngEyeLayerColorFilterValue = addDiagnosticField(root, "Eye Layer ColorFilter")
+        staticPngHairShapeValue = addDiagnosticField(root, "Static Hair Shape")
+        staticPngCurrentHairAssetPathValue = addDiagnosticField(root, "Current Hair Asset Path")
+        staticPngHairLayerVisibleValue = addDiagnosticField(root, "Hair Layer Visible")
+        staticPngHairLayerDrawableSizeValue = addDiagnosticField(root, "Hair Layer Drawable Size")
+        staticPngHairLayerViewBoundsValue = addDiagnosticField(root, "Hair Layer View Bounds")
+        staticPngHairMotionActiveValue = addDiagnosticField(root, "Hair Motion Active")
+        staticPngNextHairTransitionInValue = addDiagnosticField(root, "Next Hair Transition In")
+        staticPngHairLayerBackgroundValue = addDiagnosticField(root, "Hair Layer Background")
+        staticPngHairLayerTintValue = addDiagnosticField(root, "Hair Layer Tint")
+        staticPngHairLayerColorFilterValue = addDiagnosticField(root, "Hair Layer ColorFilter")
         live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
         live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
         live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
@@ -1246,6 +1287,11 @@ class MainActivity : Activity() {
         if (::testStaticPngEyeOpenButton.isInitialized) testStaticPngEyeOpenButton.visibility = visibility
         if (::testStaticPngEyeHalfButton.isInitialized) testStaticPngEyeHalfButton.visibility = visibility
         if (::testStaticPngEyeClosedButton.isInitialized) testStaticPngEyeClosedButton.visibility = visibility
+        if (::testStaticPngHairBaseButton.isInitialized) testStaticPngHairBaseButton.visibility = visibility
+        if (::testStaticPngHairAButton.isInitialized) testStaticPngHairAButton.visibility = visibility
+        if (::testStaticPngHairBButton.isInitialized) testStaticPngHairBButton.visibility = visibility
+        if (::testStaticPngHairMotionOnButton.isInitialized) testStaticPngHairMotionOnButton.visibility = visibility
+        if (::testStaticPngHairMotionOffButton.isInitialized) testStaticPngHairMotionOffButton.visibility = visibility
     }
 
     private fun startDetection() {
@@ -1509,6 +1555,16 @@ class MainActivity : Activity() {
             staticPngEyeLayerBackgroundValue.text = character.staticPngEyeLayerBackground
             staticPngEyeLayerTintValue.text = character.staticPngEyeLayerTint
             staticPngEyeLayerColorFilterValue.text = character.staticPngEyeLayerColorFilter
+            staticPngHairShapeValue.text = character.staticPngHairShape
+            staticPngCurrentHairAssetPathValue.text = character.staticPngCurrentHairAssetPath
+            staticPngHairLayerVisibleValue.text = character.staticPngHairLayerVisible
+            staticPngHairLayerDrawableSizeValue.text = character.staticPngHairLayerDrawableSize
+            staticPngHairLayerViewBoundsValue.text = character.staticPngHairLayerViewBounds
+            staticPngHairMotionActiveValue.text = character.staticPngHairMotionActive
+            staticPngNextHairTransitionInValue.text = character.staticPngNextHairTransitionInMs?.let { "$it ms" } ?: "n/a"
+            staticPngHairLayerBackgroundValue.text = character.staticPngHairLayerBackground
+            staticPngHairLayerTintValue.text = character.staticPngHairLayerTint
+            staticPngHairLayerColorFilterValue.text = character.staticPngHairLayerColorFilter
             live2dProfileIdValue.text = character.live2dProfileId
             live2dProfileNameValue.text = character.live2dProfileName
             live2dModel3FileValue.text = character.live2dModel3File

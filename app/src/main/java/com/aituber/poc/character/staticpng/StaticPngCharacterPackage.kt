@@ -9,7 +9,8 @@ data class StaticPngCharacterPackage(
     val mouthReplacementPatch: StaticPngMouthPatch,
     val mouthLayers: Map<StaticPngMouthShape, StaticPngMouthLayer>,
     val eyeReplacementPatch: StaticPngEyePatch,
-    val eyeLayers: Map<StaticPngEyeShape, StaticPngEyeLayer>
+    val eyeLayers: Map<StaticPngEyeShape, StaticPngEyeLayer>,
+    val hairLayers: Map<StaticPngHairShape, StaticPngHairLayer>
 ) {
     companion object {
         val XianxiaFemale = StaticPngCharacterPackage(
@@ -45,6 +46,14 @@ data class StaticPngCharacterPackage(
                 StaticPngEyeShape.CLOSED to StaticPngEyeLayer(
                     assetPath = "characters/xianxia_female/static/xianxia_female__eyes__closed__replacement__v2.png"
                 )
+            ),
+            hairLayers = mapOf(
+                StaticPngHairShape.FLOAT_A to StaticPngHairLayer(
+                    assetPath = "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v1.png"
+                ),
+                StaticPngHairShape.FLOAT_B to StaticPngHairLayer(
+                    assetPath = "characters/xianxia_female/static/xianxia_female__hair__float_b__replacement__v1.png"
+                )
             )
         )
     }
@@ -72,10 +81,20 @@ data class StaticPngEyeLayer(
     val assetPath: String
 )
 
+data class StaticPngHairLayer(
+    val assetPath: String
+)
+
 enum class StaticPngEyeShape {
     OPEN,
     HALF,
     CLOSED
+}
+
+enum class StaticPngHairShape {
+    BASE,
+    FLOAT_A,
+    FLOAT_B
 }
 
 enum class StaticPngMouthShape {
