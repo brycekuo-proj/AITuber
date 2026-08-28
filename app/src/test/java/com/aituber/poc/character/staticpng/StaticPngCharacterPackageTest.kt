@@ -152,6 +152,34 @@ class StaticPngCharacterPackageTest {
     }
 
     @Test
+    fun xianxiaStaticPngPackageDefinesChestPieceLayer() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+        val chestPiece = characterPackage.chestPiece
+
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__chest__piece__v1.png",
+            chestPiece.assetPath
+        )
+        assertEquals(350, chestPiece.bounds.x)
+        assertEquals(355, chestPiece.bounds.y)
+        assertEquals(325, chestPiece.bounds.width)
+        assertEquals(315, chestPiece.bounds.height)
+    }
+
+    @Test
+    fun xianxiaChestPieceAssetIsFullCanvasRgbaPng() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+        val asset = File("src/main/assets/${characterPackage.chestPiece.assetPath}")
+
+        assertTrue("Missing chest piece asset: ${asset.path}", asset.isFile)
+        val header = asset.readPngHeader()
+
+        assertEquals(characterPackage.sourceWidthPx, header.width)
+        assertEquals(characterPackage.sourceHeightPx, header.height)
+        assertEquals(PNG_COLOR_TYPE_RGBA, header.colorType)
+    }
+
+    @Test
     fun mouthShapeThresholdsMatchPocRules() {
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.00f))
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.25f))

@@ -18,7 +18,7 @@ class StaticPngChestBreathMotionTest {
         assertEquals(1f, peak.inhale, 0.0001f)
         assertEquals(1f + StaticPngChestBreathMotion.MAX_SCALE_X_DELTA * 0.5f, peak.scaleX, 0.0001f)
         assertEquals(1f + StaticPngChestBreathMotion.MAX_SCALE_Y_DELTA * 0.5f, peak.scaleY, 0.0001f)
-        assertTrue(peak.offsetYFraction < 0f)
+        assertTrue(peak.offsetYDp < 0f)
     }
 
     @Test
@@ -36,18 +36,18 @@ class StaticPngChestBreathMotionTest {
 
         assertEquals(1f, peak.scaleX, 0.0001f)
         assertEquals(1f, peak.scaleY, 0.0001f)
-        assertEquals(0f, peak.offsetYFraction, 0.0001f)
+        assertEquals(0f, peak.offsetYDp, 0.0001f)
 
         StaticPngChestBreathMotion.setAmplitudePercent(StaticPngChestBreathMotion.DEFAULT_AMPLITUDE_PERCENT)
     }
 
     @Test
-    fun sourceRoiIsChestOnlyWithinXianxiaMasterCoordinates() {
-        val roi = StaticPngChestBreathMotion.ROI
+    fun sourcePieceBoundsAreChestOnlyWithinXianxiaMasterCoordinates() {
+        val roi = StaticPngChestBreathMotion.PIECE_BOUNDS
 
         assertTrue(roi.x > 320)
         assertTrue(roi.right < 710)
-        assertTrue(roi.y > 400)
+        assertTrue(roi.y > 320)
         assertTrue(roi.bottom < 760)
         assertTrue(roi.y > StaticPngCharacterPackage.XianxiaFemale.eyeReplacementPatch.y)
         assertTrue(roi.y > StaticPngCharacterPackage.XianxiaFemale.mouthReplacementPatch.y)
@@ -55,22 +55,22 @@ class StaticPngChestBreathMotionTest {
     }
 
     @Test
-    fun fitCenterMapsSourceRoiWithHorizontalLetterbox() {
+    fun fitCenterMapsChestPieceWithHorizontalLetterbox() {
         val transform = StaticPngFitCenterTransform.from(
             viewWidth = 1200,
             viewHeight = 2000,
             sourceWidth = StaticPngCharacterPackage.XianxiaFemale.sourceWidthPx,
             sourceHeight = StaticPngCharacterPackage.XianxiaFemale.sourceHeightPx
         )
-        val bounds = transform.map(StaticPngChestBreathMotion.ROI)
+        val bounds = transform.map(StaticPngChestBreathMotion.PIECE_BOUNDS)
 
         assertEquals(1f, transform.scale, 0.0001f)
         assertEquals(88.5f, transform.offsetX, 0.0001f)
         assertEquals(0f, transform.offsetY, 0.0001f)
-        assertEquals(444.5f, bounds.left, 0.0001f)
-        assertEquals(440f, bounds.top, 0.0001f)
-        assertEquals(312f, bounds.width, 0.0001f)
-        assertEquals(265f, bounds.height, 0.0001f)
+        assertEquals(438.5f, bounds.left, 0.0001f)
+        assertEquals(355f, bounds.top, 0.0001f)
+        assertEquals(325f, bounds.width, 0.0001f)
+        assertEquals(315f, bounds.height, 0.0001f)
     }
 
     @Test
@@ -92,8 +92,8 @@ class StaticPngChestBreathMotionTest {
     @Test
     fun normalizedBoundsStayInSourceCoordinateSpace() {
         assertEquals(
-            "0.348,0.220 0.305x0.132",
-            StaticPngChestBreathMotion.normalizedRoi(
+            "0.342,0.177 0.318x0.157",
+            StaticPngChestBreathMotion.normalizedPieceBounds(
                 StaticPngCharacterPackage.XianxiaFemale.sourceWidthPx,
                 StaticPngCharacterPackage.XianxiaFemale.sourceHeightPx
             )

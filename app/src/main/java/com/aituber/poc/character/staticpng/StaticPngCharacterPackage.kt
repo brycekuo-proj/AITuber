@@ -10,7 +10,8 @@ data class StaticPngCharacterPackage(
     val mouthLayers: Map<StaticPngMouthShape, StaticPngMouthLayer>,
     val eyeReplacementPatch: StaticPngEyePatch,
     val eyeLayers: Map<StaticPngEyeShape, StaticPngEyeLayer>,
-    val hairLayers: Map<StaticPngHairShape, StaticPngHairLayer>
+    val hairLayers: Map<StaticPngHairShape, StaticPngHairLayer>,
+    val chestPiece: StaticPngChestPiece
 ) {
     companion object {
         val XianxiaFemale = StaticPngCharacterPackage(
@@ -54,6 +55,15 @@ data class StaticPngCharacterPackage(
                 StaticPngHairShape.FLOAT_B to StaticPngHairLayer(
                     assetPath = "characters/xianxia_female/static/xianxia_female__hair__float_b__replacement__v7.png"
                 )
+            ),
+            chestPiece = StaticPngChestPiece(
+                assetPath = "characters/xianxia_female/static/xianxia_female__chest__piece__v1.png",
+                bounds = StaticPngSourceRect(
+                    x = 350,
+                    y = 355,
+                    width = 325,
+                    height = 315
+                )
             )
         )
     }
@@ -83,6 +93,11 @@ data class StaticPngEyeLayer(
 
 data class StaticPngHairLayer(
     val assetPath: String
+)
+
+data class StaticPngChestPiece(
+    val assetPath: String,
+    val bounds: StaticPngSourceRect
 )
 
 enum class StaticPngEyeShape {

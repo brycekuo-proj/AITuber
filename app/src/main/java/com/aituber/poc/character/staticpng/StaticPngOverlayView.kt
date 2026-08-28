@@ -28,6 +28,7 @@ class StaticPngOverlayView(
     private val eyeLayerView = ImageView(context)
     private val mouthLayerView = ImageView(context)
     private val masterBitmap: Bitmap
+    private val chestPieceBitmap: Bitmap
     private val hairBitmaps: Map<StaticPngHairShape, Bitmap>
     private val eyeBitmaps: Map<StaticPngEyeShape, Bitmap>
     private val mouthBitmaps: Map<StaticPngMouthShape, Bitmap>
@@ -166,7 +167,10 @@ class StaticPngOverlayView(
             hairTransitionLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
-        chestBreathLayerView.setSourceBitmap(masterBitmap)
+        chestPieceBitmap = context.assets.open(characterPackage.chestPiece.assetPath).use { input ->
+            BitmapFactory.decodeStream(input)
+        }
+        chestBreathLayerView.setPieceBitmap(chestPieceBitmap, characterPackage.chestPiece.bounds)
         breathView.addView(
             chestBreathLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -404,14 +408,12 @@ class StaticPngOverlayView(
             hairLayerView.setImageDrawable(null)
             imageView.visibility = View.VISIBLE
             imageView.setImageBitmap(masterBitmap)
-            chestBreathLayerView.setSourceBitmap(masterBitmap)
             hairTransitionLayerView.visibility = View.GONE
             hairTransitionLayerView.setImageDrawable(null)
             recordHairLayer()
             return
         }
         hairLayerView.setImageBitmap(bitmap)
-        chestBreathLayerView.setSourceBitmap(bitmap)
         hairLayerView.alpha = 1f
         hairLayerView.visibility = View.VISIBLE
         imageView.visibility = View.GONE
@@ -593,8 +595,8 @@ class StaticPngOverlayView(
             amplitudePercent = chestBreathAmplitudePercent,
             periodMs = breathPeriodMs
         )
-        breathView.scaleX = breathMotionFrame.scaleX
-        breathView.scaleY = breathMotionFrame.scaleY
+        breathView.scaleX = 1f
+        breathView.scaleY = 1f
         chestBreathLayerView.setFrame(
             frame = chestBreathMotionFrame,
             active = breathMotionRunning || previewChest
@@ -619,8 +621,8 @@ class StaticPngOverlayView(
             active = breathMotionRunning,
             phase = breathMotionFrame.phase,
             inhale = breathMotionFrame.inhale,
-            scaleX = breathMotionFrame.scaleX,
-            scaleY = breathMotionFrame.scaleY,
+            scaleX = 1f,
+            scaleY = 1f,
             amplitudePercent = breathAmplitudePercent,
             periodMs = breathPeriodMs,
             pivotX = breathView.pivotX,
@@ -629,10 +631,13 @@ class StaticPngOverlayView(
             chestAmplitudePercent = chestBreathAmplitudePercent,
             chestPhase = chestBreathMotionFrame.phase,
             chestInhale = chestBreathMotionFrame.inhale,
-            chestSourceBounds = StaticPngChestBreathMotion.ROI.let { roi ->
-                "${roi.x},${roi.y} ${roi.width}x${roi.height}"
+            chestEnabled = true,
+            chestVisible = chestBreathLayerView.visibility == View.VISIBLE,
+            chestAssetPath = characterPackage.chestPiece.assetPath,
+            chestSourceBounds = characterPackage.chestPiece.bounds.let { bounds ->
+                "${bounds.x},${bounds.y} ${bounds.width}x${bounds.height}"
             },
-            chestSourceNormalizedBounds = StaticPngChestBreathMotion.normalizedRoi(
+            chestSourceNormalizedBounds = StaticPngChestBreathMotion.normalizedPieceBounds(
                 characterPackage.sourceWidthPx,
                 characterPackage.sourceHeightPx
             ),

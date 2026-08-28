@@ -67,12 +67,12 @@ data class StaticPngChestBreathFrame(
     val inhale: Float,
     val scaleX: Float,
     val scaleY: Float,
-    val offsetYFraction: Float
+    val offsetYDp: Float
 ) {
-    fun transformedBounds(base: StaticPngViewRect): StaticPngViewRect {
+    fun transformedBounds(base: StaticPngViewRect, density: Float = 1f): StaticPngViewRect {
         val pivotX = base.left + base.width * StaticPngChestBreathMotion.PIVOT_X_FRACTION
         val pivotY = base.top + base.height * StaticPngChestBreathMotion.PIVOT_Y_FRACTION
-        val offsetY = base.height * offsetYFraction
+        val offsetY = offsetYDp * density
         return StaticPngViewRect(
             left = pivotX + (base.left - pivotX) * scaleX,
             top = pivotY + (base.top - pivotY) * scaleY + offsetY,
@@ -81,7 +81,7 @@ data class StaticPngChestBreathFrame(
         )
     }
 
-    fun localTransformString(): String = "sx=%.4f sy=%.4f dy=%.4f".format(scaleX, scaleY, offsetYFraction)
+    fun localTransformString(): String = "sx=%.4f sy=%.4f liftDp=%.2f".format(scaleX, scaleY, offsetYDp)
 }
 
 object StaticPngChestBreathMotion {
@@ -89,19 +89,18 @@ object StaticPngChestBreathMotion {
     const val AMPLITUDE_MAX_PERCENT = 100
     const val DEFAULT_AMPLITUDE_PERCENT = 50
 
-    val ROI = StaticPngSourceRect(
-        x = 356,
-        y = 440,
-        width = 312,
-        height = 265
+    val PIECE_BOUNDS = StaticPngSourceRect(
+        x = 350,
+        y = 355,
+        width = 325,
+        height = 315
     )
 
-    const val FEATHER_FRACTION = 0.16f
     const val PIVOT_X_FRACTION = 0.5f
     const val PIVOT_Y_FRACTION = 0.88f
-    const val MAX_SCALE_X_DELTA = 0.026f
-    const val MAX_SCALE_Y_DELTA = 0.045f
-    const val MAX_OFFSET_Y_FRACTION = -0.020f
+    const val MAX_SCALE_X_DELTA = 0.020f
+    const val MAX_SCALE_Y_DELTA = 0.040f
+    const val MAX_LIFT_DP = -2.5f
 
     @Volatile
     var amplitudePercent: Int = DEFAULT_AMPLITUDE_PERCENT
@@ -129,17 +128,17 @@ object StaticPngChestBreathMotion {
             inhale = inhale,
             scaleX = 1f + inhale * MAX_SCALE_X_DELTA * strength,
             scaleY = 1f + inhale * MAX_SCALE_Y_DELTA * strength,
-            offsetYFraction = inhale * MAX_OFFSET_Y_FRACTION * strength
+            offsetYDp = inhale * MAX_LIFT_DP * strength
         )
     }
 
-    fun normalizedRoi(sourceWidth: Int, sourceHeight: Int): String {
+    fun normalizedPieceBounds(sourceWidth: Int, sourceHeight: Int): String {
         if (sourceWidth <= 0 || sourceHeight <= 0) return "n/a"
         return "%.3f,%.3f %.3fx%.3f".format(
-            ROI.x.toFloat() / sourceWidth.toFloat(),
-            ROI.y.toFloat() / sourceHeight.toFloat(),
-            ROI.width.toFloat() / sourceWidth.toFloat(),
-            ROI.height.toFloat() / sourceHeight.toFloat()
+            PIECE_BOUNDS.x.toFloat() / sourceWidth.toFloat(),
+            PIECE_BOUNDS.y.toFloat() / sourceHeight.toFloat(),
+            PIECE_BOUNDS.width.toFloat() / sourceWidth.toFloat(),
+            PIECE_BOUNDS.height.toFloat() / sourceHeight.toFloat()
         )
     }
 

@@ -193,6 +193,9 @@ class MainActivity : Activity() {
     private lateinit var staticPngChestBreathAmplitudeValue: TextView
     private lateinit var staticPngChestBreathPhaseValue: TextView
     private lateinit var staticPngChestBreathInhaleValue: TextView
+    private lateinit var staticPngChestPieceEnabledValue: TextView
+    private lateinit var staticPngChestPieceVisibleValue: TextView
+    private lateinit var staticPngChestPieceAssetPathValue: TextView
     private lateinit var staticPngChestBreathSourceBoundsValue: TextView
     private lateinit var staticPngChestBreathNormalizedBoundsValue: TextView
     private lateinit var staticPngChestBreathViewBoundsValue: TextView
@@ -740,7 +743,7 @@ class MainActivity : Activity() {
             CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled)
             refreshControlLabels()
         }
-        testStaticPngBreathMotionButton = addButton(root, "BREATH: ON") {
+        testStaticPngBreathMotionButton = addButton(root, "CHEST BREATH: ON") {
             val enabled = CharacterDiagnostics.snapshot().staticPngBreathActive != "YES"
             CharacterOverlayService.setStaticPngBreathMotionForDebug(enabled)
             refreshControlLabels()
@@ -924,9 +927,12 @@ class MainActivity : Activity() {
         staticPngChestBreathAmplitudeValue = addDiagnosticField(root, "Chest Breath Amplitude %")
         staticPngChestBreathPhaseValue = addDiagnosticField(root, "Chest Breath Phase")
         staticPngChestBreathInhaleValue = addDiagnosticField(root, "Chest Breath Inhale")
-        staticPngChestBreathSourceBoundsValue = addDiagnosticField(root, "Chest ROI Source Bounds")
-        staticPngChestBreathNormalizedBoundsValue = addDiagnosticField(root, "Chest ROI Normalized Bounds")
-        staticPngChestBreathViewBoundsValue = addDiagnosticField(root, "Chest ROI View Bounds")
+        staticPngChestPieceEnabledValue = addDiagnosticField(root, "Chest Piece Enabled")
+        staticPngChestPieceVisibleValue = addDiagnosticField(root, "Chest Piece Visible")
+        staticPngChestPieceAssetPathValue = addDiagnosticField(root, "Chest Asset Path")
+        staticPngChestBreathSourceBoundsValue = addDiagnosticField(root, "Chest Piece Bounds")
+        staticPngChestBreathNormalizedBoundsValue = addDiagnosticField(root, "Chest Piece Normalized Bounds")
+        staticPngChestBreathViewBoundsValue = addDiagnosticField(root, "Chest Piece View Bounds")
         staticPngChestBreathTransformValue = addDiagnosticField(root, "Chest Local Scale/Offset")
         staticPngBlinkActiveValue = addDiagnosticField(root, "Static Blink Active")
         staticPngEyeShapeValue = addDiagnosticField(root, "Static Eye Shape")
@@ -1393,9 +1399,9 @@ class MainActivity : Activity() {
         }
         if (::testStaticPngBreathMotionButton.isInitialized) {
             testStaticPngBreathMotionButton.text = if (CharacterDiagnostics.snapshot().staticPngBreathActive == "YES") {
-                "BREATH: ON"
+                "CHEST BREATH: ON"
             } else {
-                "BREATH: OFF"
+                "CHEST BREATH: OFF"
             }
         }
         if (::testStaticPngHairMotionOnButton.isInitialized) {
@@ -1743,6 +1749,9 @@ class MainActivity : Activity() {
             staticPngChestBreathAmplitudeValue.text = "${character.staticPngChestBreathAmplitudePercent}%"
             staticPngChestBreathPhaseValue.text = "%.3f".format(character.staticPngChestBreathPhase)
             staticPngChestBreathInhaleValue.text = "%.3f".format(character.staticPngChestBreathInhale)
+            staticPngChestPieceEnabledValue.text = character.staticPngChestPieceEnabled
+            staticPngChestPieceVisibleValue.text = character.staticPngChestPieceVisible
+            staticPngChestPieceAssetPathValue.text = character.staticPngChestPieceAssetPath
             staticPngChestBreathSourceBoundsValue.text = character.staticPngChestBreathSourceBounds
             staticPngChestBreathNormalizedBoundsValue.text = character.staticPngChestBreathSourceNormalizedBounds
             staticPngChestBreathViewBoundsValue.text = character.staticPngChestBreathViewBounds
