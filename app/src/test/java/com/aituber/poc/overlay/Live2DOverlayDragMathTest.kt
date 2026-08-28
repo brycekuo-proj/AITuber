@@ -84,6 +84,23 @@ class Live2DOverlayDragMathTest {
     }
 
     @Test
+    fun oversizedOverlayCanStillMoveDownToHalfScreenVisible() {
+        val oversizedBounds = Live2DOverlayBounds(
+            screenWidth = 1080,
+            screenHeight = 2340,
+            overlayWidth = 3888,
+            overlayHeight = 5616
+        )
+
+        val clamped = Live2DOverlayDragMath.clamp(
+            position = Live2DOverlayPosition(0, 10_000),
+            bounds = oversizedBounds
+        )
+
+        assertEquals(1170, clamped.y)
+    }
+
+    @Test
     fun savedPositionReclampedAfterScreenSizeChange() {
         val smallerBounds = Live2DOverlayBounds(
             screenWidth = 720,

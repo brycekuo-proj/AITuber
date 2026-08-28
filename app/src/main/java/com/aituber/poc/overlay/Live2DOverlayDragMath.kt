@@ -2,6 +2,7 @@ package com.aituber.poc.overlay
 
 object Live2DOverlayDragMath {
     const val MAX_OFFSCREEN_FRACTION = 0.5f
+    const val MIN_VISIBLE_SCREEN_FRACTION_AT_BOTTOM = 0.5f
 
     fun clamp(position: Live2DOverlayPosition, bounds: Live2DOverlayBounds): Live2DOverlayPosition {
         val offscreenWidth = (bounds.overlayWidth * MAX_OFFSCREEN_FRACTION).toInt()
@@ -9,7 +10,9 @@ object Live2DOverlayDragMath {
         val minX = -offscreenWidth
         val maxX = bounds.screenWidth - offscreenWidth
         val minY = -offscreenHeight
-        val maxY = bounds.screenHeight - offscreenHeight
+        val halfOverlayMaxY = bounds.screenHeight - offscreenHeight
+        val largeOverlayMaxY = (bounds.screenHeight * (1f - MIN_VISIBLE_SCREEN_FRACTION_AT_BOTTOM)).toInt()
+        val maxY = kotlin.math.max(halfOverlayMaxY, largeOverlayMaxY)
         return Live2DOverlayPosition(
             x = position.x.coerceIn(minX, maxX),
             y = position.y.coerceIn(minY, maxY)

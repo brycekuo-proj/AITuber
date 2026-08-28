@@ -90,7 +90,7 @@ class Live2DOverlayScaleMathTest {
         )
 
         assertEquals(-(dimensions.width * 0.5f).toInt(), clamped.x)
-        assertEquals(2340 - (dimensions.height * 0.5f).toInt(), clamped.y)
+        assertEquals(1170, clamped.y)
     }
 
     @Test
