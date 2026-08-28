@@ -29,6 +29,7 @@ import com.aituber.poc.character.staticpng.StaticPngEyeShape
 import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
+import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
@@ -770,6 +771,16 @@ class CharacterOverlayService : Service() {
         fun setStaticPngHairTransitionModeForDebug(mode: StaticPngHairTransitionMode) {
             activeService?.runStaticPngHairTransitionModeTest(mode)
         }
+
+        fun setStaticPngCrossfadeDurationForDebug(durationMs: Long) {
+            StaticPngRuntimeTuning.setCrossfadeMs(durationMs)
+            activeService?.runStaticPngCrossfadeDurationTest(StaticPngRuntimeTuning.crossfadeMs)
+        }
+
+        fun setStaticPngImageAlphaForDebug(alphaPercent: Int) {
+            StaticPngRuntimeTuning.setImageAlphaPercent(alphaPercent)
+            activeService?.runStaticPngImageAlphaTest(StaticPngRuntimeTuning.imageAlphaPercent)
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -889,6 +900,22 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setHairTransitionMode(mode)
+        }
+    }
+
+    private fun runStaticPngCrossfadeDurationTest(durationMs: Long) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setCrossfadeDurationMs(durationMs)
+        }
+    }
+
+    private fun runStaticPngImageAlphaTest(alphaPercent: Int) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setImageAlphaPercent(alphaPercent)
         }
     }
 }

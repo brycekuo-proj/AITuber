@@ -44,7 +44,9 @@ class StaticPngOverlayView(
     private var blinkCount = 0L
     private var hairMotionEnabled = true
     private var hairMotionRunning = false
-    private var hairTransitionMode = StaticPngHairTransitionMode.DIRECT
+    private var hairTransitionMode = StaticPngHairTransitionMode.CROSSFADE
+    private var crossfadeDurationMs = StaticPngRuntimeTuning.crossfadeMs
+    private var imageAlphaPercent = StaticPngRuntimeTuning.imageAlphaPercent
     private var hairSequenceIndex = 0
     private var nextHairTransitionAtMs: Long? = null
     private val hairTransitionRunnables = mutableListOf<Runnable>()
@@ -96,6 +98,7 @@ class StaticPngOverlayView(
         contentView.setBackgroundColor(Color.TRANSPARENT)
         contentView.clipChildren = false
         contentView.clipToPadding = false
+        contentView.alpha = imageAlphaPercent / 100f
         addView(
             contentView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -249,6 +252,19 @@ class StaticPngOverlayView(
         recordHairLayer()
     }
 
+    fun setCrossfadeDurationMs(durationMs: Long) {
+        StaticPngRuntimeTuning.setCrossfadeMs(durationMs)
+        crossfadeDurationMs = StaticPngRuntimeTuning.crossfadeMs
+        recordHairLayer()
+    }
+
+    fun setImageAlphaPercent(alphaPercent: Int) {
+        StaticPngRuntimeTuning.setImageAlphaPercent(alphaPercent)
+        imageAlphaPercent = StaticPngRuntimeTuning.imageAlphaPercent
+        contentView.alpha = imageAlphaPercent / 100f
+        recordHairLayer()
+    }
+
     fun release() {
         stopHairMotion(resetShape = true)
         cancelBlinkCallbacks(resetShape = true)
@@ -299,7 +315,7 @@ class StaticPngOverlayView(
         lastHairPipelineTriggered = true
         lastHairTransitionDurationMs = when (hairTransitionMode) {
             StaticPngHairTransitionMode.DIRECT -> 0L
-            StaticPngHairTransitionMode.CROSSFADE -> StaticPngHairMotion.CROSSFADE_MS
+            StaticPngHairTransitionMode.CROSSFADE -> crossfadeDurationMs
             StaticPngHairTransitionMode.BRIDGE -> StaticPngHairMotion.BRIDGE_TO_BASE_MS +
                 StaticPngHairMotion.BRIDGE_BASE_HOLD_MS +
                 StaticPngHairMotion.BRIDGE_FROM_BASE_MS
@@ -348,7 +364,7 @@ class StaticPngOverlayView(
         hairTransitionLayerView.visibility = View.VISIBLE
         hairTransitionLayerView.animate()
             .alpha(1f)
-            .setDuration(StaticPngHairMotion.CROSSFADE_MS)
+            .setDuration(crossfadeDurationMs)
             .withEndAction {
                 applyHairShapeDirect(shape)
             }

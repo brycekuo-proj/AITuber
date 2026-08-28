@@ -18,6 +18,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import com.aituber.poc.aiadapter.CaptureStatus
 import com.aituber.poc.character.BlinkDiagnostics
@@ -30,6 +31,7 @@ import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
+import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
@@ -99,6 +101,10 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngHairTransitionDirectButton: Button
     private lateinit var testStaticPngHairTransitionCrossfadeButton: Button
     private lateinit var testStaticPngHairTransitionBridgeButton: Button
+    private lateinit var staticPngCrossfadeLabel: TextView
+    private lateinit var staticPngCrossfadeSeekBar: SeekBar
+    private lateinit var staticPngImageAlphaLabel: TextView
+    private lateinit var staticPngImageAlphaSeekBar: SeekBar
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -434,6 +440,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        loadStaticPngTuning()
         val selectedProfile = Live2DProfileStore.load(this)
         CharacterOverlayService.requestedLive2DProfileId = selectedProfile.id
         CharacterDiagnostics.recordLive2DProfile(selectedProfile)
@@ -731,6 +738,57 @@ class MainActivity : Activity() {
         testStaticPngHairTransitionBridgeButton = addButton(root, "TRANSITION: BRIDGE") {
             CharacterOverlayService.setStaticPngHairTransitionModeForDebug(StaticPngHairTransitionMode.BRIDGE)
         }
+
+        staticPngCrossfadeLabel = TextView(this).apply {
+            textSize = 14f
+            setTextColor(Color.rgb(30, 34, 44))
+            text = "CROSSFADE: ${StaticPngRuntimeTuning.crossfadeMs} ms"
+            setPadding(0, 16, 0, 0)
+        }
+        root.addView(staticPngCrossfadeLabel)
+        staticPngCrossfadeSeekBar = SeekBar(this).apply {
+            max = (StaticPngRuntimeTuning.CROSSFADE_MAX_MS - StaticPngRuntimeTuning.CROSSFADE_MIN_MS).toInt()
+            progress = (StaticPngRuntimeTuning.crossfadeMs - StaticPngRuntimeTuning.CROSSFADE_MIN_MS).toInt()
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val value = StaticPngRuntimeTuning.CROSSFADE_MIN_MS + progress
+                    StaticPngRuntimeTuning.setCrossfadeMs(value)
+                    staticPngCrossfadeLabel.text = "CROSSFADE: ${StaticPngRuntimeTuning.crossfadeMs} ms"
+                    CharacterOverlayService.setStaticPngCrossfadeDurationForDebug(StaticPngRuntimeTuning.crossfadeMs)
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    persistStaticPngTuning()
+                }
+            })
+        }
+        root.addView(staticPngCrossfadeSeekBar)
+
+        staticPngImageAlphaLabel = TextView(this).apply {
+            textSize = 14f
+            setTextColor(Color.rgb(30, 34, 44))
+            text = "IMAGE ALPHA: ${StaticPngRuntimeTuning.imageAlphaPercent}%"
+            setPadding(0, 12, 0, 0)
+        }
+        root.addView(staticPngImageAlphaLabel)
+        staticPngImageAlphaSeekBar = SeekBar(this).apply {
+            max = StaticPngRuntimeTuning.IMAGE_ALPHA_MAX_PERCENT - StaticPngRuntimeTuning.IMAGE_ALPHA_MIN_PERCENT
+            progress = StaticPngRuntimeTuning.imageAlphaPercent - StaticPngRuntimeTuning.IMAGE_ALPHA_MIN_PERCENT
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val value = StaticPngRuntimeTuning.IMAGE_ALPHA_MIN_PERCENT + progress
+                    StaticPngRuntimeTuning.setImageAlphaPercent(value)
+                    staticPngImageAlphaLabel.text = "IMAGE ALPHA: ${StaticPngRuntimeTuning.imageAlphaPercent}%"
+                    CharacterOverlayService.setStaticPngImageAlphaForDebug(StaticPngRuntimeTuning.imageAlphaPercent)
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    persistStaticPngTuning()
+                }
+            })
+        }
+        root.addView(staticPngImageAlphaSeekBar)
+
         updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         runtimeTypeValue = addDiagnosticField(root, "Runtime Type")
@@ -1244,6 +1302,28 @@ class MainActivity : Activity() {
         if (::testStaticPngHairTransitionBridgeButton.isInitialized) {
             testStaticPngHairTransitionBridgeButton.visibility = visibility
         }
+        if (::staticPngCrossfadeLabel.isInitialized) staticPngCrossfadeLabel.visibility = visibility
+        if (::staticPngCrossfadeSeekBar.isInitialized) staticPngCrossfadeSeekBar.visibility = visibility
+        if (::staticPngImageAlphaLabel.isInitialized) staticPngImageAlphaLabel.visibility = visibility
+        if (::staticPngImageAlphaSeekBar.isInitialized) staticPngImageAlphaSeekBar.visibility = visibility
+    }
+
+    private fun loadStaticPngTuning() {
+        val prefs = getSharedPreferences(STATIC_PNG_TUNING_PREFS, Context.MODE_PRIVATE)
+        StaticPngRuntimeTuning.setCrossfadeMs(
+            prefs.getLong(STATIC_PNG_CROSSFADE_KEY, StaticPngRuntimeTuning.DEFAULT_CROSSFADE_MS)
+        )
+        StaticPngRuntimeTuning.setImageAlphaPercent(
+            prefs.getInt(STATIC_PNG_IMAGE_ALPHA_KEY, StaticPngRuntimeTuning.DEFAULT_IMAGE_ALPHA_PERCENT)
+        )
+    }
+
+    private fun persistStaticPngTuning() {
+        getSharedPreferences(STATIC_PNG_TUNING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(STATIC_PNG_CROSSFADE_KEY, StaticPngRuntimeTuning.crossfadeMs)
+            .putInt(STATIC_PNG_IMAGE_ALPHA_KEY, StaticPngRuntimeTuning.imageAlphaPercent)
+            .apply()
     }
 
     private fun startDetection() {
@@ -1943,6 +2023,10 @@ class MainActivity : Activity() {
         .replace("android.view.", "")
 
     companion object {
+        private const val STATIC_PNG_TUNING_PREFS = "static_png_tuning"
+        private const val STATIC_PNG_CROSSFADE_KEY = "crossfade_ms"
+        private const val STATIC_PNG_IMAGE_ALPHA_KEY = "image_alpha_percent"
+
         internal val primaryControlLabels = listOf(
             DebugControlLabels.capture(captureActive = false),
             DebugControlLabels.overlay(overlayEnabled = false),
