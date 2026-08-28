@@ -209,6 +209,10 @@ class MainActivity : Activity() {
     private lateinit var staticPngHairShapeValue: TextView
     private lateinit var staticPngCurrentHairAssetPathValue: TextView
     private lateinit var staticPngHairTransitionModeValue: TextView
+    private lateinit var staticPngHairTransitionFromValue: TextView
+    private lateinit var staticPngHairTransitionToValue: TextView
+    private lateinit var staticPngHairTransitionPipelineValue: TextView
+    private lateinit var staticPngHairTransitionDurationValue: TextView
     private lateinit var staticPngHairLayerVisibleValue: TextView
     private lateinit var staticPngHairLayerDrawableSizeValue: TextView
     private lateinit var staticPngHairLayerViewBoundsValue: TextView
@@ -758,6 +762,10 @@ class MainActivity : Activity() {
         staticPngHairShapeValue = addDiagnosticField(root, "Static Hair Shape")
         staticPngCurrentHairAssetPathValue = addDiagnosticField(root, "Current Hair Asset Path")
         staticPngHairTransitionModeValue = addDiagnosticField(root, "Current Hair Transition Mode")
+        staticPngHairTransitionFromValue = addDiagnosticField(root, "Hair Transition From")
+        staticPngHairTransitionToValue = addDiagnosticField(root, "Hair Transition To")
+        staticPngHairTransitionPipelineValue = addDiagnosticField(root, "Hair Transition Pipeline Triggered")
+        staticPngHairTransitionDurationValue = addDiagnosticField(root, "Hair Transition Duration")
         staticPngHairLayerVisibleValue = addDiagnosticField(root, "Hair Layer Visible")
         staticPngHairLayerDrawableSizeValue = addDiagnosticField(root, "Hair Layer Drawable Size")
         staticPngHairLayerViewBoundsValue = addDiagnosticField(root, "Hair Layer View Bounds")
@@ -1502,6 +1510,10 @@ class MainActivity : Activity() {
             staticPngHairShapeValue.text = character.staticPngHairShape
             staticPngCurrentHairAssetPathValue.text = character.staticPngCurrentHairAssetPath
             staticPngHairTransitionModeValue.text = character.staticPngHairTransitionMode
+            staticPngHairTransitionFromValue.text = character.staticPngHairTransitionFrom
+            staticPngHairTransitionToValue.text = character.staticPngHairTransitionTo
+            staticPngHairTransitionPipelineValue.text = character.staticPngHairTransitionPipelineTriggered
+            staticPngHairTransitionDurationValue.text = "${character.staticPngHairTransitionDurationMs} ms"
             staticPngHairLayerVisibleValue.text = character.staticPngHairLayerVisible
             staticPngHairLayerDrawableSizeValue.text = character.staticPngHairLayerDrawableSize
             staticPngHairLayerViewBoundsValue.text = character.staticPngHairLayerViewBounds

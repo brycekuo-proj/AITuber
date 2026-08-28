@@ -25,7 +25,7 @@ class StaticPngHairMotionTest {
     fun hairMotionCycleIsInPocRangeAndDoesNotSyncWithIdleMotion() {
         assertTrue(StaticPngHairMotion.CYCLE_MS in 3_200L..4_800L)
         assertNotEquals(StaticPngIdleMotion.PERIOD_MS, StaticPngHairMotion.CYCLE_MS)
-        assertTrue(StaticPngHairMotion.TRANSITION_MS in 0L..300L)
+        assertEquals(0L, StaticPngHairMotion.TRANSITION_MS)
     }
 
     @Test
@@ -42,10 +42,10 @@ class StaticPngHairMotionTest {
 
     @Test
     fun hairTransitionTimingsMatchPocRange() {
-        assertTrue(StaticPngHairMotion.CROSSFADE_MS in 100L..140L)
-        assertEquals(60L, StaticPngHairMotion.BRIDGE_TO_BASE_MS)
-        assertTrue(StaticPngHairMotion.BRIDGE_BASE_HOLD_MS in 20L..40L)
-        assertTrue(StaticPngHairMotion.BRIDGE_FROM_BASE_MS in 80L..120L)
+        assertEquals(500L, StaticPngHairMotion.CROSSFADE_MS)
+        assertEquals(300L, StaticPngHairMotion.BRIDGE_TO_BASE_MS)
+        assertEquals(200L, StaticPngHairMotion.BRIDGE_BASE_HOLD_MS)
+        assertEquals(300L, StaticPngHairMotion.BRIDGE_FROM_BASE_MS)
     }
 
     @Test
@@ -90,7 +90,7 @@ class StaticPngHairMotionTest {
         val characterPackage = StaticPngCharacterPackage.XianxiaFemale
 
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v6.png",
+            "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v7.png",
             characterPackage.hairLayers.getValue(StaticPngHairShape.FLOAT_A).assetPath
         )
         assertEquals(4_200L, StaticPngIdleMotion.PERIOD_MS)

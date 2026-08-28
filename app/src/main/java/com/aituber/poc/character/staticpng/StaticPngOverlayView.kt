@@ -48,6 +48,10 @@ class StaticPngOverlayView(
     private var hairSequenceIndex = 0
     private var nextHairTransitionAtMs: Long? = null
     private val hairTransitionRunnables = mutableListOf<Runnable>()
+    private var lastHairTransitionFrom = StaticPngHairShape.BASE
+    private var lastHairTransitionTo = StaticPngHairShape.BASE
+    private var lastHairPipelineTriggered = false
+    private var lastHairTransitionDurationMs = 0L
     private val idleMotionRunnable = object : Runnable {
         override fun run() {
             if (!idleMotionRunning) return
@@ -283,8 +287,22 @@ class StaticPngOverlayView(
 
     private fun transitionHairTo(shape: StaticPngHairShape) {
         if (shape == activeHairShape) {
+            lastHairTransitionFrom = activeHairShape
+            lastHairTransitionTo = shape
+            lastHairPipelineTriggered = false
+            lastHairTransitionDurationMs = 0L
             recordHairLayer()
             return
+        }
+        lastHairTransitionFrom = activeHairShape
+        lastHairTransitionTo = shape
+        lastHairPipelineTriggered = true
+        lastHairTransitionDurationMs = when (hairTransitionMode) {
+            StaticPngHairTransitionMode.DIRECT -> 0L
+            StaticPngHairTransitionMode.CROSSFADE -> StaticPngHairMotion.CROSSFADE_MS
+            StaticPngHairTransitionMode.BRIDGE -> StaticPngHairMotion.BRIDGE_TO_BASE_MS +
+                StaticPngHairMotion.BRIDGE_BASE_HOLD_MS +
+                StaticPngHairMotion.BRIDGE_FROM_BASE_MS
         }
         when (hairTransitionMode) {
             StaticPngHairTransitionMode.DIRECT -> applyHairShapeDirect(shape)
@@ -339,10 +357,6 @@ class StaticPngOverlayView(
     }
 
     private fun bridgeHairTo(shape: StaticPngHairShape) {
-        if (activeHairShape == StaticPngHairShape.BASE || shape == StaticPngHairShape.BASE) {
-            applyHairShapeDirect(shape)
-            return
-        }
         cancelHairTransitions()
         val toBase = Runnable {
             applyHairShapeDirect(StaticPngHairShape.BASE, cancelTransitions = false)
@@ -597,6 +611,10 @@ class StaticPngOverlayView(
             shape = activeHairShape.name,
             assetPath = characterPackage.hairLayers[activeHairShape]?.assetPath ?: characterPackage.assetPath,
             transitionMode = hairTransitionMode.name,
+            transitionFrom = lastHairTransitionFrom.name,
+            transitionTo = lastHairTransitionTo.name,
+            transitionPipelineTriggered = lastHairPipelineTriggered,
+            transitionDurationMs = lastHairTransitionDurationMs,
             visible = hairLayerView.visibility == View.VISIBLE || hairTransitionLayerView.visibility == View.VISIBLE,
             drawableWidth = drawable?.intrinsicWidth ?: 0,
             drawableHeight = drawable?.intrinsicHeight ?: 0,

@@ -9,10 +9,10 @@ object StaticPngHairMotion {
     const val CYCLE_MS = 3_900L
     const val STEP_MS = CYCLE_MS / 4L
     const val TRANSITION_MS = 0L
-    const val CROSSFADE_MS = 120L
-    const val BRIDGE_TO_BASE_MS = 60L
-    const val BRIDGE_BASE_HOLD_MS = 30L
-    const val BRIDGE_FROM_BASE_MS = 100L
+    const val CROSSFADE_MS = 500L
+    const val BRIDGE_TO_BASE_MS = 300L
+    const val BRIDGE_BASE_HOLD_MS = 200L
+    const val BRIDGE_FROM_BASE_MS = 300L
 
     val SEQUENCE = listOf(
         StaticPngHairKeyframe(delayMs = 0L, shape = StaticPngHairShape.BASE),
