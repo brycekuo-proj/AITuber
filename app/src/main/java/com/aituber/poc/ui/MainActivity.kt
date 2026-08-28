@@ -27,8 +27,6 @@ import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
-import com.aituber.poc.character.staticpng.StaticPngEyeShape
-import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
@@ -87,26 +85,12 @@ class MainActivity : Activity() {
     private lateinit var testIdleButton: Button
     private lateinit var testPhysicsButton: Button
     private lateinit var testEarsButton: Button
-    private lateinit var testStateVideoIdleButton: Button
-    private lateinit var testStateVideoListeningButton: Button
-    private lateinit var testStateVideoThinkingButton: Button
-    private lateinit var testStateVideoSpeakingButton: Button
     private lateinit var testStaticPngClosedButton: Button
     private lateinit var testStaticPngHalfButton: Button
     private lateinit var testStaticPngOpenButton: Button
     private lateinit var testStaticPngIdleMotionOnButton: Button
-    private lateinit var testStaticPngIdleMotionOffButton: Button
     private lateinit var testStaticPngBlinkButton: Button
-    private lateinit var testStaticPngAutoBlinkOnButton: Button
-    private lateinit var testStaticPngAutoBlinkOffButton: Button
-    private lateinit var testStaticPngEyeOpenButton: Button
-    private lateinit var testStaticPngEyeHalfButton: Button
-    private lateinit var testStaticPngEyeClosedButton: Button
-    private lateinit var testStaticPngHairBaseButton: Button
-    private lateinit var testStaticPngHairAButton: Button
-    private lateinit var testStaticPngHairBButton: Button
     private lateinit var testStaticPngHairMotionOnButton: Button
-    private lateinit var testStaticPngHairMotionOffButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -303,20 +287,6 @@ class MainActivity : Activity() {
     private lateinit var live2dLifecycleStateValue: TextView
     private lateinit var live2dFallbackReasonValue: TextView
     private lateinit var live2dLastErrorValue: TextView
-    private lateinit var stateVideoStatusValue: TextView
-    private lateinit var stateVideoRequestedTestStateValue: TextView
-    private lateinit var stateVideoCurrentStateValue: TextView
-    private lateinit var stateVideoCurrentClipValue: TextView
-    private lateinit var stateVideoResolvedClipPathValue: TextView
-    private lateinit var stateVideoPlayerPreparingValue: TextView
-    private lateinit var stateVideoPlayerReadyValue: TextView
-    private lateinit var stateVideoPlayerPlayingValue: TextView
-    private lateinit var stateVideoLoopEnabledValue: TextView
-    private lateinit var stateVideoMutedValue: TextView
-    private lateinit var stateVideoSizeValue: TextView
-    private lateinit var stateVideoSwitchCountValue: TextView
-    private lateinit var stateVideoLastStateSwitchValue: TextView
-    private lateinit var stateVideoLastVideoErrorValue: TextView
     private lateinit var startButtonClickCountValue: TextView
     private lateinit var projectionRequestCountValue: TextView
     private lateinit var projectionResultOkCountValue: TextView
@@ -708,67 +678,28 @@ class MainActivity : Activity() {
             CharacterDiagnostics.snapshot().live2dFallbackIdleEnabled,
             CharacterDiagnostics.snapshot().live2dPhysicsEarOutputsAvailable
         )
-        testStateVideoIdleButton = addButton(root, DebugControlLabels.stateVideoTestButton("IDLE")) {
-            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.IDLE)
-        }
-        testStateVideoListeningButton = addButton(root, DebugControlLabels.stateVideoTestButton("LISTENING")) {
-            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.LISTENING)
-        }
-        testStateVideoThinkingButton = addButton(root, DebugControlLabels.stateVideoTestButton("THINKING")) {
-            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.THINKING)
-        }
-        testStateVideoSpeakingButton = addButton(root, DebugControlLabels.stateVideoTestButton("SPEAKING")) {
-            CharacterOverlayService.testStateVideoForDebug(UniversalAiState.SPEAKING)
-        }
-        testStaticPngClosedButton = addButton(root, "TEST STATIC CLOSED") {
+        testStaticPngClosedButton = addButton(root, "MOUTH: CLOSED") {
             CharacterOverlayService.testStaticPngMouthForDebug(StaticPngMouthShape.CLOSED)
         }
-        testStaticPngHalfButton = addButton(root, "TEST STATIC HALF") {
+        testStaticPngHalfButton = addButton(root, "MOUTH: HALF") {
             CharacterOverlayService.testStaticPngMouthForDebug(StaticPngMouthShape.HALF)
         }
-        testStaticPngOpenButton = addButton(root, "TEST STATIC OPEN") {
+        testStaticPngOpenButton = addButton(root, "MOUTH: OPEN") {
             CharacterOverlayService.testStaticPngMouthForDebug(StaticPngMouthShape.OPEN)
         }
-        testStaticPngIdleMotionOnButton = addButton(root, "TEST STATIC IDLE MOTION ON") {
-            CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled = true)
-        }
-        testStaticPngIdleMotionOffButton = addButton(root, "TEST STATIC IDLE MOTION OFF") {
-            CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled = false)
-        }
-        testStaticPngBlinkButton = addButton(root, "TEST STATIC BLINK") {
+        testStaticPngBlinkButton = addButton(root, "BLINK NOW") {
             CharacterOverlayService.testStaticPngBlinkForDebug()
         }
-        testStaticPngAutoBlinkOnButton = addButton(root, "TEST STATIC AUTO BLINK ON") {
-            CharacterOverlayService.setStaticPngAutoBlinkForDebug(enabled = true)
+        testStaticPngIdleMotionOnButton = addButton(root, "IDLE MOTION: ON") {
+            val enabled = CharacterDiagnostics.snapshot().staticPngIdleMotionActive != "YES"
+            CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled)
+            refreshControlLabels()
         }
-        testStaticPngAutoBlinkOffButton = addButton(root, "TEST STATIC AUTO BLINK OFF") {
-            CharacterOverlayService.setStaticPngAutoBlinkForDebug(enabled = false)
+        testStaticPngHairMotionOnButton = addButton(root, "HAIR MOTION: ON") {
+            val enabled = CharacterDiagnostics.snapshot().staticPngHairMotionActive != "YES"
+            CharacterOverlayService.setStaticPngHairMotionForDebug(enabled)
+            refreshControlLabels()
         }
-        testStaticPngEyeOpenButton = addButton(root, "TEST STATIC EYE OPEN") {
-            CharacterOverlayService.testStaticPngEyeForDebug(StaticPngEyeShape.OPEN)
-        }
-        testStaticPngEyeHalfButton = addButton(root, "TEST STATIC EYE HALF") {
-            CharacterOverlayService.testStaticPngEyeForDebug(StaticPngEyeShape.HALF)
-        }
-        testStaticPngEyeClosedButton = addButton(root, "TEST STATIC EYE CLOSED") {
-            CharacterOverlayService.testStaticPngEyeForDebug(StaticPngEyeShape.CLOSED)
-        }
-        testStaticPngHairBaseButton = addButton(root, "TEST STATIC HAIR BASE") {
-            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.BASE)
-        }
-        testStaticPngHairAButton = addButton(root, "TEST STATIC HAIR A") {
-            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.FLOAT_A)
-        }
-        testStaticPngHairBButton = addButton(root, "TEST STATIC HAIR B") {
-            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.FLOAT_B)
-        }
-        testStaticPngHairMotionOnButton = addButton(root, "TEST STATIC HAIR MOTION ON") {
-            CharacterOverlayService.setStaticPngHairMotionForDebug(enabled = true)
-        }
-        testStaticPngHairMotionOffButton = addButton(root, "TEST STATIC HAIR MOTION OFF") {
-            CharacterOverlayService.setStaticPngHairMotionForDebug(enabled = false)
-        }
-        updateStateVideoControlVisibility()
         updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
         runtimeTypeValue = addDiagnosticField(root, "Runtime Type")
@@ -915,21 +846,6 @@ class MainActivity : Activity() {
         live2dFallbackReasonValue = addDiagnosticField(root, "Live2D Fallback Reason")
         live2dLastErrorValue = addDiagnosticField(root, "Last Live2D Error")
 
-        root.addView(sectionTitle("STATE_VIDEO Runtime"))
-        stateVideoStatusValue = addDiagnosticField(root, "STATE_VIDEO Status")
-        stateVideoRequestedTestStateValue = addDiagnosticField(root, "Requested Test State")
-        stateVideoCurrentStateValue = addDiagnosticField(root, "Current State")
-        stateVideoCurrentClipValue = addDiagnosticField(root, "Current Clip")
-        stateVideoResolvedClipPathValue = addDiagnosticField(root, "Resolved Clip URI/Path")
-        stateVideoPlayerPreparingValue = addDiagnosticField(root, "Player Preparing")
-        stateVideoPlayerReadyValue = addDiagnosticField(root, "Player Ready")
-        stateVideoPlayerPlayingValue = addDiagnosticField(root, "Player Playing")
-        stateVideoLoopEnabledValue = addDiagnosticField(root, "Loop Enabled")
-        stateVideoMutedValue = addDiagnosticField(root, "Muted")
-        stateVideoSizeValue = addDiagnosticField(root, "Video Size")
-        stateVideoSwitchCountValue = addDiagnosticField(root, "State Switch Count")
-        stateVideoLastStateSwitchValue = addDiagnosticField(root, "Last State Switch")
-        stateVideoLastVideoErrorValue = addDiagnosticField(root, "Last Video Error")
 
         root.addView(sectionTitle("Capture Startup Trace"))
         captureStartupTraceValue = addLogField(root, "Capture Startup Trace")
@@ -1199,7 +1115,11 @@ class MainActivity : Activity() {
                 if (currentProfile.id == Live2DCharacterProfiles.HARU_ID) {
                     setCharacterMode(CharacterMode.STATIC_PNG)
                 } else {
-                    setCharacterMode(CharacterMode.STATE_VIDEO)
+                    val haru = Live2DCharacterProfiles.Haru
+                    Live2DProfileStore.save(this, haru)
+                    CharacterOverlayService.requestedLive2DProfileId = haru.id
+                    CharacterDiagnostics.recordLive2DProfile(haru)
+                    setCharacterMode(CharacterMode.LIVE2D)
                 }
             }
             CharacterMode.STATIC_PNG -> {
@@ -1207,13 +1127,6 @@ class MainActivity : Activity() {
                 Live2DProfileStore.save(this, dog)
                 CharacterOverlayService.requestedLive2DProfileId = dog.id
                 CharacterDiagnostics.recordLive2DProfile(dog)
-                setCharacterMode(CharacterMode.LIVE2D)
-            }
-            CharacterMode.STATE_VIDEO -> {
-                val haru = Live2DCharacterProfiles.Haru
-                Live2DProfileStore.save(this, haru)
-                CharacterOverlayService.requestedLive2DProfileId = haru.id
-                CharacterDiagnostics.recordLive2DProfile(haru)
                 setCharacterMode(CharacterMode.LIVE2D)
             }
         }
@@ -1254,20 +1167,21 @@ class MainActivity : Activity() {
                 CharacterOverlayService.requestedLive2DProfile().displayName
             )
         }
-        updateStateVideoControlVisibility()
-        updateStaticPngControlVisibility()
-    }
-
-    private fun updateStateVideoControlVisibility() {
-        val visibility = if (DebugControlLabels.stateVideoControlsVisible(CharacterOverlayService.requestedCharacterMode)) {
-            View.VISIBLE
-        } else {
-            View.GONE
+        if (::testStaticPngIdleMotionOnButton.isInitialized) {
+            testStaticPngIdleMotionOnButton.text = if (CharacterDiagnostics.snapshot().staticPngIdleMotionActive == "YES") {
+                "IDLE MOTION: ON"
+            } else {
+                "IDLE MOTION: OFF"
+            }
         }
-        if (::testStateVideoIdleButton.isInitialized) testStateVideoIdleButton.visibility = visibility
-        if (::testStateVideoListeningButton.isInitialized) testStateVideoListeningButton.visibility = visibility
-        if (::testStateVideoThinkingButton.isInitialized) testStateVideoThinkingButton.visibility = visibility
-        if (::testStateVideoSpeakingButton.isInitialized) testStateVideoSpeakingButton.visibility = visibility
+        if (::testStaticPngHairMotionOnButton.isInitialized) {
+            testStaticPngHairMotionOnButton.text = if (CharacterDiagnostics.snapshot().staticPngHairMotionActive == "YES") {
+                "HAIR MOTION: ON"
+            } else {
+                "HAIR MOTION: OFF"
+            }
+        }
+        updateStaticPngControlVisibility()
     }
 
     private fun updateStaticPngControlVisibility() {
@@ -1279,19 +1193,9 @@ class MainActivity : Activity() {
         if (::testStaticPngClosedButton.isInitialized) testStaticPngClosedButton.visibility = visibility
         if (::testStaticPngHalfButton.isInitialized) testStaticPngHalfButton.visibility = visibility
         if (::testStaticPngOpenButton.isInitialized) testStaticPngOpenButton.visibility = visibility
-        if (::testStaticPngIdleMotionOnButton.isInitialized) testStaticPngIdleMotionOnButton.visibility = visibility
-        if (::testStaticPngIdleMotionOffButton.isInitialized) testStaticPngIdleMotionOffButton.visibility = visibility
         if (::testStaticPngBlinkButton.isInitialized) testStaticPngBlinkButton.visibility = visibility
-        if (::testStaticPngAutoBlinkOnButton.isInitialized) testStaticPngAutoBlinkOnButton.visibility = visibility
-        if (::testStaticPngAutoBlinkOffButton.isInitialized) testStaticPngAutoBlinkOffButton.visibility = visibility
-        if (::testStaticPngEyeOpenButton.isInitialized) testStaticPngEyeOpenButton.visibility = visibility
-        if (::testStaticPngEyeHalfButton.isInitialized) testStaticPngEyeHalfButton.visibility = visibility
-        if (::testStaticPngEyeClosedButton.isInitialized) testStaticPngEyeClosedButton.visibility = visibility
-        if (::testStaticPngHairBaseButton.isInitialized) testStaticPngHairBaseButton.visibility = visibility
-        if (::testStaticPngHairAButton.isInitialized) testStaticPngHairAButton.visibility = visibility
-        if (::testStaticPngHairBButton.isInitialized) testStaticPngHairBButton.visibility = visibility
+        if (::testStaticPngIdleMotionOnButton.isInitialized) testStaticPngIdleMotionOnButton.visibility = visibility
         if (::testStaticPngHairMotionOnButton.isInitialized) testStaticPngHairMotionOnButton.visibility = visibility
-        if (::testStaticPngHairMotionOffButton.isInitialized) testStaticPngHairMotionOffButton.visibility = visibility
     }
 
     private fun startDetection() {
@@ -1692,20 +1596,6 @@ class MainActivity : Activity() {
             live2dLifecycleStateValue.text = character.live2dLifecycleState
             live2dFallbackReasonValue.text = character.live2dFallbackReason
             live2dLastErrorValue.text = character.live2dLastError
-            stateVideoStatusValue.text = character.stateVideoStatus
-            stateVideoRequestedTestStateValue.text = character.stateVideoRequestedTestState
-            stateVideoCurrentStateValue.text = character.stateVideoCurrentState
-            stateVideoCurrentClipValue.text = character.stateVideoCurrentClip
-            stateVideoResolvedClipPathValue.text = character.stateVideoResolvedClipPath
-            stateVideoPlayerPreparingValue.text = character.stateVideoPlayerPreparing
-            stateVideoPlayerReadyValue.text = character.stateVideoPlayerReady
-            stateVideoPlayerPlayingValue.text = character.stateVideoPlayerPlaying
-            stateVideoLoopEnabledValue.text = character.stateVideoLoopEnabled
-            stateVideoMutedValue.text = character.stateVideoMuted
-            stateVideoSizeValue.text = "${character.stateVideoWidth} x ${character.stateVideoHeight}"
-            stateVideoSwitchCountValue.text = character.stateVideoSwitchCount.toString()
-            stateVideoLastStateSwitchValue.text = character.stateVideoLastStateSwitchMs?.let { "$it ms" } ?: "n/a"
-            stateVideoLastVideoErrorValue.text = character.stateVideoLastVideoError
 
             captureStartupTraceValue.text = snapshot.captureStartupTrace.trace.joinToString("\n").ifBlank { "n/a" }
             startButtonClickCountValue.text = snapshot.captureStartupTrace.startButtonClickCount.toString()

@@ -47,7 +47,6 @@ class MainActivityControlsTest {
         assertEquals("CHARACTER: MINIMAL", DebugControlLabels.character(CharacterMode.MINIMAL_MOUTH))
         assertEquals("CHARACTER: HARU", DebugControlLabels.character(CharacterMode.LIVE2D, "Haru"))
         assertEquals("CHARACTER: LOAF DOG", DebugControlLabels.character(CharacterMode.LIVE2D, "Loaf Dog"))
-        assertEquals("CHARACTER: WHITEHAIR FEMALE", DebugControlLabels.character(CharacterMode.STATE_VIDEO))
         assertEquals("CHARACTER: XIANXIA STATIC", DebugControlLabels.character(CharacterMode.STATIC_PNG))
     }
 
@@ -68,14 +67,6 @@ class MainActivityControlsTest {
         assertEquals("TEST BLINK", DebugControlLabels.TEST_BLINK)
     }
 
-    @Test
-    fun stateVideoManualControlsAreVisibleOnlyForStateVideo() {
-        assertEquals("TEST IDLE", DebugControlLabels.stateVideoTestButton("IDLE"))
-        assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.MINIMAL_MOUTH))
-        assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.LIVE2D))
-        assertFalse(DebugControlLabels.stateVideoControlsVisible(CharacterMode.STATIC_PNG))
-        assertTrue(DebugControlLabels.stateVideoControlsVisible(CharacterMode.STATE_VIDEO))
-    }
 
     @Test
     fun unsupportedBreathTestIsClearlyMarkedAndDisabled() {

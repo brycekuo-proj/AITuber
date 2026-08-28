@@ -16,14 +16,11 @@ val live2dSdkDir = localProperties.getProperty("live2d.sdk.dir")?.takeIf { it.is
 val live2dModelDir = localProperties.getProperty("live2d.test.model.dir")?.takeIf { it.isNotBlank() }
 val live2dDogModelDir = localProperties.getProperty("live2d.dog.model.dir")?.takeIf { it.isNotBlank() }
     ?: rootProject.file("../models/third-party/duokhay-loaf-corgi/model/duokhay mascot - loaf dog").absolutePath
-val whitehairStateVideoDir = localProperties.getProperty("stateVideo.whitehair.dir")?.takeIf { it.isNotBlank() }
-    ?: rootProject.file("../characters/whitehair_female").absolutePath
 val live2dEnabled = live2dSdkDir != null && live2dModelDir != null &&
     file(live2dSdkDir).isDirectory &&
     file("$live2dSdkDir/Core/lib/android/arm64-v8a/libLive2DCubismCore.a").isFile &&
     file(live2dModelDir).isDirectory
 val live2dDogAvailable = file(live2dDogModelDir).isDirectory
-val whitehairStateVideoAvailable = file(whitehairStateVideoDir).isDirectory
 
 android {
     namespace = "com.aituber.poc"
@@ -66,28 +63,12 @@ android {
         }
         sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/live2dAssets"))
     }
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/stateVideoAssets"))
 }
 
 kotlin {
     jvmToolchain(17)
 }
 
-val stageWhitehairStateVideoAssets by tasks.registering(Sync::class) {
-    onlyIf { whitehairStateVideoAvailable }
-    from(whitehairStateVideoDir) {
-        include("metadata/character.json")
-        include("clips/whitehair_female__hailuo__idle__3s__v1.mp4")
-        include("clips/whitehair_female__hailuo__listening__3s__v1.mp4")
-        include("clips/whitehair_female__hailuo__thinking__3s__v1.mp4")
-        include("clips/whitehair_female__hailuo__speaking__3s__v2.mp4")
-    }
-    into(layout.buildDirectory.dir("generated/stateVideoAssets/characters/whitehair_female"))
-}
-
-tasks.named("preBuild") {
-    dependsOn(stageWhitehairStateVideoAssets)
-}
 
 if (live2dEnabled) {
     val stageLive2DModelAssets by tasks.registering(Sync::class) {

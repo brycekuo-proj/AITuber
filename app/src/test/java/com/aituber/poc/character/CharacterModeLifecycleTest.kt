@@ -106,42 +106,6 @@ class CharacterModeLifecycleTest {
         assertEquals("WAITING_FOR_OVERLAY", snapshot.live2dFallbackReason)
     }
 
-    @Test
-    fun stateVideoConfigurePublishesActiveAdapterAndClearsLive2DProfile() {
-        CharacterDiagnostics.recordLive2DProfile(com.aituber.poc.character.live2d.Live2DCharacterProfiles.LoafDog)
-
-        CharacterDiagnostics.configure(
-            requestedMode = CharacterMode.STATE_VIDEO,
-            activeAdapterId = "state-video-character-adapter",
-            fallbackReason = "n/a",
-            live2dLifecycleState = "STATE_VIDEO_ACTIVE"
-        )
-
-        val snapshot = CharacterDiagnostics.snapshot()
-
-        assertEquals(CharacterMode.STATE_VIDEO.name, snapshot.characterMode)
-        assertEquals("STATE_VIDEO", snapshot.runtimeType)
-        assertEquals("state-video-character-adapter", snapshot.activeCharacterAdapter)
-        assertEquals("n/a", snapshot.live2dProfileId)
-        assertEquals("n/a", snapshot.live2dProfileName)
-        assertEquals("n/a", snapshot.live2dMappedMouthParameter)
-    }
-
-    @Test
-    fun stateVideoResetDoesNotLeaveStaleLive2DProfile() {
-        CharacterDiagnostics.recordLive2DProfile(com.aituber.poc.character.live2d.Live2DCharacterProfiles.LoafDog)
-
-        CharacterDiagnostics.reset(requestedMode = CharacterMode.STATE_VIDEO)
-
-        val snapshot = CharacterDiagnostics.snapshot()
-
-        assertEquals(CharacterMode.STATE_VIDEO.name, snapshot.characterMode)
-        assertEquals("STATE_VIDEO", snapshot.runtimeType)
-        assertEquals("none", snapshot.activeCharacterAdapter)
-        assertEquals("n/a", snapshot.live2dProfileId)
-        assertEquals("n/a", snapshot.live2dProfileName)
-        assertEquals("WAITING_FOR_OVERLAY", snapshot.live2dFallbackReason)
-    }
 
     @Test
     fun poseDiagnosticsCanRepresentMissingPoseSafely() {

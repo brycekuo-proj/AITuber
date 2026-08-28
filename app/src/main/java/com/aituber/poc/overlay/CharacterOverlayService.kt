@@ -29,9 +29,6 @@ import com.aituber.poc.character.staticpng.StaticPngEyeShape
 import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
-import com.aituber.poc.character.statevideo.StateVideoCharacterAdapter
-import com.aituber.poc.character.statevideo.StateVideoCharacterPackageLoader
-import com.aituber.poc.character.statevideo.StateVideoOverlayView
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -44,7 +41,6 @@ class CharacterOverlayService : Service() {
     private var frameIndex = 0
     private var mouthView: MouthOverlayView? = null
     private var live2dView: Live2DOverlayView? = null
-    private var stateVideoView: StateVideoOverlayView? = null
     private var staticPngView: StaticPngOverlayView? = null
     private var overlayView: View? = null
     private var characterEngine: CharacterEngine? = null
@@ -57,9 +53,6 @@ class CharacterOverlayService : Service() {
     private var blinkTickRunning = false
     private var lastCharacterMouthOpen = 0f
     private var serviceCharacterMode: CharacterMode = CharacterMode.MINIMAL_MOUTH
-
-    @Volatile
-    private var stateVideoDebugState: UniversalAiState? = null
 
     private val renderDispatcher = OverlayRenderDispatcher(
         postToMain = { block -> handler.post { block() } },
@@ -454,7 +447,6 @@ class CharacterOverlayService : Service() {
             val staticPng = StaticPngOverlayView(this, StaticPngCharacterPackage.XianxiaFemale)
             staticPngView = staticPng
             live2dView = null
-            stateVideoView = null
             mouthView = null
             return OverlaySelection(
                 view = staticPng,
@@ -464,25 +456,6 @@ class CharacterOverlayService : Service() {
                     requestedMode = CharacterMode.STATIC_PNG,
                     mouthView = fallbackMouthView(),
                     staticPngAdapter = StaticPngCharacterAdapter(staticPng)
-                )
-            )
-        }
-
-        if (serviceCharacterMode == CharacterMode.STATE_VIDEO) {
-            val stateVideoPackage = StateVideoCharacterPackageLoader.loadWhitehairFemale(this)
-            val stateVideo = StateVideoOverlayView(this, stateVideoPackage)
-            stateVideoView = stateVideo
-            live2dView = null
-            staticPngView = null
-            mouthView = null
-            return OverlaySelection(
-                view = stateVideo,
-                live2dActive = true,
-                live2dLifecycleState = "STATE_VIDEO_ACTIVE",
-                selection = CharacterAdapterFactory.create(
-                    requestedMode = CharacterMode.STATE_VIDEO,
-                    mouthView = fallbackMouthView(),
-                    stateVideoAdapter = StateVideoCharacterAdapter(stateVideo, stateVideoPackage)
                 )
             )
         }
@@ -516,7 +489,6 @@ class CharacterOverlayService : Service() {
         val profile = requestedLive2DProfile()
         mouthView = minimal
         live2dView = null
-        stateVideoView = null
         staticPngView = null
         return OverlaySelection(
             view = minimal,
@@ -540,14 +512,12 @@ class CharacterOverlayService : Service() {
         stopBlinkTick()
         val oldView = overlayView
         live2dView?.release()
-        stateVideoView?.release()
         staticPngView?.release()
         oldView?.let { runCatching { windowManager?.removeView(it) } }
 
         val minimal = MouthOverlayView(this)
         mouthView = minimal
         live2dView = null
-        stateVideoView = null
         staticPngView = null
         overlayView = minimal
         val selection = CharacterAdapterFactory.create(
@@ -592,22 +562,6 @@ class CharacterOverlayService : Service() {
     private fun renderSnapshotOnMain(snapshot: UniversalStateSnapshot) {
         requireMainThread("renderSnapshotOnMain")
         if (characterEngine == null) return
-        if (serviceCharacterMode == CharacterMode.STATE_VIDEO) {
-            val debugState = stateVideoDebugState
-            val effectiveSnapshot = if (debugState != null) {
-                snapshot.copy(
-                    state = debugState,
-                    speakingSignalSource = "State video manual test"
-                )
-            } else {
-                snapshot
-            }
-            currentState = effectiveSnapshot.state
-            stopAnimation(closeMouth = false)
-            MouthRenderDiagnostics.recordCharacterEngineRender()
-            characterEngine?.bind(effectiveSnapshot, 0f)
-            return
-        }
         if (serviceCharacterMode == CharacterMode.STATIC_PNG) {
             renderStaticPngSnapshot(snapshot)
             return
@@ -624,14 +578,11 @@ class CharacterOverlayService : Service() {
         MouthDriveDiagnostics.reset()
         MouthRenderDiagnostics.reset()
         live2dView?.release()
-        stateVideoView?.release()
         staticPngView?.release()
-        stateVideoDebugState = null
         overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
         live2dView = null
-        stateVideoView = null
         staticPngView = null
         overlayView = null
         characterEngine = null
@@ -786,10 +737,6 @@ class CharacterOverlayService : Service() {
             activeService?.runPhysicsTest()
         }
 
-        fun testStateVideoForDebug(state: UniversalAiState) {
-            activeService?.runStateVideoTest(state)
-            CaptureSessionState.forceStateForDebug(state, "State video manual test")
-        }
 
         fun testStaticPngMouthForDebug(shape: StaticPngMouthShape) {
             activeService?.runStaticPngMouthTest(shape)
@@ -871,23 +818,6 @@ class CharacterOverlayService : Service() {
                 MouthRenderDiagnostics.recordCharacterEngineRender()
                 characterEngine?.bind(CaptureSessionState.current(), lastCharacterMouthOpen)
             }
-        }
-    }
-
-    private fun runStateVideoTest(state: UniversalAiState) {
-        if (serviceCharacterMode != CharacterMode.STATE_VIDEO) return
-        stateVideoDebugState = state
-        handler.post {
-            if (serviceCharacterMode != CharacterMode.STATE_VIDEO) return@post
-            stopAnimation(closeMouth = false)
-            val snapshot = CaptureSessionState.current().copy(
-                state = state,
-                speakingSignalSource = "State video manual test"
-            )
-            currentState = state
-            stateVideoView?.renderManualTestState(state)
-            MouthRenderDiagnostics.recordCharacterEngineRender()
-            characterEngine?.bind(snapshot, 0f)
         }
     }
 

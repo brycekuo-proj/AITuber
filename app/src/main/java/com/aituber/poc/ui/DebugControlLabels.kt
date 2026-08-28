@@ -18,7 +18,6 @@ object DebugControlLabels {
     fun character(mode: CharacterMode, live2dProfileName: String): String = when (mode) {
         CharacterMode.MINIMAL_MOUTH -> "CHARACTER: MINIMAL"
         CharacterMode.LIVE2D -> "CHARACTER: ${live2dProfileName.uppercase()}"
-        CharacterMode.STATE_VIDEO -> "CHARACTER: WHITEHAIR FEMALE"
         CharacterMode.STATIC_PNG -> "CHARACTER: XIANXIA STATIC"
     }
 
@@ -53,7 +52,4 @@ object DebugControlLabels {
     fun testEarsEnabled(fallbackIdleEnabled: String, earOutputsAvailable: String): Boolean =
         fallbackIdleEnabled == "YES" && earOutputsAvailable == "YES"
 
-    fun stateVideoTestButton(stateName: String): String = "TEST $stateName"
-
-    fun stateVideoControlsVisible(mode: CharacterMode): Boolean = mode == CharacterMode.STATE_VIDEO
 }

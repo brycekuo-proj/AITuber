@@ -30,8 +30,6 @@ object CharacterDiagnostics {
             },
             live2dFallbackReason = if (requestedMode == CharacterMode.LIVE2D) {
                 if (overlayRunning) "WAITING_FOR_SURFACE" else "WAITING_FOR_OVERLAY"
-            } else if (requestedMode == CharacterMode.STATE_VIDEO) {
-                if (overlayRunning) "WAITING_FOR_PLAYER" else "WAITING_FOR_OVERLAY"
             } else {
                 "n/a"
             }
@@ -61,27 +59,6 @@ object CharacterDiagnostics {
         )
     }
 
-    @Synchronized
-    fun recordStateVideo(snapshot: StateVideoDiagnosticsSnapshot) {
-        current = current.copy(
-            runtimeType = "STATE_VIDEO",
-            stateVideoStatus = snapshot.status,
-            stateVideoRequestedTestState = snapshot.requestedTestState,
-            stateVideoCurrentState = snapshot.currentState,
-            stateVideoCurrentClip = snapshot.currentClip,
-            stateVideoResolvedClipPath = snapshot.resolvedClipPath,
-            stateVideoPlayerPreparing = if (snapshot.playerPreparing) "YES" else "NO",
-            stateVideoPlayerReady = if (snapshot.playerReady) "YES" else "NO",
-            stateVideoPlayerPlaying = if (snapshot.playerPlaying) "YES" else "NO",
-            stateVideoLoopEnabled = if (snapshot.loopEnabled) "YES" else "NO",
-            stateVideoMuted = if (snapshot.muted) "YES" else "NO",
-            stateVideoWidth = snapshot.videoWidth,
-            stateVideoHeight = snapshot.videoHeight,
-            stateVideoSwitchCount = snapshot.stateSwitchCount,
-            stateVideoLastStateSwitchMs = snapshot.lastStateSwitchMs,
-            stateVideoLastVideoError = snapshot.lastVideoError
-        )
-    }
 
     @Synchronized
     fun recordStaticPngMouth(
@@ -399,8 +376,6 @@ object CharacterDiagnostics {
             },
             live2dFallbackReason = if (requestedMode == CharacterMode.LIVE2D) {
                 "WAITING_FOR_OVERLAY"
-            } else if (requestedMode == CharacterMode.STATE_VIDEO) {
-                "WAITING_FOR_OVERLAY"
             } else {
                 "LIVE2D_DISABLED"
             }
@@ -522,21 +497,6 @@ data class CharacterDiagnosticsSnapshot(
     val live2dFallbackReason: String,
     val live2dMouthParameterStatus: String,
     val live2dLastError: String,
-    val stateVideoStatus: String,
-    val stateVideoRequestedTestState: String,
-    val stateVideoCurrentState: String,
-    val stateVideoCurrentClip: String,
-    val stateVideoResolvedClipPath: String,
-    val stateVideoPlayerPreparing: String,
-    val stateVideoPlayerReady: String,
-    val stateVideoPlayerPlaying: String,
-    val stateVideoLoopEnabled: String,
-    val stateVideoMuted: String,
-    val stateVideoWidth: Int,
-    val stateVideoHeight: Int,
-    val stateVideoSwitchCount: Long,
-    val stateVideoLastStateSwitchMs: Long?,
-    val stateVideoLastVideoError: String,
     val staticPngMouthShape: String,
     val staticPngMouthRatio: Double,
     val staticPngMouthPatchX: Int,
@@ -680,21 +640,6 @@ data class CharacterDiagnosticsSnapshot(
             live2dFallbackReason = "LIVE2D_DISABLED",
             live2dMouthParameterStatus = "UNAVAILABLE",
             live2dLastError = "n/a",
-            stateVideoStatus = "DISABLED",
-            stateVideoRequestedTestState = "n/a",
-            stateVideoCurrentState = "UNKNOWN",
-            stateVideoCurrentClip = "n/a",
-            stateVideoResolvedClipPath = "n/a",
-            stateVideoPlayerPreparing = "NO",
-            stateVideoPlayerReady = "NO",
-            stateVideoPlayerPlaying = "NO",
-            stateVideoLoopEnabled = "NO",
-            stateVideoMuted = "YES",
-            stateVideoWidth = 0,
-            stateVideoHeight = 0,
-            stateVideoSwitchCount = 0L,
-            stateVideoLastStateSwitchMs = null,
-            stateVideoLastVideoError = "n/a",
             staticPngMouthShape = "CLOSED",
             staticPngMouthRatio = 0.0,
             staticPngMouthPatchX = 0,
@@ -731,24 +676,6 @@ data class CharacterDiagnosticsSnapshot(
         )
     }
 }
-
-data class StateVideoDiagnosticsSnapshot(
-    val status: String,
-    val requestedTestState: String = "n/a",
-    val currentState: String,
-    val currentClip: String,
-    val resolvedClipPath: String,
-    val playerPreparing: Boolean,
-    val playerReady: Boolean,
-    val playerPlaying: Boolean,
-    val loopEnabled: Boolean,
-    val muted: Boolean,
-    val videoWidth: Int,
-    val videoHeight: Int,
-    val stateSwitchCount: Long,
-    val lastStateSwitchMs: Long?,
-    val lastVideoError: String
-)
 
 data class Live2DDiagnosticsSnapshot(
     val available: Boolean,
@@ -831,12 +758,10 @@ data class Live2DDiagnosticsSnapshot(
 enum class CharacterMode {
     MINIMAL_MOUTH,
     LIVE2D,
-    STATE_VIDEO,
     STATIC_PNG
 }
 
 fun CharacterMode.runtimeTypeLabel(): String = when (this) {
-    CharacterMode.STATE_VIDEO -> "STATE_VIDEO"
     CharacterMode.STATIC_PNG -> "STATIC_PNG"
     CharacterMode.LIVE2D -> "LIVE2D"
     CharacterMode.MINIMAL_MOUTH -> "MINIMAL_MOUTH"
