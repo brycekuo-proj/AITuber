@@ -29,6 +29,26 @@ class StaticPngHairMotionTest {
     }
 
     @Test
+    fun hairTransitionModesExposeDirectCrossfadeAndBridge() {
+        assertEquals(
+            listOf(
+                StaticPngHairTransitionMode.DIRECT,
+                StaticPngHairTransitionMode.CROSSFADE,
+                StaticPngHairTransitionMode.BRIDGE
+            ),
+            StaticPngHairTransitionMode.values().toList()
+        )
+    }
+
+    @Test
+    fun hairTransitionTimingsMatchPocRange() {
+        assertTrue(StaticPngHairMotion.CROSSFADE_MS in 100L..140L)
+        assertEquals(60L, StaticPngHairMotion.BRIDGE_TO_BASE_MS)
+        assertTrue(StaticPngHairMotion.BRIDGE_BASE_HOLD_MS in 20L..40L)
+        assertTrue(StaticPngHairMotion.BRIDGE_FROM_BASE_MS in 80L..120L)
+    }
+
+    @Test
     fun loopStateStartSchedulesOnceUntilTransitionApplied() {
         val loopState = StaticPngHairLoopState()
 
@@ -70,14 +90,18 @@ class StaticPngHairMotionTest {
         val characterPackage = StaticPngCharacterPackage.XianxiaFemale
 
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__mouth__half__replacement__v5.png",
-            characterPackage.mouthLayers.getValue(StaticPngMouthShape.HALF).assetPath
+            "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v6.png",
+            characterPackage.hairLayers.getValue(StaticPngHairShape.FLOAT_A).assetPath
         )
+        assertEquals(4_200L, StaticPngIdleMotion.PERIOD_MS)
         assertEquals(
             "characters/xianxia_female/static/xianxia_female__eyes__half__replacement__v3.png",
             characterPackage.eyeLayers.getValue(StaticPngEyeShape.HALF).assetPath
         )
-        assertEquals(4_200L, StaticPngIdleMotion.PERIOD_MS)
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__mouth__half__replacement__v5.png",
+            characterPackage.mouthLayers.getValue(StaticPngMouthShape.HALF).assetPath
+        )
         assertEquals(2f, StaticPngIdleMotion.OFFSET_Y_DP)
         assertEquals(0.004f, StaticPngIdleMotion.SCALE_AMPLITUDE)
     }

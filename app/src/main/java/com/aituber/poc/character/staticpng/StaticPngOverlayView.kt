@@ -22,6 +22,7 @@ class StaticPngOverlayView(
     private val contentView = FrameLayout(context)
     private val imageView = ImageView(context)
     private val hairLayerView = ImageView(context)
+    private val hairTransitionLayerView = ImageView(context)
     private val eyeLayerView = ImageView(context)
     private val mouthLayerView = ImageView(context)
     private val masterBitmap: Bitmap
@@ -43,8 +44,10 @@ class StaticPngOverlayView(
     private var blinkCount = 0L
     private var hairMotionEnabled = true
     private var hairMotionRunning = false
+    private var hairTransitionMode = StaticPngHairTransitionMode.DIRECT
     private var hairSequenceIndex = 0
     private var nextHairTransitionAtMs: Long? = null
+    private val hairTransitionRunnables = mutableListOf<Runnable>()
     private val idleMotionRunnable = object : Runnable {
         override fun run() {
             if (!idleMotionRunning) return
@@ -75,8 +78,7 @@ class StaticPngOverlayView(
             } else {
                 hairSequenceIndex + 1
             }
-            activeHairShape = StaticPngHairMotion.SEQUENCE[hairSequenceIndex].shape
-            updateHairLayer()
+            transitionHairTo(StaticPngHairMotion.SEQUENCE[hairSequenceIndex].shape)
             scheduleNextHairTransition()
         }
     }
@@ -120,6 +122,17 @@ class StaticPngOverlayView(
         hairLayerView.clipToOutline = false
         contentView.addView(
             hairLayerView,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        hairTransitionLayerView.visibility = View.GONE
+        hairTransitionLayerView.background = null
+        hairTransitionLayerView.imageTintList = null
+        hairTransitionLayerView.clearColorFilter()
+        hairTransitionLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
+        hairTransitionLayerView.adjustViewBounds = false
+        hairTransitionLayerView.clipToOutline = false
+        contentView.addView(
+            hairTransitionLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         eyeBitmaps = characterPackage.eyeLayers.mapValues { (_, layer) ->
@@ -214,8 +227,7 @@ class StaticPngOverlayView(
 
     fun setHairShapeForDebug(shape: StaticPngHairShape) {
         stopHairMotion(resetShape = false)
-        activeHairShape = shape
-        updateHairLayer()
+        transitionHairTo(shape)
         recordHairLayer()
     }
 
@@ -226,6 +238,11 @@ class StaticPngOverlayView(
         } else {
             stopHairMotion(resetShape = true)
         }
+    }
+
+    fun setHairTransitionMode(mode: StaticPngHairTransitionMode) {
+        hairTransitionMode = mode
+        recordHairLayer()
     }
 
     fun release() {
@@ -261,20 +278,99 @@ class StaticPngOverlayView(
     }
 
     private fun updateHairLayer() {
-        val layer = characterPackage.hairLayers[activeHairShape]
-        val bitmap = hairBitmaps[activeHairShape]
-        if (layer == null || bitmap == null) {
+        applyHairShapeDirect(activeHairShape)
+    }
+
+    private fun transitionHairTo(shape: StaticPngHairShape) {
+        if (shape == activeHairShape) {
+            recordHairLayer()
+            return
+        }
+        when (hairTransitionMode) {
+            StaticPngHairTransitionMode.DIRECT -> applyHairShapeDirect(shape)
+            StaticPngHairTransitionMode.CROSSFADE -> crossfadeHairTo(shape)
+            StaticPngHairTransitionMode.BRIDGE -> bridgeHairTo(shape)
+        }
+    }
+
+    private fun applyHairShapeDirect(shape: StaticPngHairShape, cancelTransitions: Boolean = true) {
+        if (cancelTransitions) {
+            cancelHairTransitions()
+        }
+        activeHairShape = shape
+        val bitmap = hairBitmapFor(shape)
+        if (shape == StaticPngHairShape.BASE || bitmap == null) {
             hairLayerView.visibility = View.GONE
             hairLayerView.setImageDrawable(null)
             imageView.visibility = View.VISIBLE
             imageView.setImageBitmap(masterBitmap)
+            hairTransitionLayerView.visibility = View.GONE
+            hairTransitionLayerView.setImageDrawable(null)
             recordHairLayer()
             return
         }
         hairLayerView.setImageBitmap(bitmap)
+        hairLayerView.alpha = 1f
         hairLayerView.visibility = View.VISIBLE
         imageView.visibility = View.GONE
+        hairTransitionLayerView.visibility = View.GONE
+        hairTransitionLayerView.setImageDrawable(null)
         recordHairLayer()
+    }
+
+    private fun crossfadeHairTo(shape: StaticPngHairShape) {
+        cancelHairTransitions()
+        val targetBitmap = hairBitmapFor(shape)
+        if (targetBitmap == null) {
+            applyHairShapeDirect(shape)
+            return
+        }
+        hairTransitionLayerView.setImageBitmap(targetBitmap)
+        hairTransitionLayerView.alpha = 0f
+        hairTransitionLayerView.visibility = View.VISIBLE
+        hairTransitionLayerView.animate()
+            .alpha(1f)
+            .setDuration(StaticPngHairMotion.CROSSFADE_MS)
+            .withEndAction {
+                applyHairShapeDirect(shape)
+            }
+            .start()
+        recordHairLayer()
+    }
+
+    private fun bridgeHairTo(shape: StaticPngHairShape) {
+        if (activeHairShape == StaticPngHairShape.BASE || shape == StaticPngHairShape.BASE) {
+            applyHairShapeDirect(shape)
+            return
+        }
+        cancelHairTransitions()
+        val toBase = Runnable {
+            applyHairShapeDirect(StaticPngHairShape.BASE, cancelTransitions = false)
+        }
+        val toTarget = Runnable {
+            hairTransitionRunnables.clear()
+            applyHairShapeDirect(shape)
+        }
+        hairTransitionRunnables += toBase
+        hairTransitionRunnables += toTarget
+        handler.postDelayed(toBase, StaticPngHairMotion.BRIDGE_TO_BASE_MS)
+        handler.postDelayed(
+            toTarget,
+            StaticPngHairMotion.BRIDGE_TO_BASE_MS +
+                StaticPngHairMotion.BRIDGE_BASE_HOLD_MS +
+                StaticPngHairMotion.BRIDGE_FROM_BASE_MS
+        )
+        recordHairLayer()
+    }
+
+    private fun hairBitmapFor(shape: StaticPngHairShape): Bitmap? {
+        return if (shape == StaticPngHairShape.BASE) masterBitmap else hairBitmaps[shape]
+    }
+
+    private fun cancelHairTransitions() {
+        hairTransitionLayerView.animate().cancel()
+        hairTransitionRunnables.forEach { handler.removeCallbacks(it) }
+        hairTransitionRunnables.clear()
     }
 
     private fun updateMouthLayer() {
@@ -371,6 +467,7 @@ class StaticPngOverlayView(
         hairMotionRunning = false
         nextHairTransitionAtMs = null
         handler.removeCallbacks(hairMotionRunnable)
+        cancelHairTransitions()
         if (resetShape) {
             activeHairShape = StaticPngHairShape.BASE
             updateHairLayer()
@@ -487,12 +584,20 @@ class StaticPngOverlayView(
 
     private fun recordHairLayer() {
         val hairDrawable = hairLayerView.drawable
+        val transitionDrawable = hairTransitionLayerView.drawable
         val masterDrawable = imageView.drawable
-        val drawable = if (activeHairShape == StaticPngHairShape.BASE) masterDrawable else hairDrawable
+        val drawable = if (hairTransitionLayerView.visibility == View.VISIBLE) {
+            transitionDrawable
+        } else if (activeHairShape == StaticPngHairShape.BASE) {
+            masterDrawable
+        } else {
+            hairDrawable
+        }
         CharacterDiagnostics.recordStaticPngHairLayer(
             shape = activeHairShape.name,
             assetPath = characterPackage.hairLayers[activeHairShape]?.assetPath ?: characterPackage.assetPath,
-            visible = hairLayerView.visibility == View.VISIBLE,
+            transitionMode = hairTransitionMode.name,
+            visible = hairLayerView.visibility == View.VISIBLE || hairTransitionLayerView.visibility == View.VISIBLE,
             drawableWidth = drawable?.intrinsicWidth ?: 0,
             drawableHeight = drawable?.intrinsicHeight ?: 0,
             viewWidth = hairLayerView.width,

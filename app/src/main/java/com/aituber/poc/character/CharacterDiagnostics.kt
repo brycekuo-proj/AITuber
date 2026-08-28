@@ -138,6 +138,7 @@ object CharacterDiagnostics {
     fun recordStaticPngHairLayer(
         shape: String,
         assetPath: String,
+        transitionMode: String,
         visible: Boolean,
         drawableWidth: Int,
         drawableHeight: Int,
@@ -152,6 +153,7 @@ object CharacterDiagnostics {
         current = current.copy(
             staticPngHairShape = shape,
             staticPngCurrentHairAssetPath = assetPath,
+            staticPngHairTransitionMode = transitionMode,
             staticPngHairLayerVisible = if (visible) "YES" else "NO",
             staticPngHairLayerDrawableSize = "${drawableWidth}x${drawableHeight}",
             staticPngHairLayerViewBounds = "${viewWidth}x${viewHeight}",
@@ -521,6 +523,7 @@ data class CharacterDiagnosticsSnapshot(
     val staticPngEyeLayerColorFilter: String,
     val staticPngHairShape: String,
     val staticPngCurrentHairAssetPath: String,
+    val staticPngHairTransitionMode: String,
     val staticPngHairLayerVisible: String,
     val staticPngHairLayerDrawableSize: String,
     val staticPngHairLayerViewBounds: String,
@@ -664,6 +667,7 @@ data class CharacterDiagnosticsSnapshot(
             staticPngEyeLayerColorFilter = "n/a",
             staticPngHairShape = "BASE",
             staticPngCurrentHairAssetPath = "n/a",
+            staticPngHairTransitionMode = "DIRECT",
             staticPngHairLayerVisible = "NO",
             staticPngHairLayerDrawableSize = "0x0",
             staticPngHairLayerViewBounds = "0x0",

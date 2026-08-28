@@ -27,6 +27,8 @@ import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
+import com.aituber.poc.character.staticpng.StaticPngHairShape
+import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
@@ -90,7 +92,13 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngOpenButton: Button
     private lateinit var testStaticPngIdleMotionOnButton: Button
     private lateinit var testStaticPngBlinkButton: Button
+    private lateinit var testStaticPngHairBaseButton: Button
+    private lateinit var testStaticPngHairAButton: Button
+    private lateinit var testStaticPngHairBButton: Button
     private lateinit var testStaticPngHairMotionOnButton: Button
+    private lateinit var testStaticPngHairTransitionDirectButton: Button
+    private lateinit var testStaticPngHairTransitionCrossfadeButton: Button
+    private lateinit var testStaticPngHairTransitionBridgeButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -200,6 +208,7 @@ class MainActivity : Activity() {
     private lateinit var staticPngEyeLayerColorFilterValue: TextView
     private lateinit var staticPngHairShapeValue: TextView
     private lateinit var staticPngCurrentHairAssetPathValue: TextView
+    private lateinit var staticPngHairTransitionModeValue: TextView
     private lateinit var staticPngHairLayerVisibleValue: TextView
     private lateinit var staticPngHairLayerDrawableSizeValue: TextView
     private lateinit var staticPngHairLayerViewBoundsValue: TextView
@@ -695,10 +704,28 @@ class MainActivity : Activity() {
             CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled)
             refreshControlLabels()
         }
+        testStaticPngHairBaseButton = addButton(root, "TEST STATIC HAIR BASE") {
+            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.BASE)
+        }
+        testStaticPngHairAButton = addButton(root, "TEST STATIC HAIR A") {
+            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.FLOAT_A)
+        }
+        testStaticPngHairBButton = addButton(root, "TEST STATIC HAIR B") {
+            CharacterOverlayService.testStaticPngHairForDebug(StaticPngHairShape.FLOAT_B)
+        }
         testStaticPngHairMotionOnButton = addButton(root, "HAIR MOTION: ON") {
             val enabled = CharacterDiagnostics.snapshot().staticPngHairMotionActive != "YES"
             CharacterOverlayService.setStaticPngHairMotionForDebug(enabled)
             refreshControlLabels()
+        }
+        testStaticPngHairTransitionDirectButton = addButton(root, "TRANSITION: DIRECT") {
+            CharacterOverlayService.setStaticPngHairTransitionModeForDebug(StaticPngHairTransitionMode.DIRECT)
+        }
+        testStaticPngHairTransitionCrossfadeButton = addButton(root, "TRANSITION: CROSSFADE") {
+            CharacterOverlayService.setStaticPngHairTransitionModeForDebug(StaticPngHairTransitionMode.CROSSFADE)
+        }
+        testStaticPngHairTransitionBridgeButton = addButton(root, "TRANSITION: BRIDGE") {
+            CharacterOverlayService.setStaticPngHairTransitionModeForDebug(StaticPngHairTransitionMode.BRIDGE)
         }
         updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
@@ -730,6 +757,7 @@ class MainActivity : Activity() {
         staticPngEyeLayerColorFilterValue = addDiagnosticField(root, "Eye Layer ColorFilter")
         staticPngHairShapeValue = addDiagnosticField(root, "Static Hair Shape")
         staticPngCurrentHairAssetPathValue = addDiagnosticField(root, "Current Hair Asset Path")
+        staticPngHairTransitionModeValue = addDiagnosticField(root, "Current Hair Transition Mode")
         staticPngHairLayerVisibleValue = addDiagnosticField(root, "Hair Layer Visible")
         staticPngHairLayerDrawableSizeValue = addDiagnosticField(root, "Hair Layer Drawable Size")
         staticPngHairLayerViewBoundsValue = addDiagnosticField(root, "Hair Layer View Bounds")
@@ -1195,7 +1223,19 @@ class MainActivity : Activity() {
         if (::testStaticPngOpenButton.isInitialized) testStaticPngOpenButton.visibility = visibility
         if (::testStaticPngBlinkButton.isInitialized) testStaticPngBlinkButton.visibility = visibility
         if (::testStaticPngIdleMotionOnButton.isInitialized) testStaticPngIdleMotionOnButton.visibility = visibility
+        if (::testStaticPngHairBaseButton.isInitialized) testStaticPngHairBaseButton.visibility = visibility
+        if (::testStaticPngHairAButton.isInitialized) testStaticPngHairAButton.visibility = visibility
+        if (::testStaticPngHairBButton.isInitialized) testStaticPngHairBButton.visibility = visibility
         if (::testStaticPngHairMotionOnButton.isInitialized) testStaticPngHairMotionOnButton.visibility = visibility
+        if (::testStaticPngHairTransitionDirectButton.isInitialized) {
+            testStaticPngHairTransitionDirectButton.visibility = visibility
+        }
+        if (::testStaticPngHairTransitionCrossfadeButton.isInitialized) {
+            testStaticPngHairTransitionCrossfadeButton.visibility = visibility
+        }
+        if (::testStaticPngHairTransitionBridgeButton.isInitialized) {
+            testStaticPngHairTransitionBridgeButton.visibility = visibility
+        }
     }
 
     private fun startDetection() {
@@ -1461,6 +1501,7 @@ class MainActivity : Activity() {
             staticPngEyeLayerColorFilterValue.text = character.staticPngEyeLayerColorFilter
             staticPngHairShapeValue.text = character.staticPngHairShape
             staticPngCurrentHairAssetPathValue.text = character.staticPngCurrentHairAssetPath
+            staticPngHairTransitionModeValue.text = character.staticPngHairTransitionMode
             staticPngHairLayerVisibleValue.text = character.staticPngHairLayerVisible
             staticPngHairLayerDrawableSizeValue.text = character.staticPngHairLayerDrawableSize
             staticPngHairLayerViewBoundsValue.text = character.staticPngHairLayerViewBounds

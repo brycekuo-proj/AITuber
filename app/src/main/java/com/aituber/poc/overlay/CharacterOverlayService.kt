@@ -27,6 +27,7 @@ import com.aituber.poc.character.staticpng.StaticPngCharacterAdapter
 import com.aituber.poc.character.staticpng.StaticPngCharacterPackage
 import com.aituber.poc.character.staticpng.StaticPngEyeShape
 import com.aituber.poc.character.staticpng.StaticPngHairShape
+import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.poc.CaptureSessionState
@@ -765,6 +766,10 @@ class CharacterOverlayService : Service() {
         fun setStaticPngHairMotionForDebug(enabled: Boolean) {
             activeService?.runStaticPngHairMotionTest(enabled)
         }
+
+        fun setStaticPngHairTransitionModeForDebug(mode: StaticPngHairTransitionMode) {
+            activeService?.runStaticPngHairTransitionModeTest(mode)
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -876,6 +881,14 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setHairMotionEnabled(enabled)
+        }
+    }
+
+    private fun runStaticPngHairTransitionModeTest(mode: StaticPngHairTransitionMode) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setHairTransitionMode(mode)
         }
     }
 }
