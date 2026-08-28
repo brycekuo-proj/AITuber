@@ -17,9 +17,9 @@ class StaticPngChestBreathOverlayView(context: Context) : View(context) {
     private var sourceWidth = 0
     private var sourceHeight = 0
     private var frame = StaticPngChestBreathMotion.frame(0L, amplitudePercent = 0)
+    private var displayScale = StaticPngChestBreathMotion.REFERENCE_DISPLAY_SCALE
 
     init {
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
         visibility = GONE
     }
 
@@ -28,6 +28,12 @@ class StaticPngChestBreathOverlayView(context: Context) : View(context) {
         pieceBounds = bounds
         sourceWidth = bitmap?.width ?: 0
         sourceHeight = bitmap?.height ?: 0
+        invalidate()
+    }
+
+    fun setDisplayScale(scale: Float) {
+        if (scale == displayScale) return
+        displayScale = scale
         invalidate()
     }
 
@@ -43,6 +49,23 @@ class StaticPngChestBreathOverlayView(context: Context) : View(context) {
 
     fun currentTransformedBounds(): StaticPngViewRect {
         return frame.transformedBounds(currentBaseBounds(), resources.displayMetrics.density)
+    }
+
+    fun renderLayerTypeLabel(): String {
+        return when (layerType) {
+            LAYER_TYPE_SOFTWARE -> "SOFTWARE"
+            LAYER_TYPE_HARDWARE -> "HARDWARE"
+            else -> "DEFAULT"
+        }
+    }
+
+    fun overlayBoundsString(): String = "${width}x${height}"
+
+    fun currentDisplayScale(): Float = displayScale
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {

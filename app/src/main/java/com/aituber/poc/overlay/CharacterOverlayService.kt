@@ -120,6 +120,7 @@ class CharacterOverlayService : Service() {
         windowManager = getSystemService(WindowManager::class.java)
         overlayView = overlaySelection.view
         val layoutParams = overlayLayoutParams(overlaySelection.live2dActive)
+        staticPngView?.setDisplayScale(live2dCurrentScale)
         if (overlaySelection.live2dActive) {
             installLive2DDrag(overlaySelection.view, layoutParams)
         }
@@ -266,6 +267,7 @@ class CharacterOverlayService : Service() {
                     )
 
                     live2dCurrentScale = nextScale
+                    staticPngView?.setDisplayScale(nextScale)
                     params.width = nextSize.width
                     params.height = nextSize.height
                     params.x = nextPosition.x
@@ -281,6 +283,7 @@ class CharacterOverlayService : Service() {
 
                 override fun onScaleEnd(detector: ScaleGestureDetector) {
                     positionStore.save(Live2DOverlayPosition(params.x, params.y), live2dCurrentScale)
+                    staticPngView?.setDisplayScale(live2dCurrentScale)
                     recordLive2DCurrentTransform(
                         params = params,
                         dragging = false,

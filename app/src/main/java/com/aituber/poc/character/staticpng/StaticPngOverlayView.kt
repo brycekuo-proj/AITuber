@@ -48,6 +48,7 @@ class StaticPngOverlayView(
     private var chestBreathMotionFrame = StaticPngChestBreathMotion.frame(0L)
     private var chestBreathAmplitudePercent = StaticPngChestBreathMotion.amplitudePercent
     private var breathPeriodMs = StaticPngBreathMotion.periodMs
+    private var displayScale = StaticPngChestBreathMotion.REFERENCE_DISPLAY_SCALE
     private var autoBlinkEnabled = true
     private var blinkRunning = false
     private var blinkScheduled = false
@@ -280,6 +281,16 @@ class StaticPngOverlayView(
         if (breathMotionRunning) applyBreathMotionFrame(SystemClock.uptimeMillis()) else recordBreathMotion()
     }
 
+    fun setDisplayScale(scale: Float) {
+        displayScale = scale
+        chestBreathLayerView.setDisplayScale(scale)
+        if (breathMotionRunning) {
+            applyBreathMotionFrame(SystemClock.uptimeMillis())
+        } else {
+            recordBreathMotion()
+        }
+    }
+
     fun triggerBlinkForDebug() {
         triggerBlink(scheduleNext = false)
     }
@@ -362,6 +373,10 @@ class StaticPngOverlayView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         updateBreathPivot(w, h)
+        chestBreathLayerView.invalidate()
+        if (breathMotionRunning) {
+            applyBreathMotionFrame(SystemClock.uptimeMillis())
+        }
         recordEyeLayer()
         recordHairLayer()
         recordBreathMotion()
@@ -574,7 +589,10 @@ class StaticPngOverlayView(
             chestBreathMotionFrame = StaticPngChestBreathMotion.frame(
                 elapsedMs = 0L,
                 amplitudePercent = chestBreathAmplitudePercent,
-                periodMs = breathPeriodMs
+                periodMs = breathPeriodMs,
+                displayScale = displayScale,
+                density = resources.displayMetrics.density,
+                baseBounds = chestBreathLayerView.currentBaseBounds()
             )
             breathView.scaleX = 1f
             breathView.scaleY = 1f
@@ -593,7 +611,10 @@ class StaticPngOverlayView(
         chestBreathMotionFrame = StaticPngChestBreathMotion.frame(
             elapsedMs = elapsedMs,
             amplitudePercent = chestBreathAmplitudePercent,
-            periodMs = breathPeriodMs
+            periodMs = breathPeriodMs,
+            displayScale = displayScale,
+            density = resources.displayMetrics.density,
+            baseBounds = chestBreathLayerView.currentBaseBounds()
         )
         breathView.scaleX = 1f
         breathView.scaleY = 1f
@@ -646,7 +667,15 @@ class StaticPngOverlayView(
             chestScaleY = chestBreathMotionFrame.scaleY,
             chestOffsetY = chestBreathLayerView.currentTransformedBounds().top -
                 chestBreathLayerView.currentBaseBounds().top,
-            chestLocalTransform = chestBreathMotionFrame.localTransformString()
+            chestLocalTransform = chestBreathMotionFrame.localTransformString(),
+            chestOverlayBounds = chestBreathLayerView.overlayBoundsString(),
+            chestLayerType = chestBreathLayerView.renderLayerTypeLabel(),
+            chestCompensationFactor = chestBreathMotionFrame.compensationFactor,
+            chestEffectiveScaleX = chestBreathMotionFrame.effectiveScaleX,
+            chestEffectiveScaleY = chestBreathMotionFrame.effectiveScaleY,
+            chestPeakPixelDelta = chestBreathMotionFrame.peakPixelDelta,
+            chestCurrentPixelDelta = chestBreathMotionFrame.currentPixelDelta,
+            chestDisplayScale = chestBreathLayerView.currentDisplayScale()
         )
     }
 

@@ -17,7 +17,7 @@ object StaticPngBreathMotion {
 
     const val PERIOD_MIN_MS = 2_500L
     const val PERIOD_MAX_MS = 7_000L
-    const val DEFAULT_PERIOD_MS = 4_800L
+    const val DEFAULT_PERIOD_MS = 4_525L
 
     // Legacy whole-body breath remains available for comparison, but defaults off.
     // Chest breath is the primary Xianxia static breathing effect.

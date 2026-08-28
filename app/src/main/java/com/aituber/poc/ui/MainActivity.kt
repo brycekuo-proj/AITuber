@@ -200,6 +200,9 @@ class MainActivity : Activity() {
     private lateinit var staticPngChestBreathNormalizedBoundsValue: TextView
     private lateinit var staticPngChestBreathViewBoundsValue: TextView
     private lateinit var staticPngChestBreathTransformValue: TextView
+    private lateinit var staticPngChestBreathRenderValue: TextView
+    private lateinit var staticPngChestBreathCompensationValue: TextView
+    private lateinit var staticPngChestBreathDeltaValue: TextView
     private lateinit var live2dProfileIdValue: TextView
     private lateinit var live2dProfileNameValue: TextView
     private lateinit var live2dModel3FileValue: TextView
@@ -934,6 +937,9 @@ class MainActivity : Activity() {
         staticPngChestBreathNormalizedBoundsValue = addDiagnosticField(root, "Chest Piece Normalized Bounds")
         staticPngChestBreathViewBoundsValue = addDiagnosticField(root, "Chest Piece View Bounds")
         staticPngChestBreathTransformValue = addDiagnosticField(root, "Chest Local Scale/Offset")
+        staticPngChestBreathRenderValue = addDiagnosticField(root, "Chest Render Layer")
+        staticPngChestBreathCompensationValue = addDiagnosticField(root, "Chest Size Compensation")
+        staticPngChestBreathDeltaValue = addDiagnosticField(root, "Chest Pixel Delta")
         staticPngBlinkActiveValue = addDiagnosticField(root, "Static Blink Active")
         staticPngEyeShapeValue = addDiagnosticField(root, "Static Eye Shape")
         staticPngAutoBlinkEnabledValue = addDiagnosticField(root, "Auto Blink Enabled")
@@ -1758,6 +1764,20 @@ class MainActivity : Activity() {
             staticPngChestBreathTransformValue.text = "%s dyPx=%.2f".format(
                 character.staticPngChestBreathLocalTransform,
                 character.staticPngChestBreathOffsetY
+            )
+            staticPngChestBreathRenderValue.text = "%s overlay=%s displayScale=%.3f".format(
+                character.staticPngChestBreathLayerType,
+                character.staticPngChestBreathOverlayBounds,
+                character.staticPngChestBreathDisplayScale
+            )
+            staticPngChestBreathCompensationValue.text = "%.2f eff=%.4f / %.4f".format(
+                character.staticPngChestBreathCompensationFactor,
+                character.staticPngChestBreathEffectiveScaleX,
+                character.staticPngChestBreathEffectiveScaleY
+            )
+            staticPngChestBreathDeltaValue.text = "peak=%.2f px current=%.2f px".format(
+                character.staticPngChestBreathPeakPixelDelta,
+                character.staticPngChestBreathCurrentPixelDelta
             )
             staticPngBlinkActiveValue.text = character.staticPngBlinkActive
             staticPngEyeShapeValue.text = character.staticPngEyeShape
