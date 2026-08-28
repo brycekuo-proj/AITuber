@@ -16,7 +16,7 @@ data class StaticPngCharacterPackage(
         val XianxiaFemale = StaticPngCharacterPackage(
             id = "xianxia_female_static",
             displayName = "Xianxia Static",
-            assetPath = "characters/xianxia_female/static/xianxia_female__static__master__2000px__v2.png",
+            assetPath = "characters/xianxia_female/static/xianxia_female__static__master__2000px__v3.png",
             sourceWidthPx = 1023,
             sourceHeightPx = 2000,
             mouthReplacementPatch = StaticPngMouthPatch(
