@@ -135,6 +135,29 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordStaticPngEyeLayer(
+        assetPath: String,
+        visible: Boolean,
+        drawableWidth: Int,
+        drawableHeight: Int,
+        viewWidth: Int,
+        viewHeight: Int,
+        background: String,
+        tint: String,
+        colorFilter: String
+    ) {
+        current = current.copy(
+            staticPngCurrentEyeAssetPath = assetPath,
+            staticPngEyeLayerVisible = if (visible) "YES" else "NO",
+            staticPngEyeLayerDrawableSize = "${drawableWidth}x${drawableHeight}",
+            staticPngEyeLayerViewBounds = "${viewWidth}x${viewHeight}",
+            staticPngEyeLayerBackground = background,
+            staticPngEyeLayerTint = tint,
+            staticPngEyeLayerColorFilter = colorFilter
+        )
+    }
+
+    @Synchronized
     fun recordFrame(
         adapterId: String,
         frame: CharacterParameterFrame,
@@ -500,6 +523,13 @@ data class CharacterDiagnosticsSnapshot(
     val staticPngAutoBlinkEnabled: String,
     val staticPngNextBlinkInMs: Long?,
     val staticPngBlinkCount: Long,
+    val staticPngCurrentEyeAssetPath: String,
+    val staticPngEyeLayerVisible: String,
+    val staticPngEyeLayerDrawableSize: String,
+    val staticPngEyeLayerViewBounds: String,
+    val staticPngEyeLayerBackground: String,
+    val staticPngEyeLayerTint: String,
+    val staticPngEyeLayerColorFilter: String,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
@@ -641,6 +671,13 @@ data class CharacterDiagnosticsSnapshot(
             staticPngAutoBlinkEnabled = "NO",
             staticPngNextBlinkInMs = null,
             staticPngBlinkCount = 0L,
+            staticPngCurrentEyeAssetPath = "n/a",
+            staticPngEyeLayerVisible = "NO",
+            staticPngEyeLayerDrawableSize = "0x0",
+            staticPngEyeLayerViewBounds = "0x0",
+            staticPngEyeLayerBackground = "n/a",
+            staticPngEyeLayerTint = "n/a",
+            staticPngEyeLayerColorFilter = "n/a",
             lastFrameTimestampMs = null
         )
     }

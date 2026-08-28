@@ -87,7 +87,9 @@ class StaticPngOverlayView(
             }
         }
         eyeLayerView.visibility = View.GONE
-        eyeLayerView.setBackgroundColor(Color.TRANSPARENT)
+        eyeLayerView.background = null
+        eyeLayerView.imageTintList = null
+        eyeLayerView.clearColorFilter()
         eyeLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
         eyeLayerView.adjustViewBounds = false
         eyeLayerView.clipToOutline = false
@@ -112,6 +114,7 @@ class StaticPngOverlayView(
         recordMouthShape()
         recordIdleMotion()
         recordBlink()
+        recordEyeLayer()
     }
 
     fun show() {
@@ -159,6 +162,14 @@ class StaticPngOverlayView(
         recordBlink()
     }
 
+    fun setEyeShapeForDebug(shape: StaticPngEyeShape) {
+        cancelBlinkCallbacks(resetShape = false)
+        activeEyeShape = shape
+        updateEyeLayer()
+        recordBlink()
+        recordEyeLayer()
+    }
+
     fun release() {
         cancelBlinkCallbacks(resetShape = true)
         stopIdleMotion(resetTransform = true)
@@ -180,6 +191,11 @@ class StaticPngOverlayView(
         super.onDetachedFromWindow()
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        recordEyeLayer()
+    }
+
     private fun updateMouthLayer() {
         val layer = characterPackage.mouthLayers[activeShape]
         val bitmap = mouthBitmaps[activeShape]
@@ -198,10 +214,12 @@ class StaticPngOverlayView(
         if (layer == null || bitmap == null) {
             eyeLayerView.visibility = View.GONE
             eyeLayerView.setImageDrawable(null)
+            recordEyeLayer()
             return
         }
         eyeLayerView.setImageBitmap(bitmap)
         eyeLayerView.visibility = View.VISIBLE
+        recordEyeLayer()
     }
 
     private fun recordMouthShape() {
@@ -333,6 +351,22 @@ class StaticPngOverlayView(
             autoEnabled = autoBlinkEnabled,
             nextBlinkInMs = nextBlinkAtMs?.let { (it - SystemClock.uptimeMillis()).coerceAtLeast(0L) },
             blinkCount = blinkCount
+        )
+        recordEyeLayer()
+    }
+
+    private fun recordEyeLayer() {
+        val drawable = eyeLayerView.drawable
+        CharacterDiagnostics.recordStaticPngEyeLayer(
+            assetPath = characterPackage.eyeLayers[activeEyeShape]?.assetPath ?: "n/a",
+            visible = eyeLayerView.visibility == View.VISIBLE,
+            drawableWidth = drawable?.intrinsicWidth ?: 0,
+            drawableHeight = drawable?.intrinsicHeight ?: 0,
+            viewWidth = eyeLayerView.width,
+            viewHeight = eyeLayerView.height,
+            background = if (eyeLayerView.background == null) "null" else eyeLayerView.background.javaClass.simpleName,
+            tint = if (eyeLayerView.imageTintList == null) "null" else "present",
+            colorFilter = if (eyeLayerView.colorFilter == null) "null" else "present"
         )
     }
 }

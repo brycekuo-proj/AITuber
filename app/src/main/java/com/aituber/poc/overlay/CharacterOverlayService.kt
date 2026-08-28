@@ -25,6 +25,7 @@ import com.aituber.poc.character.live2d.Live2DOverlayView
 import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.character.staticpng.StaticPngCharacterAdapter
 import com.aituber.poc.character.staticpng.StaticPngCharacterPackage
+import com.aituber.poc.character.staticpng.StaticPngEyeShape
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.character.statevideo.StateVideoCharacterAdapter
@@ -804,6 +805,10 @@ class CharacterOverlayService : Service() {
         fun setStaticPngAutoBlinkForDebug(enabled: Boolean) {
             activeService?.runStaticPngAutoBlinkTest(enabled)
         }
+
+        fun testStaticPngEyeForDebug(shape: StaticPngEyeShape) {
+            activeService?.runStaticPngEyeTest(shape)
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -908,6 +913,14 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setAutoBlinkEnabled(enabled)
+        }
+    }
+
+    private fun runStaticPngEyeTest(shape: StaticPngEyeShape) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setEyeShapeForDebug(shape)
         }
     }
 }

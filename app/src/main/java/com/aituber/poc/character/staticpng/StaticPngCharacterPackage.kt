@@ -40,10 +40,10 @@ data class StaticPngCharacterPackage(
             ),
             eyeLayers = mapOf(
                 StaticPngEyeShape.HALF to StaticPngEyeLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__eyes__half__replacement__v1.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__eyes__half__replacement__v3.png"
                 ),
                 StaticPngEyeShape.CLOSED to StaticPngEyeLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__eyes__closed__replacement__v1.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__eyes__closed__replacement__v2.png"
                 )
             )
         )

@@ -27,6 +27,7 @@ import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
+import com.aituber.poc.character.staticpng.StaticPngEyeShape
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
@@ -97,6 +98,9 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngBlinkButton: Button
     private lateinit var testStaticPngAutoBlinkOnButton: Button
     private lateinit var testStaticPngAutoBlinkOffButton: Button
+    private lateinit var testStaticPngEyeOpenButton: Button
+    private lateinit var testStaticPngEyeHalfButton: Button
+    private lateinit var testStaticPngEyeClosedButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -197,6 +201,13 @@ class MainActivity : Activity() {
     private lateinit var staticPngAutoBlinkEnabledValue: TextView
     private lateinit var staticPngNextBlinkInValue: TextView
     private lateinit var staticPngBlinkCountValue: TextView
+    private lateinit var staticPngCurrentEyeAssetPathValue: TextView
+    private lateinit var staticPngEyeLayerVisibleValue: TextView
+    private lateinit var staticPngEyeLayerDrawableSizeValue: TextView
+    private lateinit var staticPngEyeLayerViewBoundsValue: TextView
+    private lateinit var staticPngEyeLayerBackgroundValue: TextView
+    private lateinit var staticPngEyeLayerTintValue: TextView
+    private lateinit var staticPngEyeLayerColorFilterValue: TextView
     private lateinit var breathEnabledValue: TextView
     private lateinit var breathParameterStatusValue: TextView
     private lateinit var breathNormalizedValue: TextView
@@ -717,6 +728,15 @@ class MainActivity : Activity() {
         testStaticPngAutoBlinkOffButton = addButton(root, "TEST STATIC AUTO BLINK OFF") {
             CharacterOverlayService.setStaticPngAutoBlinkForDebug(enabled = false)
         }
+        testStaticPngEyeOpenButton = addButton(root, "TEST STATIC EYE OPEN") {
+            CharacterOverlayService.testStaticPngEyeForDebug(StaticPngEyeShape.OPEN)
+        }
+        testStaticPngEyeHalfButton = addButton(root, "TEST STATIC EYE HALF") {
+            CharacterOverlayService.testStaticPngEyeForDebug(StaticPngEyeShape.HALF)
+        }
+        testStaticPngEyeClosedButton = addButton(root, "TEST STATIC EYE CLOSED") {
+            CharacterOverlayService.testStaticPngEyeForDebug(StaticPngEyeShape.CLOSED)
+        }
         updateStateVideoControlVisibility()
         updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
@@ -739,6 +759,13 @@ class MainActivity : Activity() {
         staticPngAutoBlinkEnabledValue = addDiagnosticField(root, "Auto Blink Enabled")
         staticPngNextBlinkInValue = addDiagnosticField(root, "Static Next Blink In")
         staticPngBlinkCountValue = addDiagnosticField(root, "Static Blink Count")
+        staticPngCurrentEyeAssetPathValue = addDiagnosticField(root, "Current Eye Asset Path")
+        staticPngEyeLayerVisibleValue = addDiagnosticField(root, "Eye Layer Visible")
+        staticPngEyeLayerDrawableSizeValue = addDiagnosticField(root, "Eye Layer Drawable Size")
+        staticPngEyeLayerViewBoundsValue = addDiagnosticField(root, "Eye Layer View Bounds")
+        staticPngEyeLayerBackgroundValue = addDiagnosticField(root, "Eye Layer Background")
+        staticPngEyeLayerTintValue = addDiagnosticField(root, "Eye Layer Tint")
+        staticPngEyeLayerColorFilterValue = addDiagnosticField(root, "Eye Layer ColorFilter")
         live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
         live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
         live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
@@ -1216,6 +1243,9 @@ class MainActivity : Activity() {
         if (::testStaticPngBlinkButton.isInitialized) testStaticPngBlinkButton.visibility = visibility
         if (::testStaticPngAutoBlinkOnButton.isInitialized) testStaticPngAutoBlinkOnButton.visibility = visibility
         if (::testStaticPngAutoBlinkOffButton.isInitialized) testStaticPngAutoBlinkOffButton.visibility = visibility
+        if (::testStaticPngEyeOpenButton.isInitialized) testStaticPngEyeOpenButton.visibility = visibility
+        if (::testStaticPngEyeHalfButton.isInitialized) testStaticPngEyeHalfButton.visibility = visibility
+        if (::testStaticPngEyeClosedButton.isInitialized) testStaticPngEyeClosedButton.visibility = visibility
     }
 
     private fun startDetection() {
@@ -1472,6 +1502,13 @@ class MainActivity : Activity() {
             staticPngAutoBlinkEnabledValue.text = character.staticPngAutoBlinkEnabled
             staticPngNextBlinkInValue.text = character.staticPngNextBlinkInMs?.let { "$it ms" } ?: "n/a"
             staticPngBlinkCountValue.text = character.staticPngBlinkCount.toString()
+            staticPngCurrentEyeAssetPathValue.text = character.staticPngCurrentEyeAssetPath
+            staticPngEyeLayerVisibleValue.text = character.staticPngEyeLayerVisible
+            staticPngEyeLayerDrawableSizeValue.text = character.staticPngEyeLayerDrawableSize
+            staticPngEyeLayerViewBoundsValue.text = character.staticPngEyeLayerViewBounds
+            staticPngEyeLayerBackgroundValue.text = character.staticPngEyeLayerBackground
+            staticPngEyeLayerTintValue.text = character.staticPngEyeLayerTint
+            staticPngEyeLayerColorFilterValue.text = character.staticPngEyeLayerColorFilter
             live2dProfileIdValue.text = character.live2dProfileId
             live2dProfileNameValue.text = character.live2dProfileName
             live2dModel3FileValue.text = character.live2dModel3File

@@ -83,11 +83,11 @@ class StaticPngCharacterPackageTest {
         val closed = characterPackage.eyeLayers.getValue(StaticPngEyeShape.CLOSED)
 
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__eyes__half__replacement__v1.png",
+            "characters/xianxia_female/static/xianxia_female__eyes__half__replacement__v3.png",
             half.assetPath
         )
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__eyes__closed__replacement__v1.png",
+            "characters/xianxia_female/static/xianxia_female__eyes__closed__replacement__v2.png",
             closed.assetPath
         )
     }
