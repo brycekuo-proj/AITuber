@@ -94,6 +94,9 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngOpenButton: Button
     private lateinit var testStaticPngIdleMotionOnButton: Button
     private lateinit var testStaticPngIdleMotionOffButton: Button
+    private lateinit var testStaticPngBlinkButton: Button
+    private lateinit var testStaticPngAutoBlinkOnButton: Button
+    private lateinit var testStaticPngAutoBlinkOffButton: Button
     private lateinit var timingVisualizerDerivedStateValue: TextView
     private lateinit var timingVisualizerDerivedLastChangeValue: TextView
     private lateinit var timingVisualizerLastSpeakingValue: TextView
@@ -189,6 +192,11 @@ class MainActivity : Activity() {
     private lateinit var blinkRightEyeOpenValue: TextView
     private lateinit var blinkNextInValue: TextView
     private lateinit var blinkCountValue: TextView
+    private lateinit var staticPngBlinkActiveValue: TextView
+    private lateinit var staticPngEyeShapeValue: TextView
+    private lateinit var staticPngAutoBlinkEnabledValue: TextView
+    private lateinit var staticPngNextBlinkInValue: TextView
+    private lateinit var staticPngBlinkCountValue: TextView
     private lateinit var breathEnabledValue: TextView
     private lateinit var breathParameterStatusValue: TextView
     private lateinit var breathNormalizedValue: TextView
@@ -700,6 +708,15 @@ class MainActivity : Activity() {
         testStaticPngIdleMotionOffButton = addButton(root, "TEST STATIC IDLE MOTION OFF") {
             CharacterOverlayService.setStaticPngIdleMotionForDebug(enabled = false)
         }
+        testStaticPngBlinkButton = addButton(root, "TEST STATIC BLINK") {
+            CharacterOverlayService.testStaticPngBlinkForDebug()
+        }
+        testStaticPngAutoBlinkOnButton = addButton(root, "TEST STATIC AUTO BLINK ON") {
+            CharacterOverlayService.setStaticPngAutoBlinkForDebug(enabled = true)
+        }
+        testStaticPngAutoBlinkOffButton = addButton(root, "TEST STATIC AUTO BLINK OFF") {
+            CharacterOverlayService.setStaticPngAutoBlinkForDebug(enabled = false)
+        }
         updateStateVideoControlVisibility()
         updateStaticPngControlVisibility()
         characterModeValue = addDiagnosticField(root, "Requested Character Mode")
@@ -717,6 +734,11 @@ class MainActivity : Activity() {
         staticPngIdleMotionPhaseValue = addDiagnosticField(root, "Idle Motion Phase")
         staticPngIdleMotionOffsetYValue = addDiagnosticField(root, "Idle Motion OffsetY")
         staticPngIdleMotionScaleValue = addDiagnosticField(root, "Idle Motion Scale")
+        staticPngBlinkActiveValue = addDiagnosticField(root, "Static Blink Active")
+        staticPngEyeShapeValue = addDiagnosticField(root, "Static Eye Shape")
+        staticPngAutoBlinkEnabledValue = addDiagnosticField(root, "Auto Blink Enabled")
+        staticPngNextBlinkInValue = addDiagnosticField(root, "Static Next Blink In")
+        staticPngBlinkCountValue = addDiagnosticField(root, "Static Blink Count")
         live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
         live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
         live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
@@ -1191,6 +1213,9 @@ class MainActivity : Activity() {
         if (::testStaticPngOpenButton.isInitialized) testStaticPngOpenButton.visibility = visibility
         if (::testStaticPngIdleMotionOnButton.isInitialized) testStaticPngIdleMotionOnButton.visibility = visibility
         if (::testStaticPngIdleMotionOffButton.isInitialized) testStaticPngIdleMotionOffButton.visibility = visibility
+        if (::testStaticPngBlinkButton.isInitialized) testStaticPngBlinkButton.visibility = visibility
+        if (::testStaticPngAutoBlinkOnButton.isInitialized) testStaticPngAutoBlinkOnButton.visibility = visibility
+        if (::testStaticPngAutoBlinkOffButton.isInitialized) testStaticPngAutoBlinkOffButton.visibility = visibility
     }
 
     private fun startDetection() {
@@ -1442,6 +1467,11 @@ class MainActivity : Activity() {
             staticPngIdleMotionPhaseValue.text = "%.3f".format(character.staticPngIdleMotionPhase)
             staticPngIdleMotionOffsetYValue.text = "%.3f dp".format(character.staticPngIdleMotionOffsetY)
             staticPngIdleMotionScaleValue.text = "%.4f".format(character.staticPngIdleMotionScale)
+            staticPngBlinkActiveValue.text = character.staticPngBlinkActive
+            staticPngEyeShapeValue.text = character.staticPngEyeShape
+            staticPngAutoBlinkEnabledValue.text = character.staticPngAutoBlinkEnabled
+            staticPngNextBlinkInValue.text = character.staticPngNextBlinkInMs?.let { "$it ms" } ?: "n/a"
+            staticPngBlinkCountValue.text = character.staticPngBlinkCount.toString()
             live2dProfileIdValue.text = character.live2dProfileId
             live2dProfileNameValue.text = character.live2dProfileName
             live2dModel3FileValue.text = character.live2dModel3File

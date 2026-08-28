@@ -796,6 +796,14 @@ class CharacterOverlayService : Service() {
         fun setStaticPngIdleMotionForDebug(enabled: Boolean) {
             activeService?.runStaticPngIdleMotionTest(enabled)
         }
+
+        fun testStaticPngBlinkForDebug() {
+            activeService?.runStaticPngBlinkTest()
+        }
+
+        fun setStaticPngAutoBlinkForDebug(enabled: Boolean) {
+            activeService?.runStaticPngAutoBlinkTest(enabled)
+        }
     }
 
     private fun runMouthFullyOpenTest() {
@@ -884,6 +892,22 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setIdleMotionEnabled(enabled)
+        }
+    }
+
+    private fun runStaticPngBlinkTest() {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.triggerBlinkForDebug()
+        }
+    }
+
+    private fun runStaticPngAutoBlinkTest(enabled: Boolean) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setAutoBlinkEnabled(enabled)
         }
     }
 }

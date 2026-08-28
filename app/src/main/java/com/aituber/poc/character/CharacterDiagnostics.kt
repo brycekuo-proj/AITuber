@@ -118,6 +118,23 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordStaticPngBlink(
+        active: Boolean,
+        eyeShape: String,
+        autoEnabled: Boolean,
+        nextBlinkInMs: Long?,
+        blinkCount: Long
+    ) {
+        current = current.copy(
+            staticPngBlinkActive = if (active) "YES" else "NO",
+            staticPngEyeShape = eyeShape,
+            staticPngAutoBlinkEnabled = if (autoEnabled) "YES" else "NO",
+            staticPngNextBlinkInMs = nextBlinkInMs,
+            staticPngBlinkCount = blinkCount
+        )
+    }
+
+    @Synchronized
     fun recordFrame(
         adapterId: String,
         frame: CharacterParameterFrame,
@@ -478,6 +495,11 @@ data class CharacterDiagnosticsSnapshot(
     val staticPngIdleMotionPhase: Double,
     val staticPngIdleMotionOffsetY: Double,
     val staticPngIdleMotionScale: Double,
+    val staticPngBlinkActive: String,
+    val staticPngEyeShape: String,
+    val staticPngAutoBlinkEnabled: String,
+    val staticPngNextBlinkInMs: Long?,
+    val staticPngBlinkCount: Long,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
@@ -614,6 +636,11 @@ data class CharacterDiagnosticsSnapshot(
             staticPngIdleMotionPhase = 0.0,
             staticPngIdleMotionOffsetY = 0.0,
             staticPngIdleMotionScale = 1.0,
+            staticPngBlinkActive = "NO",
+            staticPngEyeShape = "OPEN",
+            staticPngAutoBlinkEnabled = "NO",
+            staticPngNextBlinkInMs = null,
+            staticPngBlinkCount = 0L,
             lastFrameTimestampMs = null
         )
     }

@@ -76,6 +76,49 @@ class StaticPngCharacterPackageTest {
     }
 
     @Test
+    fun xianxiaStaticPngPackageDefinesFullCanvasEyeLayers() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
+        val half = characterPackage.eyeLayers.getValue(StaticPngEyeShape.HALF)
+        val closed = characterPackage.eyeLayers.getValue(StaticPngEyeShape.CLOSED)
+
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__eyes__half__replacement__v1.png",
+            half.assetPath
+        )
+        assertEquals(
+            "characters/xianxia_female/static/xianxia_female__eyes__closed__replacement__v1.png",
+            closed.assetPath
+        )
+    }
+
+    @Test
+    fun xianxiaStaticPngPackageDefinesEyeReplacementPatchBounds() {
+        val patch = StaticPngCharacterPackage.XianxiaFemale.eyeReplacementPatch
+
+        assertEquals(406, patch.x)
+        assertEquals(198, patch.y)
+        assertEquals(218, patch.width)
+        assertEquals(38, patch.height)
+    }
+
+    @Test
+    fun xianxiaEyeLayerAssetsAreFullCanvasRgbaPngs() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
+        characterPackage.eyeLayers.values.forEach { layer ->
+            val asset = File("src/main/assets/${layer.assetPath}")
+
+            assertTrue("Missing eye layer asset: ${asset.path}", asset.isFile)
+            val header = asset.readPngHeader()
+
+            assertEquals(characterPackage.sourceWidthPx, header.width)
+            assertEquals(characterPackage.sourceHeightPx, header.height)
+            assertEquals(PNG_COLOR_TYPE_RGBA, header.colorType)
+        }
+    }
+
+    @Test
     fun mouthShapeThresholdsMatchPocRules() {
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.00f))
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.25f))
