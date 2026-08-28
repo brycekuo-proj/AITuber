@@ -20,6 +20,7 @@ class StaticPngOverlayView(
 ) : FrameLayout(context) {
     private val handler = Handler(Looper.getMainLooper())
     private val contentView = FrameLayout(context)
+    private val breathView = FrameLayout(context)
     private val imageView = ImageView(context)
     private val hairLayerView = ImageView(context)
     private val hairTransitionLayerView = ImageView(context)
@@ -37,6 +38,12 @@ class StaticPngOverlayView(
     private var idleMotionRunning = false
     private var idleMotionStartMs = 0L
     private var idleMotionFrame = StaticPngIdleMotion.frame(0L)
+    private var breathMotionEnabled = true
+    private var breathMotionRunning = false
+    private var breathMotionStartMs = 0L
+    private var breathMotionFrame = StaticPngBreathMotion.frame(0L)
+    private var breathAmplitudePercent = StaticPngBreathMotion.amplitudePercent
+    private var breathPeriodMs = StaticPngBreathMotion.periodMs
     private var autoBlinkEnabled = true
     private var blinkRunning = false
     private var blinkScheduled = false
@@ -58,6 +65,13 @@ class StaticPngOverlayView(
         override fun run() {
             if (!idleMotionRunning) return
             applyIdleMotionFrame(SystemClock.uptimeMillis())
+            postOnAnimation(this)
+        }
+    }
+    private val breathMotionRunnable = object : Runnable {
+        override fun run() {
+            if (!breathMotionRunning) return
+            applyBreathMotionFrame(SystemClock.uptimeMillis())
             postOnAnimation(this)
         }
     }
@@ -103,11 +117,19 @@ class StaticPngOverlayView(
             contentView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
+        breathView.visibility = View.VISIBLE
+        breathView.setBackgroundColor(Color.TRANSPARENT)
+        breathView.clipChildren = false
+        breathView.clipToPadding = false
+        contentView.addView(
+            breathView,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
         imageView.visibility = View.VISIBLE
         imageView.setBackgroundColor(Color.TRANSPARENT)
         imageView.scaleType = ImageView.ScaleType.FIT_CENTER
         imageView.adjustViewBounds = false
-        contentView.addView(
+        breathView.addView(
             imageView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
@@ -127,7 +149,7 @@ class StaticPngOverlayView(
         hairLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
         hairLayerView.adjustViewBounds = false
         hairLayerView.clipToOutline = false
-        contentView.addView(
+        breathView.addView(
             hairLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
@@ -138,7 +160,7 @@ class StaticPngOverlayView(
         hairTransitionLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
         hairTransitionLayerView.adjustViewBounds = false
         hairTransitionLayerView.clipToOutline = false
-        contentView.addView(
+        breathView.addView(
             hairTransitionLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
@@ -154,7 +176,7 @@ class StaticPngOverlayView(
         eyeLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
         eyeLayerView.adjustViewBounds = false
         eyeLayerView.clipToOutline = false
-        contentView.addView(
+        breathView.addView(
             eyeLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
@@ -168,12 +190,13 @@ class StaticPngOverlayView(
         mouthLayerView.scaleType = ImageView.ScaleType.FIT_CENTER
         mouthLayerView.adjustViewBounds = false
         mouthLayerView.clipToOutline = false
-        contentView.addView(
+        breathView.addView(
             mouthLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         recordMouthShape()
         recordIdleMotion()
+        recordBreathMotion()
         recordBlink()
         recordEyeLayer()
         recordHairLayer()
@@ -208,6 +231,27 @@ class StaticPngOverlayView(
         } else {
             stopIdleMotion(resetTransform = true)
         }
+    }
+
+    fun setBreathMotionEnabled(enabled: Boolean) {
+        breathMotionEnabled = enabled
+        if (enabled) {
+            startBreathMotion()
+        } else {
+            stopBreathMotion(resetTransform = true)
+        }
+    }
+
+    fun setBreathAmplitudePercent(amplitudePercent: Int) {
+        StaticPngBreathMotion.setAmplitudePercent(amplitudePercent)
+        breathAmplitudePercent = StaticPngBreathMotion.amplitudePercent
+        if (breathMotionRunning) applyBreathMotionFrame(SystemClock.uptimeMillis()) else recordBreathMotion()
+    }
+
+    fun setBreathPeriodMs(periodMs: Long) {
+        StaticPngBreathMotion.setPeriodMs(periodMs)
+        breathPeriodMs = StaticPngBreathMotion.periodMs
+        if (breathMotionRunning) applyBreathMotionFrame(SystemClock.uptimeMillis()) else recordBreathMotion()
     }
 
     fun triggerBlinkForDebug() {
@@ -268,6 +312,7 @@ class StaticPngOverlayView(
     fun release() {
         stopHairMotion(resetShape = true)
         cancelBlinkCallbacks(resetShape = true)
+        stopBreathMotion(resetTransform = true)
         stopIdleMotion(resetTransform = true)
     }
 
@@ -275,6 +320,9 @@ class StaticPngOverlayView(
         super.onAttachedToWindow()
         if (idleMotionEnabled) {
             startIdleMotion()
+        }
+        if (breathMotionEnabled) {
+            startBreathMotion()
         }
         if (autoBlinkEnabled) {
             scheduleNextBlink()
@@ -287,14 +335,17 @@ class StaticPngOverlayView(
     override fun onDetachedFromWindow() {
         stopHairMotion(resetShape = true)
         cancelBlinkCallbacks(resetShape = true)
+        stopBreathMotion(resetTransform = true)
         stopIdleMotion(resetTransform = true)
         super.onDetachedFromWindow()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+        updateBreathPivot(w, h)
         recordEyeLayer()
         recordHairLayer()
+        recordBreathMotion()
     }
 
     private fun updateHairLayer() {
@@ -478,6 +529,69 @@ class StaticPngOverlayView(
             phase = idleMotionFrame.phase,
             offsetYDp = idleMotionFrame.offsetYDp,
             scale = idleMotionFrame.scale
+        )
+    }
+
+    private fun startBreathMotion() {
+        if (breathMotionRunning || !isAttachedToWindow) {
+            recordBreathMotion()
+            return
+        }
+        breathMotionRunning = true
+        breathMotionStartMs = SystemClock.uptimeMillis()
+        applyBreathMotionFrame(breathMotionStartMs)
+        postOnAnimation(breathMotionRunnable)
+    }
+
+    private fun stopBreathMotion(resetTransform: Boolean) {
+        breathMotionRunning = false
+        removeCallbacks(breathMotionRunnable)
+        if (resetTransform) {
+            breathMotionFrame = StaticPngBreathMotion.frame(
+                elapsedMs = 0L,
+                amplitudePercent = breathAmplitudePercent,
+                periodMs = breathPeriodMs
+            )
+            breathView.scaleX = 1f
+            breathView.scaleY = 1f
+        }
+        recordBreathMotion()
+    }
+
+    private fun applyBreathMotionFrame(nowMs: Long) {
+        breathMotionFrame = StaticPngBreathMotion.frame(
+            elapsedMs = nowMs - breathMotionStartMs,
+            amplitudePercent = breathAmplitudePercent,
+            periodMs = breathPeriodMs
+        )
+        breathView.scaleX = breathMotionFrame.scaleX
+        breathView.scaleY = breathMotionFrame.scaleY
+        recordBreathMotion()
+    }
+
+    private fun updateBreathPivot(viewWidth: Int, viewHeight: Int) {
+        if (viewWidth <= 0 || viewHeight <= 0 || masterBitmap.width <= 0 || masterBitmap.height <= 0) return
+        val fitScale = minOf(
+            viewWidth.toFloat() / masterBitmap.width.toFloat(),
+            viewHeight.toFloat() / masterBitmap.height.toFloat()
+        )
+        val renderedHeight = masterBitmap.height * fitScale
+        val renderedTop = (viewHeight - renderedHeight) * 0.5f
+        breathView.pivotX = viewWidth * 0.5f
+        breathView.pivotY = renderedTop + renderedHeight
+    }
+
+    private fun recordBreathMotion() {
+        CharacterDiagnostics.recordStaticPngBreathMotion(
+            active = breathMotionRunning,
+            phase = breathMotionFrame.phase,
+            inhale = breathMotionFrame.inhale,
+            scaleX = breathMotionFrame.scaleX,
+            scaleY = breathMotionFrame.scaleY,
+            amplitudePercent = breathAmplitudePercent,
+            periodMs = breathPeriodMs,
+            pivotX = breathView.pivotX,
+            pivotY = breathView.pivotY
         )
     }
 

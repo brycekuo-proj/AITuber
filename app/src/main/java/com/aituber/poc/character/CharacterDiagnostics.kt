@@ -95,6 +95,31 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordStaticPngBreathMotion(
+        active: Boolean,
+        phase: Float,
+        inhale: Float,
+        scaleX: Float,
+        scaleY: Float,
+        amplitudePercent: Int,
+        periodMs: Long,
+        pivotX: Float,
+        pivotY: Float
+    ) {
+        current = current.copy(
+            staticPngBreathActive = if (active) "YES" else "NO",
+            staticPngBreathPhase = phase.toDouble(),
+            staticPngBreathInhale = inhale.toDouble(),
+            staticPngBreathScaleX = scaleX.toDouble(),
+            staticPngBreathScaleY = scaleY.toDouble(),
+            staticPngBreathAmplitudePercent = amplitudePercent,
+            staticPngBreathPeriodMs = periodMs,
+            staticPngBreathPivotX = pivotX.toDouble(),
+            staticPngBreathPivotY = pivotY.toDouble()
+        )
+    }
+
+    @Synchronized
     fun recordStaticPngBlink(
         active: Boolean,
         eyeShape: String,
@@ -517,6 +542,15 @@ data class CharacterDiagnosticsSnapshot(
     val staticPngIdleMotionPhase: Double,
     val staticPngIdleMotionOffsetY: Double,
     val staticPngIdleMotionScale: Double,
+    val staticPngBreathActive: String,
+    val staticPngBreathPhase: Double,
+    val staticPngBreathInhale: Double,
+    val staticPngBreathScaleX: Double,
+    val staticPngBreathScaleY: Double,
+    val staticPngBreathAmplitudePercent: Int,
+    val staticPngBreathPeriodMs: Long,
+    val staticPngBreathPivotX: Double,
+    val staticPngBreathPivotY: Double,
     val staticPngBlinkActive: String,
     val staticPngEyeShape: String,
     val staticPngAutoBlinkEnabled: String,
@@ -665,6 +699,15 @@ data class CharacterDiagnosticsSnapshot(
             staticPngIdleMotionPhase = 0.0,
             staticPngIdleMotionOffsetY = 0.0,
             staticPngIdleMotionScale = 1.0,
+            staticPngBreathActive = "NO",
+            staticPngBreathPhase = 0.0,
+            staticPngBreathInhale = 0.0,
+            staticPngBreathScaleX = 1.0,
+            staticPngBreathScaleY = 1.0,
+            staticPngBreathAmplitudePercent = 50,
+            staticPngBreathPeriodMs = 4_800L,
+            staticPngBreathPivotX = 0.0,
+            staticPngBreathPivotY = 0.0,
             staticPngBlinkActive = "NO",
             staticPngEyeShape = "OPEN",
             staticPngAutoBlinkEnabled = "NO",

@@ -29,6 +29,7 @@ import com.aituber.poc.character.staticpng.StaticPngEyeShape
 import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
+import com.aituber.poc.character.staticpng.StaticPngBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.poc.CaptureSessionState
@@ -748,6 +749,20 @@ class CharacterOverlayService : Service() {
             activeService?.runStaticPngIdleMotionTest(enabled)
         }
 
+        fun setStaticPngBreathMotionForDebug(enabled: Boolean) {
+            activeService?.runStaticPngBreathMotionTest(enabled)
+        }
+
+        fun setStaticPngBreathAmplitudeForDebug(amplitudePercent: Int) {
+            StaticPngBreathMotion.setAmplitudePercent(amplitudePercent)
+            activeService?.runStaticPngBreathAmplitudeTest(StaticPngBreathMotion.amplitudePercent)
+        }
+
+        fun setStaticPngBreathPeriodForDebug(periodMs: Long) {
+            StaticPngBreathMotion.setPeriodMs(periodMs)
+            activeService?.runStaticPngBreathPeriodTest(StaticPngBreathMotion.periodMs)
+        }
+
         fun testStaticPngBlinkForDebug() {
             activeService?.runStaticPngBlinkTest()
         }
@@ -852,6 +867,30 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setIdleMotionEnabled(enabled)
+        }
+    }
+
+    private fun runStaticPngBreathMotionTest(enabled: Boolean) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setBreathMotionEnabled(enabled)
+        }
+    }
+
+    private fun runStaticPngBreathAmplitudeTest(amplitudePercent: Int) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setBreathAmplitudePercent(amplitudePercent)
+        }
+    }
+
+    private fun runStaticPngBreathPeriodTest(periodMs: Long) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setBreathPeriodMs(periodMs)
         }
     }
 
