@@ -29,6 +29,7 @@ import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.character.staticpng.StaticPngBreathMotion
+import com.aituber.poc.character.staticpng.StaticPngChestBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
@@ -98,6 +99,8 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngBreathMotionButton: Button
     private lateinit var staticPngBreathAmplitudeLabel: TextView
     private lateinit var staticPngBreathAmplitudeSeekBar: SeekBar
+    private lateinit var staticPngChestBreathAmplitudeLabel: TextView
+    private lateinit var staticPngChestBreathAmplitudeSeekBar: SeekBar
     private lateinit var staticPngBreathPeriodLabel: TextView
     private lateinit var staticPngBreathPeriodSeekBar: SeekBar
     private lateinit var testStaticPngBlinkButton: Button
@@ -186,6 +189,14 @@ class MainActivity : Activity() {
     private lateinit var staticPngBreathAmplitudeValue: TextView
     private lateinit var staticPngBreathPeriodValue: TextView
     private lateinit var staticPngBreathPivotValue: TextView
+    private lateinit var staticPngChestBreathActiveValue: TextView
+    private lateinit var staticPngChestBreathAmplitudeValue: TextView
+    private lateinit var staticPngChestBreathPhaseValue: TextView
+    private lateinit var staticPngChestBreathInhaleValue: TextView
+    private lateinit var staticPngChestBreathSourceBoundsValue: TextView
+    private lateinit var staticPngChestBreathNormalizedBoundsValue: TextView
+    private lateinit var staticPngChestBreathViewBoundsValue: TextView
+    private lateinit var staticPngChestBreathTransformValue: TextView
     private lateinit var live2dProfileIdValue: TextView
     private lateinit var live2dProfileNameValue: TextView
     private lateinit var live2dModel3FileValue: TextView
@@ -737,7 +748,7 @@ class MainActivity : Activity() {
         staticPngBreathAmplitudeLabel = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.rgb(30, 34, 44))
-            text = "BREATH AMPLITUDE: ${StaticPngBreathMotion.amplitudePercent}%"
+            text = "BODY BREATH AMPLITUDE: ${StaticPngBreathMotion.amplitudePercent}%"
             setPadding(0, 12, 0, 0)
         }
         root.addView(staticPngBreathAmplitudeLabel)
@@ -748,7 +759,7 @@ class MainActivity : Activity() {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     val value = StaticPngBreathMotion.AMPLITUDE_MIN_PERCENT + progress
                     StaticPngBreathMotion.setAmplitudePercent(value)
-                    staticPngBreathAmplitudeLabel.text = "BREATH AMPLITUDE: ${StaticPngBreathMotion.amplitudePercent}%"
+                    staticPngBreathAmplitudeLabel.text = "BODY BREATH AMPLITUDE: ${StaticPngBreathMotion.amplitudePercent}%"
                     CharacterOverlayService.setStaticPngBreathAmplitudeForDebug(StaticPngBreathMotion.amplitudePercent)
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
@@ -758,6 +769,36 @@ class MainActivity : Activity() {
             })
         }
         root.addView(staticPngBreathAmplitudeSeekBar)
+        staticPngChestBreathAmplitudeLabel = TextView(this).apply {
+            textSize = 14f
+            setTextColor(Color.rgb(30, 34, 44))
+            text = "CHEST BREATH AMPLITUDE: ${StaticPngChestBreathMotion.amplitudePercent}%"
+            setPadding(0, 12, 0, 0)
+        }
+        root.addView(staticPngChestBreathAmplitudeLabel)
+        staticPngChestBreathAmplitudeSeekBar = SeekBar(this).apply {
+            max = StaticPngChestBreathMotion.AMPLITUDE_MAX_PERCENT -
+                StaticPngChestBreathMotion.AMPLITUDE_MIN_PERCENT
+            progress = StaticPngChestBreathMotion.amplitudePercent -
+                StaticPngChestBreathMotion.AMPLITUDE_MIN_PERCENT
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val value = StaticPngChestBreathMotion.AMPLITUDE_MIN_PERCENT + progress
+                    StaticPngChestBreathMotion.setAmplitudePercent(value)
+                    staticPngChestBreathAmplitudeLabel.text =
+                        "CHEST BREATH AMPLITUDE: ${StaticPngChestBreathMotion.amplitudePercent}%"
+                    CharacterOverlayService.setStaticPngChestBreathAmplitudeForDebug(
+                        StaticPngChestBreathMotion.amplitudePercent
+                    )
+                }
+
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    persistStaticPngTuning()
+                }
+            })
+        }
+        root.addView(staticPngChestBreathAmplitudeSeekBar)
         staticPngBreathPeriodLabel = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.rgb(30, 34, 44))
@@ -875,10 +916,18 @@ class MainActivity : Activity() {
         staticPngBreathActiveValue = addDiagnosticField(root, "Breath Active")
         staticPngBreathPhaseValue = addDiagnosticField(root, "Breath Phase")
         staticPngBreathInhaleValue = addDiagnosticField(root, "Breath Inhale")
-        staticPngBreathScaleValue = addDiagnosticField(root, "Breath Scale X/Y")
-        staticPngBreathAmplitudeValue = addDiagnosticField(root, "Breath Amplitude")
+        staticPngBreathScaleValue = addDiagnosticField(root, "Body Breath Scale X/Y")
+        staticPngBreathAmplitudeValue = addDiagnosticField(root, "Body Breath Amplitude")
         staticPngBreathPeriodValue = addDiagnosticField(root, "Breath Period")
         staticPngBreathPivotValue = addDiagnosticField(root, "Breath Pivot")
+        staticPngChestBreathActiveValue = addDiagnosticField(root, "Chest Breath Active")
+        staticPngChestBreathAmplitudeValue = addDiagnosticField(root, "Chest Breath Amplitude %")
+        staticPngChestBreathPhaseValue = addDiagnosticField(root, "Chest Breath Phase")
+        staticPngChestBreathInhaleValue = addDiagnosticField(root, "Chest Breath Inhale")
+        staticPngChestBreathSourceBoundsValue = addDiagnosticField(root, "Chest ROI Source Bounds")
+        staticPngChestBreathNormalizedBoundsValue = addDiagnosticField(root, "Chest ROI Normalized Bounds")
+        staticPngChestBreathViewBoundsValue = addDiagnosticField(root, "Chest ROI View Bounds")
+        staticPngChestBreathTransformValue = addDiagnosticField(root, "Chest Local Scale/Offset")
         staticPngBlinkActiveValue = addDiagnosticField(root, "Static Blink Active")
         staticPngEyeShapeValue = addDiagnosticField(root, "Static Eye Shape")
         staticPngAutoBlinkEnabledValue = addDiagnosticField(root, "Auto Blink Enabled")
@@ -1373,6 +1422,12 @@ class MainActivity : Activity() {
         if (::testStaticPngBreathMotionButton.isInitialized) testStaticPngBreathMotionButton.visibility = visibility
         if (::staticPngBreathAmplitudeLabel.isInitialized) staticPngBreathAmplitudeLabel.visibility = visibility
         if (::staticPngBreathAmplitudeSeekBar.isInitialized) staticPngBreathAmplitudeSeekBar.visibility = visibility
+        if (::staticPngChestBreathAmplitudeLabel.isInitialized) {
+            staticPngChestBreathAmplitudeLabel.visibility = visibility
+        }
+        if (::staticPngChestBreathAmplitudeSeekBar.isInitialized) {
+            staticPngChestBreathAmplitudeSeekBar.visibility = visibility
+        }
         if (::staticPngBreathPeriodLabel.isInitialized) staticPngBreathPeriodLabel.visibility = visibility
         if (::staticPngBreathPeriodSeekBar.isInitialized) staticPngBreathPeriodSeekBar.visibility = visibility
         if (::testStaticPngHairBaseButton.isInitialized) testStaticPngHairBaseButton.visibility = visibility
@@ -1406,6 +1461,12 @@ class MainActivity : Activity() {
         StaticPngBreathMotion.setAmplitudePercent(
             prefs.getInt(STATIC_PNG_BREATH_AMPLITUDE_KEY, StaticPngBreathMotion.DEFAULT_AMPLITUDE_PERCENT)
         )
+        StaticPngChestBreathMotion.setAmplitudePercent(
+            prefs.getInt(
+                STATIC_PNG_CHEST_BREATH_AMPLITUDE_KEY,
+                StaticPngChestBreathMotion.DEFAULT_AMPLITUDE_PERCENT
+            )
+        )
         StaticPngBreathMotion.setPeriodMs(
             prefs.getLong(STATIC_PNG_BREATH_PERIOD_KEY, StaticPngBreathMotion.DEFAULT_PERIOD_MS)
         )
@@ -1417,6 +1478,7 @@ class MainActivity : Activity() {
             .putLong(STATIC_PNG_CROSSFADE_KEY, StaticPngRuntimeTuning.crossfadeMs)
             .putInt(OVERLAY_ALPHA_KEY, OverlayWindowConfig.overlayAlphaPercent)
             .putInt(STATIC_PNG_BREATH_AMPLITUDE_KEY, StaticPngBreathMotion.amplitudePercent)
+            .putInt(STATIC_PNG_CHEST_BREATH_AMPLITUDE_KEY, StaticPngChestBreathMotion.amplitudePercent)
             .putLong(STATIC_PNG_BREATH_PERIOD_KEY, StaticPngBreathMotion.periodMs)
             .apply()
     }
@@ -1677,6 +1739,17 @@ class MainActivity : Activity() {
             staticPngBreathAmplitudeValue.text = "${character.staticPngBreathAmplitudePercent}%"
             staticPngBreathPeriodValue.text = "${character.staticPngBreathPeriodMs} ms"
             staticPngBreathPivotValue.text = "%.1f, %.1f".format(character.staticPngBreathPivotX, character.staticPngBreathPivotY)
+            staticPngChestBreathActiveValue.text = character.staticPngChestBreathActive
+            staticPngChestBreathAmplitudeValue.text = "${character.staticPngChestBreathAmplitudePercent}%"
+            staticPngChestBreathPhaseValue.text = "%.3f".format(character.staticPngChestBreathPhase)
+            staticPngChestBreathInhaleValue.text = "%.3f".format(character.staticPngChestBreathInhale)
+            staticPngChestBreathSourceBoundsValue.text = character.staticPngChestBreathSourceBounds
+            staticPngChestBreathNormalizedBoundsValue.text = character.staticPngChestBreathSourceNormalizedBounds
+            staticPngChestBreathViewBoundsValue.text = character.staticPngChestBreathViewBounds
+            staticPngChestBreathTransformValue.text = "%s dyPx=%.2f".format(
+                character.staticPngChestBreathLocalTransform,
+                character.staticPngChestBreathOffsetY
+            )
             staticPngBlinkActiveValue.text = character.staticPngBlinkActive
             staticPngEyeShapeValue.text = character.staticPngEyeShape
             staticPngAutoBlinkEnabledValue.text = character.staticPngAutoBlinkEnabled
@@ -2129,6 +2202,7 @@ class MainActivity : Activity() {
         private const val STATIC_PNG_CROSSFADE_KEY = "crossfade_ms"
         private const val OVERLAY_ALPHA_KEY = "overlay_alpha_percent_v2"
         private const val STATIC_PNG_BREATH_AMPLITUDE_KEY = "breath_amplitude_percent"
+        private const val STATIC_PNG_CHEST_BREATH_AMPLITUDE_KEY = "chest_breath_amplitude_percent"
         private const val STATIC_PNG_BREATH_PERIOD_KEY = "breath_period_ms"
 
         internal val primaryControlLabels = listOf(

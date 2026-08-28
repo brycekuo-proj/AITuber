@@ -13,14 +13,14 @@ data class StaticPngBreathMotionFrame(
 object StaticPngBreathMotion {
     const val AMPLITUDE_MIN_PERCENT = 0
     const val AMPLITUDE_MAX_PERCENT = 100
-    const val DEFAULT_AMPLITUDE_PERCENT = 50
+    const val DEFAULT_AMPLITUDE_PERCENT = 0
 
     const val PERIOD_MIN_MS = 2_500L
     const val PERIOD_MAX_MS = 7_000L
     const val DEFAULT_PERIOD_MS = 4_800L
 
-    // Deliberately wide tuning range for phone-side visual calibration.
-    // At the default 50% amplitude this peaks at +0.6% X / +2.0% Y.
+    // Legacy whole-body breath remains available for comparison, but defaults off.
+    // Chest breath is the primary Xianxia static breathing effect.
     const val MAX_SCALE_X_DELTA = 0.012f
     const val MAX_SCALE_Y_DELTA = 0.040f
 

@@ -58,4 +58,17 @@ class StaticPngBreathMotionTest {
         StaticPngBreathMotion.setAmplitudePercent(StaticPngBreathMotion.DEFAULT_AMPLITUDE_PERCENT)
         StaticPngBreathMotion.setPeriodMs(StaticPngBreathMotion.DEFAULT_PERIOD_MS)
     }
+
+    @Test
+    fun wholeBodyBreathDefaultsOffSoChestBreathIsPrimaryStaticPngEffect() {
+        assertEquals(0, StaticPngBreathMotion.DEFAULT_AMPLITUDE_PERCENT)
+        val peak = StaticPngBreathMotion.frame(
+            elapsedMs = StaticPngBreathMotion.DEFAULT_PERIOD_MS / 2L,
+            amplitudePercent = StaticPngBreathMotion.DEFAULT_AMPLITUDE_PERCENT,
+            periodMs = StaticPngBreathMotion.DEFAULT_PERIOD_MS
+        )
+
+        assertEquals(1f, peak.scaleX, 0.0001f)
+        assertEquals(1f, peak.scaleY, 0.0001f)
+    }
 }

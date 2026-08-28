@@ -31,6 +31,7 @@ import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
+import com.aituber.poc.character.staticpng.StaticPngChestBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
@@ -756,6 +757,11 @@ class CharacterOverlayService : Service() {
             activeService?.runStaticPngBreathAmplitudeTest(StaticPngBreathMotion.amplitudePercent)
         }
 
+        fun setStaticPngChestBreathAmplitudeForDebug(amplitudePercent: Int) {
+            StaticPngChestBreathMotion.setAmplitudePercent(amplitudePercent)
+            activeService?.runStaticPngChestBreathAmplitudeTest(StaticPngChestBreathMotion.amplitudePercent)
+        }
+
         fun setStaticPngBreathPeriodForDebug(periodMs: Long) {
             StaticPngBreathMotion.setPeriodMs(periodMs)
             activeService?.runStaticPngBreathPeriodTest(StaticPngBreathMotion.periodMs)
@@ -881,6 +887,14 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setBreathAmplitudePercent(amplitudePercent)
+        }
+    }
+
+    private fun runStaticPngChestBreathAmplitudeTest(amplitudePercent: Int) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setChestBreathAmplitudePercent(amplitudePercent)
         }
     }
 

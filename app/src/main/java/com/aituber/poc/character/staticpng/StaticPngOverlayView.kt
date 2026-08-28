@@ -24,6 +24,7 @@ class StaticPngOverlayView(
     private val imageView = ImageView(context)
     private val hairLayerView = ImageView(context)
     private val hairTransitionLayerView = ImageView(context)
+    private val chestBreathLayerView = StaticPngChestBreathOverlayView(context)
     private val eyeLayerView = ImageView(context)
     private val mouthLayerView = ImageView(context)
     private val masterBitmap: Bitmap
@@ -43,6 +44,8 @@ class StaticPngOverlayView(
     private var breathMotionStartMs = 0L
     private var breathMotionFrame = StaticPngBreathMotion.frame(0L)
     private var breathAmplitudePercent = StaticPngBreathMotion.amplitudePercent
+    private var chestBreathMotionFrame = StaticPngChestBreathMotion.frame(0L)
+    private var chestBreathAmplitudePercent = StaticPngChestBreathMotion.amplitudePercent
     private var breathPeriodMs = StaticPngBreathMotion.periodMs
     private var autoBlinkEnabled = true
     private var blinkRunning = false
@@ -163,6 +166,11 @@ class StaticPngOverlayView(
             hairTransitionLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
+        chestBreathLayerView.setSourceBitmap(masterBitmap)
+        breathView.addView(
+            chestBreathLayerView,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
         eyeBitmaps = characterPackage.eyeLayers.mapValues { (_, layer) ->
             context.assets.open(layer.assetPath).use { input ->
                 BitmapFactory.decodeStream(input)
@@ -246,12 +254,20 @@ class StaticPngOverlayView(
         breathAmplitudePercent = StaticPngBreathMotion.amplitudePercent
         if (breathMotionRunning) {
             val nowMs = SystemClock.uptimeMillis()
-            // While tuning, move immediately to peak inhale so the slider has obvious visual feedback.
+            // Keep legacy whole-body tuning visually inspectable, but chest breath is the primary effect.
             breathMotionStartMs = nowMs - breathPeriodMs / 2L
             applyBreathMotionFrame(nowMs)
         } else {
             recordBreathMotion()
         }
+    }
+
+    fun setChestBreathAmplitudePercent(amplitudePercent: Int) {
+        StaticPngChestBreathMotion.setAmplitudePercent(amplitudePercent)
+        chestBreathAmplitudePercent = StaticPngChestBreathMotion.amplitudePercent
+        val nowMs = SystemClock.uptimeMillis()
+        breathMotionStartMs = nowMs - breathPeriodMs / 2L
+        applyBreathMotionFrame(nowMs, previewChest = true)
     }
 
     fun setBreathPeriodMs(periodMs: Long) {
@@ -388,12 +404,14 @@ class StaticPngOverlayView(
             hairLayerView.setImageDrawable(null)
             imageView.visibility = View.VISIBLE
             imageView.setImageBitmap(masterBitmap)
+            chestBreathLayerView.setSourceBitmap(masterBitmap)
             hairTransitionLayerView.visibility = View.GONE
             hairTransitionLayerView.setImageDrawable(null)
             recordHairLayer()
             return
         }
         hairLayerView.setImageBitmap(bitmap)
+        chestBreathLayerView.setSourceBitmap(bitmap)
         hairLayerView.alpha = 1f
         hairLayerView.visibility = View.VISIBLE
         imageView.visibility = View.GONE
@@ -551,20 +569,36 @@ class StaticPngOverlayView(
                 amplitudePercent = breathAmplitudePercent,
                 periodMs = breathPeriodMs
             )
+            chestBreathMotionFrame = StaticPngChestBreathMotion.frame(
+                elapsedMs = 0L,
+                amplitudePercent = chestBreathAmplitudePercent,
+                periodMs = breathPeriodMs
+            )
             breathView.scaleX = 1f
             breathView.scaleY = 1f
+            chestBreathLayerView.setFrame(chestBreathMotionFrame, active = false)
         }
         recordBreathMotion()
     }
 
-    private fun applyBreathMotionFrame(nowMs: Long) {
+    private fun applyBreathMotionFrame(nowMs: Long, previewChest: Boolean = false) {
+        val elapsedMs = nowMs - breathMotionStartMs
         breathMotionFrame = StaticPngBreathMotion.frame(
-            elapsedMs = nowMs - breathMotionStartMs,
+            elapsedMs = elapsedMs,
             amplitudePercent = breathAmplitudePercent,
+            periodMs = breathPeriodMs
+        )
+        chestBreathMotionFrame = StaticPngChestBreathMotion.frame(
+            elapsedMs = elapsedMs,
+            amplitudePercent = chestBreathAmplitudePercent,
             periodMs = breathPeriodMs
         )
         breathView.scaleX = breathMotionFrame.scaleX
         breathView.scaleY = breathMotionFrame.scaleY
+        chestBreathLayerView.setFrame(
+            frame = chestBreathMotionFrame,
+            active = breathMotionRunning || previewChest
+        )
         recordBreathMotion()
     }
 
@@ -590,7 +624,24 @@ class StaticPngOverlayView(
             amplitudePercent = breathAmplitudePercent,
             periodMs = breathPeriodMs,
             pivotX = breathView.pivotX,
-            pivotY = breathView.pivotY
+            pivotY = breathView.pivotY,
+            chestActive = breathMotionRunning && chestBreathAmplitudePercent > 0,
+            chestAmplitudePercent = chestBreathAmplitudePercent,
+            chestPhase = chestBreathMotionFrame.phase,
+            chestInhale = chestBreathMotionFrame.inhale,
+            chestSourceBounds = StaticPngChestBreathMotion.ROI.let { roi ->
+                "${roi.x},${roi.y} ${roi.width}x${roi.height}"
+            },
+            chestSourceNormalizedBounds = StaticPngChestBreathMotion.normalizedRoi(
+                characterPackage.sourceWidthPx,
+                characterPackage.sourceHeightPx
+            ),
+            chestViewBounds = chestBreathLayerView.currentBaseBounds().compactString(),
+            chestScaleX = chestBreathMotionFrame.scaleX,
+            chestScaleY = chestBreathMotionFrame.scaleY,
+            chestOffsetY = chestBreathLayerView.currentTransformedBounds().top -
+                chestBreathLayerView.currentBaseBounds().top,
+            chestLocalTransform = chestBreathMotionFrame.localTransformString()
         )
     }
 
