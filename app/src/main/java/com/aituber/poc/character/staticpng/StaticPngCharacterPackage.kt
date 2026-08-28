@@ -49,10 +49,10 @@ data class StaticPngCharacterPackage(
             ),
             hairLayers = mapOf(
                 StaticPngHairShape.FLOAT_A to StaticPngHairLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v1.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v3.png"
                 ),
                 StaticPngHairShape.FLOAT_B to StaticPngHairLayer(
-                    assetPath = "characters/xianxia_female/static/xianxia_female__hair__float_b__replacement__v1.png"
+                    assetPath = "characters/xianxia_female/static/xianxia_female__hair__float_b__replacement__v3.png"
                 )
             )
         )

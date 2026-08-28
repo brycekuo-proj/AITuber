@@ -126,11 +126,11 @@ class StaticPngCharacterPackageTest {
         val floatB = characterPackage.hairLayers.getValue(StaticPngHairShape.FLOAT_B)
 
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v1.png",
+            "characters/xianxia_female/static/xianxia_female__hair__float_a__replacement__v3.png",
             floatA.assetPath
         )
         assertEquals(
-            "characters/xianxia_female/static/xianxia_female__hair__float_b__replacement__v1.png",
+            "characters/xianxia_female/static/xianxia_female__hair__float_b__replacement__v3.png",
             floatB.assetPath
         )
     }

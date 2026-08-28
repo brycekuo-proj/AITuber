@@ -24,6 +24,7 @@ class StaticPngOverlayView(
     private val hairLayerView = ImageView(context)
     private val eyeLayerView = ImageView(context)
     private val mouthLayerView = ImageView(context)
+    private val masterBitmap: Bitmap
     private val hairBitmaps: Map<StaticPngHairShape, Bitmap>
     private val eyeBitmaps: Map<StaticPngEyeShape, Bitmap>
     private val mouthBitmaps: Map<StaticPngMouthShape, Bitmap>
@@ -101,9 +102,10 @@ class StaticPngOverlayView(
             imageView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
-        context.assets.open(characterPackage.assetPath).use { input ->
-            imageView.setImageBitmap(BitmapFactory.decodeStream(input))
+        masterBitmap = context.assets.open(characterPackage.assetPath).use { input ->
+            BitmapFactory.decodeStream(input)
         }
+        imageView.setImageBitmap(masterBitmap)
         hairBitmaps = characterPackage.hairLayers.mapValues { (_, layer) ->
             context.assets.open(layer.assetPath).use { input ->
                 BitmapFactory.decodeStream(input)
@@ -159,7 +161,7 @@ class StaticPngOverlayView(
 
     fun show() {
         visibility = View.VISIBLE
-        imageView.visibility = View.VISIBLE
+        updateHairLayer()
     }
 
     fun setMouthOpenRatio(ratio: Float) {
@@ -264,11 +266,14 @@ class StaticPngOverlayView(
         if (layer == null || bitmap == null) {
             hairLayerView.visibility = View.GONE
             hairLayerView.setImageDrawable(null)
+            imageView.visibility = View.VISIBLE
+            imageView.setImageBitmap(masterBitmap)
             recordHairLayer()
             return
         }
         hairLayerView.setImageBitmap(bitmap)
         hairLayerView.visibility = View.VISIBLE
+        imageView.visibility = View.GONE
         recordHairLayer()
     }
 
@@ -481,10 +486,12 @@ class StaticPngOverlayView(
     }
 
     private fun recordHairLayer() {
-        val drawable = hairLayerView.drawable
+        val hairDrawable = hairLayerView.drawable
+        val masterDrawable = imageView.drawable
+        val drawable = if (activeHairShape == StaticPngHairShape.BASE) masterDrawable else hairDrawable
         CharacterDiagnostics.recordStaticPngHairLayer(
             shape = activeHairShape.name,
-            assetPath = characterPackage.hairLayers[activeHairShape]?.assetPath ?: "n/a",
+            assetPath = characterPackage.hairLayers[activeHairShape]?.assetPath ?: characterPackage.assetPath,
             visible = hairLayerView.visibility == View.VISIBLE,
             drawableWidth = drawable?.intrinsicWidth ?: 0,
             drawableHeight = drawable?.intrinsicHeight ?: 0,
