@@ -4,7 +4,19 @@ import android.os.Build
 import android.view.WindowManager
 
 object OverlayWindowConfig {
-    const val LIVE2D_EXPERIMENTAL_WINDOW_ALPHA = 0.79f
+    const val OVERLAY_ALPHA_MIN_PERCENT = 10
+    const val OVERLAY_ALPHA_MAX_PERCENT = 100
+    const val DEFAULT_OVERLAY_ALPHA_PERCENT = 80
+
+    @Volatile
+    var overlayAlphaPercent: Int = DEFAULT_OVERLAY_ALPHA_PERCENT
+        private set
+
+    fun setOverlayAlphaPercent(value: Int) {
+        overlayAlphaPercent = value.coerceIn(OVERLAY_ALPHA_MIN_PERCENT, OVERLAY_ALPHA_MAX_PERCENT)
+    }
+
+    fun overlayAlpha(): Float = overlayAlphaPercent / 100f
 
     fun live2dFlags(): Int =
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or

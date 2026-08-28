@@ -49,23 +49,14 @@ class StaticPngHairMotionTest {
     }
 
     @Test
-    fun runtimeTuningClampsCrossfadeAndImageAlpha() {
+    fun runtimeTuningClampsCrossfade() {
         StaticPngRuntimeTuning.setCrossfadeMs(10L)
         assertEquals(StaticPngRuntimeTuning.CROSSFADE_MIN_MS, StaticPngRuntimeTuning.crossfadeMs)
         StaticPngRuntimeTuning.setCrossfadeMs(2_000L)
         assertEquals(StaticPngRuntimeTuning.CROSSFADE_MAX_MS, StaticPngRuntimeTuning.crossfadeMs)
         StaticPngRuntimeTuning.setCrossfadeMs(220L)
         assertEquals(220L, StaticPngRuntimeTuning.crossfadeMs)
-
-        StaticPngRuntimeTuning.setImageAlphaPercent(0)
-        assertEquals(StaticPngRuntimeTuning.IMAGE_ALPHA_MIN_PERCENT, StaticPngRuntimeTuning.imageAlphaPercent)
-        StaticPngRuntimeTuning.setImageAlphaPercent(150)
-        assertEquals(StaticPngRuntimeTuning.IMAGE_ALPHA_MAX_PERCENT, StaticPngRuntimeTuning.imageAlphaPercent)
-        StaticPngRuntimeTuning.setImageAlphaPercent(85)
-        assertEquals(85, StaticPngRuntimeTuning.imageAlphaPercent)
-
         StaticPngRuntimeTuning.setCrossfadeMs(StaticPngRuntimeTuning.DEFAULT_CROSSFADE_MS)
-        StaticPngRuntimeTuning.setImageAlphaPercent(StaticPngRuntimeTuning.DEFAULT_IMAGE_ALPHA_PERCENT)
     }
 
     @Test

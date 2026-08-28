@@ -43,8 +43,17 @@ class OverlayWindowConfigTest {
     }
 
     @Test
-    fun experimentalWindowAlphaIsZeroPointSevenNine() {
-        assertEquals(0.79f, OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA, 0.001f)
+    fun overlayWindowAlphaDefaultsToEightyPercentAndClamps() {
+        OverlayWindowConfig.setOverlayAlphaPercent(OverlayWindowConfig.DEFAULT_OVERLAY_ALPHA_PERCENT)
+        assertEquals(80, OverlayWindowConfig.overlayAlphaPercent)
+        assertEquals(0.80f, OverlayWindowConfig.overlayAlpha(), 0.001f)
+
+        OverlayWindowConfig.setOverlayAlphaPercent(0)
+        assertEquals(OverlayWindowConfig.OVERLAY_ALPHA_MIN_PERCENT, OverlayWindowConfig.overlayAlphaPercent)
+        OverlayWindowConfig.setOverlayAlphaPercent(150)
+        assertEquals(OverlayWindowConfig.OVERLAY_ALPHA_MAX_PERCENT, OverlayWindowConfig.overlayAlphaPercent)
+
+        OverlayWindowConfig.setOverlayAlphaPercent(OverlayWindowConfig.DEFAULT_OVERLAY_ALPHA_PERCENT)
     }
 
     @Test

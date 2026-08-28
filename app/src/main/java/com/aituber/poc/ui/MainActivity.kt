@@ -37,6 +37,7 @@ import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
 import com.aituber.poc.overlay.OverlayLifecycleTrace
+import com.aituber.poc.overlay.OverlayWindowConfig
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
@@ -833,19 +834,19 @@ class MainActivity : Activity() {
         staticPngImageAlphaLabel = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.rgb(30, 34, 44))
-            text = "IMAGE ALPHA: ${StaticPngRuntimeTuning.imageAlphaPercent}%"
+            text = "OVERLAY ALPHA: ${OverlayWindowConfig.overlayAlphaPercent}%"
             setPadding(0, 12, 0, 0)
         }
         root.addView(staticPngImageAlphaLabel)
         staticPngImageAlphaSeekBar = SeekBar(this).apply {
-            max = StaticPngRuntimeTuning.IMAGE_ALPHA_MAX_PERCENT - StaticPngRuntimeTuning.IMAGE_ALPHA_MIN_PERCENT
-            progress = StaticPngRuntimeTuning.imageAlphaPercent - StaticPngRuntimeTuning.IMAGE_ALPHA_MIN_PERCENT
+            max = OverlayWindowConfig.OVERLAY_ALPHA_MAX_PERCENT - OverlayWindowConfig.OVERLAY_ALPHA_MIN_PERCENT
+            progress = OverlayWindowConfig.overlayAlphaPercent - OverlayWindowConfig.OVERLAY_ALPHA_MIN_PERCENT
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    val value = StaticPngRuntimeTuning.IMAGE_ALPHA_MIN_PERCENT + progress
-                    StaticPngRuntimeTuning.setImageAlphaPercent(value)
-                    staticPngImageAlphaLabel.text = "IMAGE ALPHA: ${StaticPngRuntimeTuning.imageAlphaPercent}%"
-                    CharacterOverlayService.setStaticPngImageAlphaForDebug(StaticPngRuntimeTuning.imageAlphaPercent)
+                    val value = OverlayWindowConfig.OVERLAY_ALPHA_MIN_PERCENT + progress
+                    OverlayWindowConfig.setOverlayAlphaPercent(value)
+                    staticPngImageAlphaLabel.text = "OVERLAY ALPHA: ${OverlayWindowConfig.overlayAlphaPercent}%"
+                    CharacterOverlayService.setOverlayAlphaForDebug(OverlayWindowConfig.overlayAlphaPercent)
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
                 override fun onStopTrackingTouch(seekBar: SeekBar?) {
@@ -1389,8 +1390,9 @@ class MainActivity : Activity() {
         }
         if (::staticPngCrossfadeLabel.isInitialized) staticPngCrossfadeLabel.visibility = visibility
         if (::staticPngCrossfadeSeekBar.isInitialized) staticPngCrossfadeSeekBar.visibility = visibility
-        if (::staticPngImageAlphaLabel.isInitialized) staticPngImageAlphaLabel.visibility = visibility
-        if (::staticPngImageAlphaSeekBar.isInitialized) staticPngImageAlphaSeekBar.visibility = visibility
+        // Overlay alpha is global across all character modes, so keep it visible.
+        if (::staticPngImageAlphaLabel.isInitialized) staticPngImageAlphaLabel.visibility = View.VISIBLE
+        if (::staticPngImageAlphaSeekBar.isInitialized) staticPngImageAlphaSeekBar.visibility = View.VISIBLE
     }
 
     private fun loadStaticPngTuning() {
@@ -1398,8 +1400,8 @@ class MainActivity : Activity() {
         StaticPngRuntimeTuning.setCrossfadeMs(
             prefs.getLong(STATIC_PNG_CROSSFADE_KEY, StaticPngRuntimeTuning.DEFAULT_CROSSFADE_MS)
         )
-        StaticPngRuntimeTuning.setImageAlphaPercent(
-            prefs.getInt(STATIC_PNG_IMAGE_ALPHA_KEY, StaticPngRuntimeTuning.DEFAULT_IMAGE_ALPHA_PERCENT)
+        OverlayWindowConfig.setOverlayAlphaPercent(
+            prefs.getInt(OVERLAY_ALPHA_KEY, OverlayWindowConfig.DEFAULT_OVERLAY_ALPHA_PERCENT)
         )
         StaticPngBreathMotion.setAmplitudePercent(
             prefs.getInt(STATIC_PNG_BREATH_AMPLITUDE_KEY, StaticPngBreathMotion.DEFAULT_AMPLITUDE_PERCENT)
@@ -1413,7 +1415,7 @@ class MainActivity : Activity() {
         getSharedPreferences(STATIC_PNG_TUNING_PREFS, Context.MODE_PRIVATE)
             .edit()
             .putLong(STATIC_PNG_CROSSFADE_KEY, StaticPngRuntimeTuning.crossfadeMs)
-            .putInt(STATIC_PNG_IMAGE_ALPHA_KEY, StaticPngRuntimeTuning.imageAlphaPercent)
+            .putInt(OVERLAY_ALPHA_KEY, OverlayWindowConfig.overlayAlphaPercent)
             .putInt(STATIC_PNG_BREATH_AMPLITUDE_KEY, StaticPngBreathMotion.amplitudePercent)
             .putLong(STATIC_PNG_BREATH_PERIOD_KEY, StaticPngBreathMotion.periodMs)
             .apply()
@@ -2125,7 +2127,7 @@ class MainActivity : Activity() {
     companion object {
         private const val STATIC_PNG_TUNING_PREFS = "static_png_tuning"
         private const val STATIC_PNG_CROSSFADE_KEY = "crossfade_ms"
-        private const val STATIC_PNG_IMAGE_ALPHA_KEY = "image_alpha_percent"
+        private const val OVERLAY_ALPHA_KEY = "overlay_alpha_percent_v2"
         private const val STATIC_PNG_BREATH_AMPLITUDE_KEY = "breath_amplitude_percent"
         private const val STATIC_PNG_BREATH_PERIOD_KEY = "breath_period_ms"
 

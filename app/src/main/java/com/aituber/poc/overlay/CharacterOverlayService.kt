@@ -206,9 +206,7 @@ class CharacterOverlayService : Service() {
             windowFlags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            if (placement != null) {
-                alpha = OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA
-            }
+            alpha = OverlayWindowConfig.overlayAlpha()
             gravity = if (placement != null) {
                 Gravity.TOP or Gravity.START
             } else {
@@ -435,7 +433,7 @@ class CharacterOverlayService : Service() {
             bottomSafeZoneFraction = placement.bottomSafeZoneFraction,
             bottomSafeZonePx = placement.bottomSafeZonePx,
             windowType = windowType,
-            windowAlpha = OverlayWindowConfig.LIVE2D_EXPERIMENTAL_WINDOW_ALPHA,
+            windowAlpha = OverlayWindowConfig.overlayAlpha(),
             flagNotTouchable = OverlayWindowConfig.hasNotTouchable(windowFlags),
             flagNotFocusable = OverlayWindowConfig.hasNotFocusable(windowFlags),
             dragEnabled = true,
@@ -792,9 +790,9 @@ class CharacterOverlayService : Service() {
             activeService?.runStaticPngCrossfadeDurationTest(StaticPngRuntimeTuning.crossfadeMs)
         }
 
-        fun setStaticPngImageAlphaForDebug(alphaPercent: Int) {
-            StaticPngRuntimeTuning.setImageAlphaPercent(alphaPercent)
-            activeService?.runStaticPngImageAlphaTest(StaticPngRuntimeTuning.imageAlphaPercent)
+        fun setOverlayAlphaForDebug(alphaPercent: Int) {
+            OverlayWindowConfig.setOverlayAlphaPercent(alphaPercent)
+            activeService?.runOverlayAlphaTest(OverlayWindowConfig.overlayAlphaPercent)
         }
     }
 
@@ -950,11 +948,13 @@ class CharacterOverlayService : Service() {
         }
     }
 
-    private fun runStaticPngImageAlphaTest(alphaPercent: Int) {
-        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+    private fun runOverlayAlphaTest(alphaPercent: Int) {
         handler.post {
-            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
-            staticPngView?.setImageAlphaPercent(alphaPercent)
+            OverlayWindowConfig.setOverlayAlphaPercent(alphaPercent)
+            val view = overlayView ?: return@post
+            val params = view.layoutParams as? WindowManager.LayoutParams ?: return@post
+            params.alpha = OverlayWindowConfig.overlayAlpha()
+            windowManager?.updateViewLayout(view, params)
         }
     }
 }

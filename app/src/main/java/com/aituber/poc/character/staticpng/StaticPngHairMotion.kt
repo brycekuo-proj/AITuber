@@ -33,24 +33,13 @@ object StaticPngRuntimeTuning {
     const val CROSSFADE_MIN_MS = 50L
     const val CROSSFADE_MAX_MS = 800L
     const val DEFAULT_CROSSFADE_MS = StaticPngHairMotion.CROSSFADE_MS
-    const val IMAGE_ALPHA_MIN_PERCENT = 10
-    const val IMAGE_ALPHA_MAX_PERCENT = 100
-    const val DEFAULT_IMAGE_ALPHA_PERCENT = 100
 
     @Volatile
     var crossfadeMs: Long = DEFAULT_CROSSFADE_MS
         private set
 
-    @Volatile
-    var imageAlphaPercent: Int = DEFAULT_IMAGE_ALPHA_PERCENT
-        private set
-
     fun setCrossfadeMs(value: Long) {
         crossfadeMs = value.coerceIn(CROSSFADE_MIN_MS, CROSSFADE_MAX_MS)
-    }
-
-    fun setImageAlphaPercent(value: Int) {
-        imageAlphaPercent = value.coerceIn(IMAGE_ALPHA_MIN_PERCENT, IMAGE_ALPHA_MAX_PERCENT)
     }
 }
 

@@ -53,7 +53,6 @@ class StaticPngOverlayView(
     private var hairMotionRunning = false
     private var hairTransitionMode = StaticPngHairTransitionMode.CROSSFADE
     private var crossfadeDurationMs = StaticPngRuntimeTuning.crossfadeMs
-    private var imageAlphaPercent = StaticPngRuntimeTuning.imageAlphaPercent
     private var hairSequenceIndex = 0
     private var nextHairTransitionAtMs: Long? = null
     private val hairTransitionRunnables = mutableListOf<Runnable>()
@@ -112,7 +111,7 @@ class StaticPngOverlayView(
         contentView.setBackgroundColor(Color.TRANSPARENT)
         contentView.clipChildren = false
         contentView.clipToPadding = false
-        contentView.alpha = imageAlphaPercent / 100f
+        contentView.alpha = 1f
         addView(
             contentView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -245,7 +244,14 @@ class StaticPngOverlayView(
     fun setBreathAmplitudePercent(amplitudePercent: Int) {
         StaticPngBreathMotion.setAmplitudePercent(amplitudePercent)
         breathAmplitudePercent = StaticPngBreathMotion.amplitudePercent
-        if (breathMotionRunning) applyBreathMotionFrame(SystemClock.uptimeMillis()) else recordBreathMotion()
+        if (breathMotionRunning) {
+            val nowMs = SystemClock.uptimeMillis()
+            // While tuning, move immediately to peak inhale so the slider has obvious visual feedback.
+            breathMotionStartMs = nowMs - breathPeriodMs / 2L
+            applyBreathMotionFrame(nowMs)
+        } else {
+            recordBreathMotion()
+        }
     }
 
     fun setBreathPeriodMs(periodMs: Long) {
@@ -299,13 +305,6 @@ class StaticPngOverlayView(
     fun setCrossfadeDurationMs(durationMs: Long) {
         StaticPngRuntimeTuning.setCrossfadeMs(durationMs)
         crossfadeDurationMs = StaticPngRuntimeTuning.crossfadeMs
-        recordHairLayer()
-    }
-
-    fun setImageAlphaPercent(alphaPercent: Int) {
-        StaticPngRuntimeTuning.setImageAlphaPercent(alphaPercent)
-        imageAlphaPercent = StaticPngRuntimeTuning.imageAlphaPercent
-        contentView.alpha = imageAlphaPercent / 100f
         recordHairLayer()
     }
 

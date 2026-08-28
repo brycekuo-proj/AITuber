@@ -19,8 +19,10 @@ object StaticPngBreathMotion {
     const val PERIOD_MAX_MS = 7_000L
     const val DEFAULT_PERIOD_MS = 4_800L
 
-    const val MAX_SCALE_X_DELTA = 0.002f
-    const val MAX_SCALE_Y_DELTA = 0.006f
+    // Deliberately wide tuning range for phone-side visual calibration.
+    // At the default 50% amplitude this peaks at +0.6% X / +2.0% Y.
+    const val MAX_SCALE_X_DELTA = 0.012f
+    const val MAX_SCALE_Y_DELTA = 0.040f
 
     @Volatile
     var amplitudePercent: Int = DEFAULT_AMPLITUDE_PERCENT
