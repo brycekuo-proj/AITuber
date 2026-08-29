@@ -613,6 +613,9 @@ class MainActivity : Activity() {
             setOnClickListener { toggleDiagnostics() }
         }
         root.addView(diagnosticsToggleButton, buttonLayoutParams())
+        addButton(root, "OPEN MANDARIN VISEME MVP") {
+            startActivity(Intent(this, VisemeMvpActivity::class.java))
+        }
     }
 
     private fun addButton(root: LinearLayout, label: String, action: () -> Unit): Button {
