@@ -398,9 +398,10 @@ class StaticPngOverlayView(
     }
 
     fun setThinkingFrameForDebug(frameId: StaticPngThinkingFrameId) {
+        val wasThinking = isThinkingVisible()
         thinkingDebugOverride = true
         stopThinkingPlayback(resetFrame = false)
-        if (!isThinkingVisible()) {
+        if (!wasThinking) {
             enterThinking(startPlayback = false)
         }
         transitionThinkingTo(frameId)
@@ -522,7 +523,7 @@ class StaticPngOverlayView(
         imageView.visibility = View.GONE
         eyeLayerView.visibility = View.GONE
         mouthLayerView.visibility = View.GONE
-        chestBreathLayerView.visibility = View.GONE
+        applyChestPieceVisibility()
     }
 
     private fun startThinkingPlayback() {
@@ -890,6 +891,7 @@ class StaticPngOverlayView(
             breathView.scaleX = 1f
             breathView.scaleY = 1f
             chestBreathLayerView.setFrame(chestBreathMotionFrame, active = false)
+            applyChestPieceVisibility()
         }
         recordBreathMotion()
     }
@@ -911,11 +913,26 @@ class StaticPngOverlayView(
         )
         breathView.scaleX = 1f
         breathView.scaleY = 1f
+        val chestVisibility = currentChestPieceVisibility()
         chestBreathLayerView.setFrame(
             frame = chestBreathMotionFrame,
-            active = breathMotionRunning || previewChest
+            active = chestVisibility.visible && (breathMotionRunning || previewChest)
         )
+        applyChestPieceVisibility(chestVisibility)
         recordBreathMotion()
+    }
+
+    private fun currentChestPieceVisibility(): StaticPngChestPieceVisibility {
+        return StaticPngChestPieceState.resolve(
+            universalState = currentUniversalState,
+            thinkingDebugOverride = thinkingDebugOverride
+        )
+    }
+
+    private fun applyChestPieceVisibility(
+        visibilityState: StaticPngChestPieceVisibility = currentChestPieceVisibility()
+    ) {
+        chestBreathLayerView.visibility = if (visibilityState.visible) View.VISIBLE else View.GONE
     }
 
     private fun updateBreathPivot(viewWidth: Int, viewHeight: Int) {
@@ -931,6 +948,7 @@ class StaticPngOverlayView(
     }
 
     private fun recordBreathMotion() {
+        val chestVisibility = currentChestPieceVisibility()
         CharacterDiagnostics.recordStaticPngBreathMotion(
             active = breathMotionRunning,
             phase = breathMotionFrame.phase,
@@ -941,13 +959,15 @@ class StaticPngOverlayView(
             periodMs = breathPeriodMs,
             pivotX = breathView.pivotX,
             pivotY = breathView.pivotY,
-            chestActive = breathMotionRunning && chestBreathAmplitudePercent > 0,
+            chestActive = chestVisibility.visible && breathMotionRunning && chestBreathAmplitudePercent > 0,
             chestAmplitudePercent = chestBreathAmplitudePercent,
             chestPhase = chestBreathMotionFrame.phase,
             chestInhale = chestBreathMotionFrame.inhale,
-            chestEnabled = true,
-            chestVisible = chestBreathLayerView.visibility == View.VISIBLE,
+            chestEnabled = chestVisibility.visible,
+            chestVisible = chestVisibility.visible && chestBreathLayerView.visibility == View.VISIBLE,
             chestAssetPath = characterPackage.chestPiece.assetPath,
+            chestActiveState = chestVisibility.activeState,
+            chestDisabledReason = chestVisibility.disabledReason,
             chestSourceBounds = characterPackage.chestPiece.bounds.let { bounds ->
                 "${bounds.x},${bounds.y} ${bounds.width}x${bounds.height}"
             },

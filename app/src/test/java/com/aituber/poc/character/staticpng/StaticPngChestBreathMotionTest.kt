@@ -1,7 +1,9 @@
 package com.aituber.poc.character.staticpng
 
 import com.aituber.poc.overlay.Live2DOverlayScaleMath
+import com.aituber.poc.state.UniversalAiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -198,6 +200,41 @@ class StaticPngChestBreathMotionTest {
         assertEquals(355, piece.bounds.y)
         assertEquals(325, piece.bounds.width)
         assertEquals(315, piece.bounds.height)
+    }
+
+    @Test
+    fun chestPieceIsVisibleInIdleAndDisabledInThinking() {
+        val idle = StaticPngChestPieceState.resolve(UniversalAiState.IDLE)
+        val thinking = StaticPngChestPieceState.resolve(UniversalAiState.THINKING)
+
+        assertTrue(idle.visible)
+        assertEquals(UniversalAiState.IDLE.name, idle.activeState)
+        assertEquals(StaticPngChestPieceState.DISABLED_REASON_NONE, idle.disabledReason)
+
+        assertFalse(thinking.visible)
+        assertEquals(UniversalAiState.THINKING.name, thinking.activeState)
+        assertEquals(StaticPngChestPieceState.DISABLED_REASON_THINKING, thinking.disabledReason)
+    }
+
+    @Test
+    fun chestPieceRestoresWhenThinkingReturnsToIdle() {
+        val thinking = StaticPngChestPieceState.resolve(UniversalAiState.THINKING)
+        val restored = StaticPngChestPieceState.resolve(UniversalAiState.IDLE)
+
+        assertFalse(thinking.visible)
+        assertTrue(restored.visible)
+        assertEquals(StaticPngChestPieceState.DISABLED_REASON_NONE, restored.disabledReason)
+    }
+
+    @Test
+    fun thinkingDebugOverrideAlsoDisablesChestPiece() {
+        val visibility = StaticPngChestPieceState.resolve(
+            universalState = UniversalAiState.IDLE,
+            thinkingDebugOverride = true
+        )
+
+        assertFalse(visibility.visible)
+        assertEquals(StaticPngChestPieceState.DISABLED_REASON_THINKING, visibility.disabledReason)
     }
 
     private fun chestBaseBoundsFor(displayScale: Float): StaticPngViewRect {

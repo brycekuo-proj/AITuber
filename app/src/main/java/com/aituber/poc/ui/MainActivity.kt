@@ -207,6 +207,8 @@ class MainActivity : Activity() {
     private lateinit var staticPngChestPieceEnabledValue: TextView
     private lateinit var staticPngChestPieceVisibleValue: TextView
     private lateinit var staticPngChestPieceAssetPathValue: TextView
+    private lateinit var staticPngChestPieceActiveStateValue: TextView
+    private lateinit var staticPngChestPieceDisabledReasonValue: TextView
     private lateinit var staticPngChestBreathSourceBoundsValue: TextView
     private lateinit var staticPngChestBreathNormalizedBoundsValue: TextView
     private lateinit var staticPngChestBreathViewBoundsValue: TextView
@@ -991,6 +993,8 @@ class MainActivity : Activity() {
         staticPngChestPieceEnabledValue = addDiagnosticField(root, "Chest Piece Enabled")
         staticPngChestPieceVisibleValue = addDiagnosticField(root, "Chest Piece Visible")
         staticPngChestPieceAssetPathValue = addDiagnosticField(root, "Chest Asset Path")
+        staticPngChestPieceActiveStateValue = addDiagnosticField(root, "Chest Piece Active State")
+        staticPngChestPieceDisabledReasonValue = addDiagnosticField(root, "Chest Piece Disabled Reason")
         staticPngChestBreathSourceBoundsValue = addDiagnosticField(root, "Chest Piece Bounds")
         staticPngChestBreathNormalizedBoundsValue = addDiagnosticField(root, "Chest Piece Normalized Bounds")
         staticPngChestBreathViewBoundsValue = addDiagnosticField(root, "Chest Piece View Bounds")
@@ -1853,6 +1857,8 @@ class MainActivity : Activity() {
             staticPngChestPieceEnabledValue.text = character.staticPngChestPieceEnabled
             staticPngChestPieceVisibleValue.text = character.staticPngChestPieceVisible
             staticPngChestPieceAssetPathValue.text = character.staticPngChestPieceAssetPath
+            staticPngChestPieceActiveStateValue.text = character.staticPngChestPieceActiveState
+            staticPngChestPieceDisabledReasonValue.text = character.staticPngChestPieceDisabledReason
             staticPngChestBreathSourceBoundsValue.text = character.staticPngChestBreathSourceBounds
             staticPngChestBreathNormalizedBoundsValue.text = character.staticPngChestBreathSourceNormalizedBounds
             staticPngChestBreathViewBoundsValue.text = character.staticPngChestBreathViewBounds
