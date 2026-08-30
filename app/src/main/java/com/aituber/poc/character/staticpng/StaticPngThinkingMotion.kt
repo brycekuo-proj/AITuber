@@ -11,17 +11,22 @@ object StaticPngThinkingMotion {
     const val BRIDGE_A_HOLD_MS = 40L
     const val BRIDGE_FROM_A_MS = 160L
 
-    val SEQUENCE = listOf(
+    val ENTRY_SEQUENCE = listOf(
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.A),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.B),
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.C),
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.D),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.E),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.D),
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.C),
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.C)
+    )
+
+    val EXIT_SEQUENCE = listOf(
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.D),
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.E),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.B),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.A)
     )
+
+    val DEBUG_LOOP_SEQUENCE = ENTRY_SEQUENCE + EXIT_SEQUENCE
 
     fun transitionDurationMs(mode: StaticPngThinkingTransitionMode): Long = when (mode) {
         StaticPngThinkingTransitionMode.DIRECT -> 0L
@@ -31,6 +36,7 @@ object StaticPngThinkingMotion {
 }
 
 class StaticPngThinkingLoopState {
+    private var loopMode: Boolean = false
     var playbackEnabled: Boolean = false
         private set
     var transitionScheduled: Boolean = false
@@ -42,7 +48,8 @@ class StaticPngThinkingLoopState {
     var scheduleCount: Int = 0
         private set
 
-    fun start(): Boolean {
+    fun start(loop: Boolean = false): Boolean {
+        loopMode = loop
         playbackEnabled = true
         frameId = StaticPngThinkingFrameId.A
         sequenceIndex = 0
@@ -52,6 +59,7 @@ class StaticPngThinkingLoopState {
     fun stop() {
         playbackEnabled = false
         transitionScheduled = false
+        loopMode = false
         frameId = StaticPngThinkingFrameId.A
         sequenceIndex = 0
     }
@@ -66,12 +74,18 @@ class StaticPngThinkingLoopState {
     fun advance(): StaticPngThinkingFrameId? {
         if (!playbackEnabled || !transitionScheduled) return null
         transitionScheduled = false
-        sequenceIndex = if (sequenceIndex >= StaticPngThinkingMotion.SEQUENCE.lastIndex) {
-            1
+        val sequence = if (loopMode) {
+            StaticPngThinkingMotion.DEBUG_LOOP_SEQUENCE
         } else {
-            sequenceIndex + 1
+            StaticPngThinkingMotion.ENTRY_SEQUENCE
         }
-        frameId = StaticPngThinkingMotion.SEQUENCE[sequenceIndex].frameId
+        if (sequenceIndex >= sequence.lastIndex) {
+            playbackEnabled = false
+            frameId = StaticPngThinkingFrameId.C
+            return null
+        }
+        sequenceIndex += 1
+        frameId = sequence[sequenceIndex].frameId
         return frameId
     }
 }

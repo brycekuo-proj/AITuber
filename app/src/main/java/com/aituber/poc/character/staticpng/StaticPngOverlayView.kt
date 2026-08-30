@@ -73,8 +73,11 @@ class StaticPngOverlayView(
     private var thinkingDebugOverride = false
     private var activeThinkingFrame = StaticPngThinkingFrameId.A
     private var thinkingPlaybackRunning = false
+    private var thinkingPlaybackLoop = false
+    private var thinkingExitRunning = false
     private var thinkingTransitionMode = StaticPngThinkingTransitionMode.CROSSFADE
     private var thinkingSequenceIndex = 0
+    private var activeThinkingSequence = StaticPngThinkingMotion.ENTRY_SEQUENCE
     private var nextThinkingTransitionAtMs: Long? = null
     private var lastThinkingTransitionDurationMs = 0L
     private val thinkingTransitionRunnables = mutableListOf<Runnable>()
@@ -125,12 +128,23 @@ class StaticPngOverlayView(
                 recordThinkingLayer()
                 return
             }
-            thinkingSequenceIndex = if (thinkingSequenceIndex >= StaticPngThinkingMotion.SEQUENCE.lastIndex) {
-                1
+            thinkingSequenceIndex = if (thinkingSequenceIndex >= activeThinkingSequence.lastIndex) {
+                if (thinkingPlaybackLoop) 1 else thinkingSequenceIndex
             } else {
                 thinkingSequenceIndex + 1
             }
-            transitionThinkingTo(StaticPngThinkingMotion.SEQUENCE[thinkingSequenceIndex].frameId)
+            if (!thinkingPlaybackLoop && thinkingSequenceIndex >= activeThinkingSequence.lastIndex) {
+                transitionThinkingTo(activeThinkingSequence[thinkingSequenceIndex].frameId)
+                thinkingPlaybackRunning = false
+                nextThinkingTransitionAtMs = null
+                if (thinkingExitRunning) {
+                    restoreIdleLayersAfterThinking()
+                } else {
+                    recordThinkingLayer()
+                }
+                return
+            }
+            transitionThinkingTo(activeThinkingSequence[thinkingSequenceIndex].frameId)
             scheduleNextThinkingTransition()
         }
     }
@@ -411,12 +425,13 @@ class StaticPngOverlayView(
     fun setThinkingPlaybackForDebug(enabled: Boolean) {
         thinkingDebugOverride = enabled
         if (enabled) {
-            enterThinking(startPlayback = true)
+            enterThinking(startPlayback = true, loopPlayback = true)
         } else if (currentUniversalState != UniversalAiState.THINKING) {
             exitThinking()
         } else {
             stopThinkingPlayback(resetFrame = true)
-            startThinkingPlayback()
+            activeThinkingSequence = StaticPngThinkingMotion.ENTRY_SEQUENCE
+            startThinkingPlayback(loopPlayback = false)
         }
         recordThinkingLayer()
     }
@@ -486,21 +501,48 @@ class StaticPngOverlayView(
     }
 
     private fun isThinkingVisible(): Boolean {
-        return currentUniversalState == UniversalAiState.THINKING || thinkingDebugOverride
+        return currentUniversalState == UniversalAiState.THINKING || thinkingDebugOverride || thinkingExitRunning
     }
 
-    private fun enterThinking(startPlayback: Boolean = true) {
+    private fun enterThinking(startPlayback: Boolean = true, loopPlayback: Boolean = false) {
+        thinkingExitRunning = false
+        activeThinkingSequence = if (loopPlayback) {
+            StaticPngThinkingMotion.DEBUG_LOOP_SEQUENCE
+        } else {
+            StaticPngThinkingMotion.ENTRY_SEQUENCE
+        }
         applyThinkingLayerMode()
         applyThinkingFrameDirect(StaticPngThinkingFrameId.A)
         if (startPlayback) {
-            startThinkingPlayback()
+            startThinkingPlayback(loopPlayback = loopPlayback)
         } else {
             recordThinkingLayer()
         }
     }
 
     private fun exitThinking() {
-        stopThinkingPlayback(resetFrame = true)
+        if (thinkingExitRunning) return
+        stopThinkingPlayback(resetFrame = false)
+        thinkingDebugOverride = false
+        thinkingExitRunning = true
+        thinkingPlaybackLoop = false
+        activeThinkingSequence = StaticPngThinkingMotion.EXIT_SEQUENCE
+        thinkingSequenceIndex = -1
+        activeThinkingFrame = StaticPngThinkingFrameId.C
+        applyThinkingLayerMode()
+        applyThinkingFrameDirect(activeThinkingFrame)
+        startThinkingPlayback(loopPlayback = false, resetFrameToA = false)
+    }
+
+    private fun restoreIdleLayersAfterThinking() {
+        thinkingExitRunning = false
+        thinkingPlaybackLoop = false
+        thinkingPlaybackRunning = false
+        nextThinkingTransitionAtMs = null
+        handler.removeCallbacks(thinkingPlaybackRunnable)
+        cancelThinkingTransitions()
+        activeThinkingFrame = StaticPngThinkingFrameId.A
+        thinkingSequenceIndex = 0
         thinkingLayerView.visibility = View.GONE
         thinkingLayerView.setImageDrawable(null)
         thinkingTransitionLayerView.visibility = View.GONE
@@ -526,15 +568,23 @@ class StaticPngOverlayView(
         applyChestPieceVisibility()
     }
 
-    private fun startThinkingPlayback() {
+    private fun startThinkingPlayback(loopPlayback: Boolean = false, resetFrameToA: Boolean = true) {
         if (thinkingPlaybackRunning || !isAttachedToWindow) {
             recordThinkingLayer()
             return
         }
         thinkingPlaybackRunning = true
-        thinkingSequenceIndex = 0
-        activeThinkingFrame = StaticPngThinkingFrameId.A
-        applyThinkingFrameDirect(activeThinkingFrame)
+        thinkingPlaybackLoop = loopPlayback
+        activeThinkingSequence = if (loopPlayback) {
+            StaticPngThinkingMotion.DEBUG_LOOP_SEQUENCE
+        } else {
+            activeThinkingSequence
+        }
+        if (resetFrameToA) {
+            thinkingSequenceIndex = 0
+            activeThinkingFrame = StaticPngThinkingFrameId.A
+            applyThinkingFrameDirect(activeThinkingFrame)
+        }
         scheduleNextThinkingTransition()
     }
 
