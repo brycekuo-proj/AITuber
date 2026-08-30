@@ -11,7 +11,8 @@ data class StaticPngCharacterPackage(
     val eyeReplacementPatch: StaticPngEyePatch,
     val eyeLayers: Map<StaticPngEyeShape, StaticPngEyeLayer>,
     val hairLayers: Map<StaticPngHairShape, StaticPngHairLayer>,
-    val chestPiece: StaticPngChestPiece
+    val chestPiece: StaticPngChestPiece,
+    val thinkingFrames: Map<StaticPngThinkingFrameId, StaticPngThinkingFrameLayer>
 ) {
     companion object {
         val XianxiaFemale = StaticPngCharacterPackage(
@@ -64,6 +65,23 @@ data class StaticPngCharacterPackage(
                     width = 325,
                     height = 315
                 )
+            ),
+            thinkingFrames = mapOf(
+                StaticPngThinkingFrameId.A to StaticPngThinkingFrameLayer(
+                    assetPath = "characters/xianxia_female/thinking/xianxia_female__thinking__frame_a__v1.png"
+                ),
+                StaticPngThinkingFrameId.B to StaticPngThinkingFrameLayer(
+                    assetPath = "characters/xianxia_female/thinking/xianxia_female__thinking__frame_b__v1.png"
+                ),
+                StaticPngThinkingFrameId.C to StaticPngThinkingFrameLayer(
+                    assetPath = "characters/xianxia_female/thinking/xianxia_female__thinking__frame_c__v1.png"
+                ),
+                StaticPngThinkingFrameId.D to StaticPngThinkingFrameLayer(
+                    assetPath = "characters/xianxia_female/thinking/xianxia_female__thinking__frame_d__v1.png"
+                ),
+                StaticPngThinkingFrameId.E to StaticPngThinkingFrameLayer(
+                    assetPath = "characters/xianxia_female/thinking/xianxia_female__thinking__frame_e__v1.png"
+                )
             )
         )
     }
@@ -100,6 +118,10 @@ data class StaticPngChestPiece(
     val bounds: StaticPngSourceRect
 )
 
+data class StaticPngThinkingFrameLayer(
+    val assetPath: String
+)
+
 enum class StaticPngEyeShape {
     OPEN,
     HALF,
@@ -133,4 +155,18 @@ enum class StaticPngMouthShape {
             }
         }
     }
+}
+
+enum class StaticPngThinkingFrameId {
+    A,
+    B,
+    C,
+    D,
+    E
+}
+
+enum class StaticPngThinkingTransitionMode {
+    DIRECT,
+    CROSSFADE,
+    BRIDGE
 }

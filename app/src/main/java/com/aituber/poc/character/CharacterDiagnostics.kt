@@ -243,6 +243,45 @@ object CharacterDiagnostics {
     }
 
     @Synchronized
+    fun recordStaticPngThinking(
+        frame: String,
+        playbackActive: Boolean,
+        transitionMode: String,
+        transitionDurationMs: Long,
+        assetPath: String,
+        assetSummary: String,
+        frameCount: Int,
+        layerVisible: Boolean,
+        drawableWidth: Int,
+        drawableHeight: Int,
+        viewWidth: Int,
+        viewHeight: Int,
+        mouthActiveInThinking: Boolean,
+        blinkActiveInThinking: Boolean,
+        chestActiveInThinking: Boolean,
+        hairActiveInThinking: Boolean,
+        nextTransitionInMs: Long?
+    ) {
+        current = current.copy(
+            staticPngThinkingFrame = frame,
+            staticPngThinkingPlaybackActive = if (playbackActive) "YES" else "NO",
+            staticPngThinkingTransitionMode = transitionMode,
+            staticPngThinkingTransitionDurationMs = transitionDurationMs,
+            staticPngCurrentThinkingAssetPath = assetPath,
+            staticPngThinkingAssetSummary = assetSummary,
+            staticPngThinkingFrameCount = frameCount,
+            staticPngThinkingLayerVisible = if (layerVisible) "YES" else "NO",
+            staticPngThinkingLayerDrawableSize = "${drawableWidth}x${drawableHeight}",
+            staticPngThinkingLayerViewBounds = "${viewWidth}x${viewHeight}",
+            staticPngThinkingMouthActive = if (mouthActiveInThinking) "YES" else "NO",
+            staticPngThinkingBlinkActive = if (blinkActiveInThinking) "YES" else "NO",
+            staticPngThinkingChestActive = if (chestActiveInThinking) "YES" else "NO",
+            staticPngThinkingHairActive = if (hairActiveInThinking) "YES" else "NO",
+            staticPngNextThinkingTransitionInMs = nextTransitionInMs
+        )
+    }
+
+    @Synchronized
     fun recordFrame(
         adapterId: String,
         frame: CharacterParameterFrame,
@@ -644,6 +683,21 @@ data class CharacterDiagnosticsSnapshot(
     val staticPngHairLayerBackground: String,
     val staticPngHairLayerTint: String,
     val staticPngHairLayerColorFilter: String,
+    val staticPngThinkingFrame: String,
+    val staticPngThinkingPlaybackActive: String,
+    val staticPngThinkingTransitionMode: String,
+    val staticPngThinkingTransitionDurationMs: Long,
+    val staticPngCurrentThinkingAssetPath: String,
+    val staticPngThinkingAssetSummary: String,
+    val staticPngThinkingFrameCount: Int,
+    val staticPngThinkingLayerVisible: String,
+    val staticPngThinkingLayerDrawableSize: String,
+    val staticPngThinkingLayerViewBounds: String,
+    val staticPngThinkingMouthActive: String,
+    val staticPngThinkingBlinkActive: String,
+    val staticPngThinkingChestActive: String,
+    val staticPngThinkingHairActive: String,
+    val staticPngNextThinkingTransitionInMs: Long?,
     val lastFrameTimestampMs: Long?
 ) {
     companion object {
@@ -823,6 +877,21 @@ data class CharacterDiagnosticsSnapshot(
             staticPngHairLayerBackground = "n/a",
             staticPngHairLayerTint = "n/a",
             staticPngHairLayerColorFilter = "n/a",
+            staticPngThinkingFrame = "A",
+            staticPngThinkingPlaybackActive = "NO",
+            staticPngThinkingTransitionMode = "CROSSFADE",
+            staticPngThinkingTransitionDurationMs = 0L,
+            staticPngCurrentThinkingAssetPath = "n/a",
+            staticPngThinkingAssetSummary = "n/a",
+            staticPngThinkingFrameCount = 0,
+            staticPngThinkingLayerVisible = "NO",
+            staticPngThinkingLayerDrawableSize = "0x0",
+            staticPngThinkingLayerViewBounds = "0x0",
+            staticPngThinkingMouthActive = "NO",
+            staticPngThinkingBlinkActive = "NO",
+            staticPngThinkingChestActive = "NO",
+            staticPngThinkingHairActive = "NO",
+            staticPngNextThinkingTransitionInMs = null,
             lastFrameTimestampMs = null
         )
     }

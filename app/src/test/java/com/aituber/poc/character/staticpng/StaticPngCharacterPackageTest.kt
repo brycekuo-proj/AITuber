@@ -180,6 +180,46 @@ class StaticPngCharacterPackageTest {
     }
 
     @Test
+    fun xianxiaStaticPngPackageDefinesThinkingFramesInProvidedOrder() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
+        assertEquals(
+            listOf(
+                StaticPngThinkingFrameId.A,
+                StaticPngThinkingFrameId.B,
+                StaticPngThinkingFrameId.C,
+                StaticPngThinkingFrameId.D,
+                StaticPngThinkingFrameId.E
+            ),
+            characterPackage.thinkingFrames.keys.toList()
+        )
+        assertEquals(
+            "characters/xianxia_female/thinking/xianxia_female__thinking__frame_a__v1.png",
+            characterPackage.thinkingFrames.getValue(StaticPngThinkingFrameId.A).assetPath
+        )
+        assertEquals(
+            "characters/xianxia_female/thinking/xianxia_female__thinking__frame_e__v1.png",
+            characterPackage.thinkingFrames.getValue(StaticPngThinkingFrameId.E).assetPath
+        )
+    }
+
+    @Test
+    fun xianxiaThinkingFrameAssetsAreFullCanvasRgbaPngs() {
+        val characterPackage = StaticPngCharacterPackage.XianxiaFemale
+
+        characterPackage.thinkingFrames.values.forEach { layer ->
+            val asset = File("src/main/assets/${layer.assetPath}")
+
+            assertTrue("Missing thinking frame asset: ${asset.path}", asset.isFile)
+            val header = asset.readPngHeader()
+
+            assertEquals(characterPackage.sourceWidthPx, header.width)
+            assertEquals(characterPackage.sourceHeightPx, header.height)
+            assertEquals(PNG_COLOR_TYPE_RGBA, header.colorType)
+        }
+    }
+
+    @Test
     fun mouthShapeThresholdsMatchPocRules() {
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.00f))
         assertEquals(StaticPngMouthShape.CLOSED, StaticPngMouthShape.fromRatio(0.25f))

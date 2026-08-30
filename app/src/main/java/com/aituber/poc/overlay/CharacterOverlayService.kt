@@ -29,6 +29,8 @@ import com.aituber.poc.character.staticpng.StaticPngEyeShape
 import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
+import com.aituber.poc.character.staticpng.StaticPngThinkingFrameId
+import com.aituber.poc.character.staticpng.StaticPngThinkingTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngChestBreathMotion
@@ -799,6 +801,18 @@ class CharacterOverlayService : Service() {
             activeService?.runStaticPngCrossfadeDurationTest(StaticPngRuntimeTuning.crossfadeMs)
         }
 
+        fun testStaticPngThinkingFrameForDebug(frameId: StaticPngThinkingFrameId) {
+            activeService?.runStaticPngThinkingFrameTest(frameId)
+        }
+
+        fun setStaticPngThinkingPlaybackForDebug(enabled: Boolean) {
+            activeService?.runStaticPngThinkingPlaybackTest(enabled)
+        }
+
+        fun setStaticPngThinkingTransitionModeForDebug(mode: StaticPngThinkingTransitionMode) {
+            activeService?.runStaticPngThinkingTransitionModeTest(mode)
+        }
+
         fun setOverlayAlphaForDebug(alphaPercent: Int) {
             OverlayWindowConfig.setOverlayAlphaPercent(alphaPercent)
             activeService?.runOverlayAlphaTest(OverlayWindowConfig.overlayAlphaPercent)
@@ -962,6 +976,30 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setCrossfadeDurationMs(durationMs)
+        }
+    }
+
+    private fun runStaticPngThinkingFrameTest(frameId: StaticPngThinkingFrameId) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setThinkingFrameForDebug(frameId)
+        }
+    }
+
+    private fun runStaticPngThinkingPlaybackTest(enabled: Boolean) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setThinkingPlaybackForDebug(enabled)
+        }
+    }
+
+    private fun runStaticPngThinkingTransitionModeTest(mode: StaticPngThinkingTransitionMode) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setThinkingTransitionMode(mode)
         }
     }
 

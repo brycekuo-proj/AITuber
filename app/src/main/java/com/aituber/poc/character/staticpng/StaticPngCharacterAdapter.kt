@@ -10,6 +10,7 @@ class StaticPngCharacterAdapter(
 
     override fun render(frame: CharacterParameterFrame) {
         overlayView?.show()
+        overlayView?.setUniversalState(frame.universalState)
         overlayView?.setMouthOpenRatio(frame.mouthOpen)
     }
 

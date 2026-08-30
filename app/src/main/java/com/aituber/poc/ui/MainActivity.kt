@@ -34,6 +34,8 @@ import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
+import com.aituber.poc.character.staticpng.StaticPngThinkingFrameId
+import com.aituber.poc.character.staticpng.StaticPngThinkingTransitionMode
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
@@ -111,6 +113,15 @@ class MainActivity : Activity() {
     private lateinit var testStaticPngHairTransitionDirectButton: Button
     private lateinit var testStaticPngHairTransitionCrossfadeButton: Button
     private lateinit var testStaticPngHairTransitionBridgeButton: Button
+    private lateinit var testThinkingFrameAButton: Button
+    private lateinit var testThinkingFrameBButton: Button
+    private lateinit var testThinkingFrameCButton: Button
+    private lateinit var testThinkingFrameDButton: Button
+    private lateinit var testThinkingFrameEButton: Button
+    private lateinit var testThinkingPlayButton: Button
+    private lateinit var testThinkingTransitionDirectButton: Button
+    private lateinit var testThinkingTransitionCrossfadeButton: Button
+    private lateinit var testThinkingTransitionBridgeButton: Button
     private lateinit var staticPngCrossfadeLabel: TextView
     private lateinit var staticPngCrossfadeSeekBar: SeekBar
     private lateinit var staticPngImageAlphaLabel: TextView
@@ -258,6 +269,21 @@ class MainActivity : Activity() {
     private lateinit var staticPngHairLayerBackgroundValue: TextView
     private lateinit var staticPngHairLayerTintValue: TextView
     private lateinit var staticPngHairLayerColorFilterValue: TextView
+    private lateinit var staticPngThinkingFrameValue: TextView
+    private lateinit var staticPngThinkingPlaybackActiveValue: TextView
+    private lateinit var staticPngThinkingTransitionModeValue: TextView
+    private lateinit var staticPngThinkingTransitionDurationValue: TextView
+    private lateinit var staticPngCurrentThinkingAssetPathValue: TextView
+    private lateinit var staticPngThinkingAssetSummaryValue: TextView
+    private lateinit var staticPngThinkingFrameCountValue: TextView
+    private lateinit var staticPngThinkingLayerVisibleValue: TextView
+    private lateinit var staticPngThinkingLayerDrawableSizeValue: TextView
+    private lateinit var staticPngThinkingLayerViewBoundsValue: TextView
+    private lateinit var staticPngThinkingMouthActiveValue: TextView
+    private lateinit var staticPngThinkingBlinkActiveValue: TextView
+    private lateinit var staticPngThinkingChestActiveValue: TextView
+    private lateinit var staticPngThinkingHairActiveValue: TextView
+    private lateinit var staticPngNextThinkingTransitionInValue: TextView
     private lateinit var breathEnabledValue: TextView
     private lateinit var breathParameterStatusValue: TextView
     private lateinit var breathNormalizedValue: TextView
@@ -855,6 +881,35 @@ class MainActivity : Activity() {
         testStaticPngHairTransitionBridgeButton = addButton(root, "TRANSITION: BRIDGE") {
             CharacterOverlayService.setStaticPngHairTransitionModeForDebug(StaticPngHairTransitionMode.BRIDGE)
         }
+        testThinkingFrameAButton = addButton(root, "TEST THINKING FRAME A") {
+            CharacterOverlayService.testStaticPngThinkingFrameForDebug(StaticPngThinkingFrameId.A)
+        }
+        testThinkingFrameBButton = addButton(root, "TEST THINKING FRAME B") {
+            CharacterOverlayService.testStaticPngThinkingFrameForDebug(StaticPngThinkingFrameId.B)
+        }
+        testThinkingFrameCButton = addButton(root, "TEST THINKING FRAME C") {
+            CharacterOverlayService.testStaticPngThinkingFrameForDebug(StaticPngThinkingFrameId.C)
+        }
+        testThinkingFrameDButton = addButton(root, "TEST THINKING FRAME D") {
+            CharacterOverlayService.testStaticPngThinkingFrameForDebug(StaticPngThinkingFrameId.D)
+        }
+        testThinkingFrameEButton = addButton(root, "TEST THINKING FRAME E") {
+            CharacterOverlayService.testStaticPngThinkingFrameForDebug(StaticPngThinkingFrameId.E)
+        }
+        testThinkingPlayButton = addButton(root, "TEST THINKING PLAY ON") {
+            val enabled = CharacterDiagnostics.snapshot().staticPngThinkingPlaybackActive != "YES"
+            CharacterOverlayService.setStaticPngThinkingPlaybackForDebug(enabled)
+            refreshControlLabels()
+        }
+        testThinkingTransitionDirectButton = addButton(root, "THINKING TRANSITION: DIRECT") {
+            CharacterOverlayService.setStaticPngThinkingTransitionModeForDebug(StaticPngThinkingTransitionMode.DIRECT)
+        }
+        testThinkingTransitionCrossfadeButton = addButton(root, "THINKING TRANSITION: CROSSFADE") {
+            CharacterOverlayService.setStaticPngThinkingTransitionModeForDebug(StaticPngThinkingTransitionMode.CROSSFADE)
+        }
+        testThinkingTransitionBridgeButton = addButton(root, "THINKING TRANSITION: BRIDGE") {
+            CharacterOverlayService.setStaticPngThinkingTransitionModeForDebug(StaticPngThinkingTransitionMode.BRIDGE)
+        }
 
         staticPngCrossfadeLabel = TextView(this).apply {
             textSize = 14f
@@ -970,6 +1025,21 @@ class MainActivity : Activity() {
         staticPngHairLayerBackgroundValue = addDiagnosticField(root, "Hair Layer Background")
         staticPngHairLayerTintValue = addDiagnosticField(root, "Hair Layer Tint")
         staticPngHairLayerColorFilterValue = addDiagnosticField(root, "Hair Layer ColorFilter")
+        staticPngThinkingFrameValue = addDiagnosticField(root, "Current Thinking Frame")
+        staticPngThinkingPlaybackActiveValue = addDiagnosticField(root, "Thinking Playback Active")
+        staticPngThinkingTransitionModeValue = addDiagnosticField(root, "Thinking Transition Mode")
+        staticPngThinkingTransitionDurationValue = addDiagnosticField(root, "Thinking Transition Duration")
+        staticPngCurrentThinkingAssetPathValue = addDiagnosticField(root, "Current Thinking Asset Path")
+        staticPngThinkingAssetSummaryValue = addDiagnosticField(root, "Thinking Asset Paths")
+        staticPngThinkingFrameCountValue = addDiagnosticField(root, "Thinking Frame Count")
+        staticPngThinkingLayerVisibleValue = addDiagnosticField(root, "Thinking Layer Visible")
+        staticPngThinkingLayerDrawableSizeValue = addDiagnosticField(root, "Thinking Layer Drawable Size")
+        staticPngThinkingLayerViewBoundsValue = addDiagnosticField(root, "Thinking Layer View Bounds")
+        staticPngThinkingMouthActiveValue = addDiagnosticField(root, "Mouth Active In THINKING")
+        staticPngThinkingBlinkActiveValue = addDiagnosticField(root, "Blink Active In THINKING")
+        staticPngThinkingChestActiveValue = addDiagnosticField(root, "Chest Breath Active In THINKING")
+        staticPngThinkingHairActiveValue = addDiagnosticField(root, "Hair Motion Active In THINKING")
+        staticPngNextThinkingTransitionInValue = addDiagnosticField(root, "Next Thinking Transition In")
         live2dProfileIdValue = addDiagnosticField(root, "Live2D Profile ID")
         live2dProfileNameValue = addDiagnosticField(root, "Live2D Profile Name")
         live2dModel3FileValue = addDiagnosticField(root, "Model3 File")
@@ -1420,6 +1490,13 @@ class MainActivity : Activity() {
                 "HAIR MOTION: OFF"
             }
         }
+        if (::testThinkingPlayButton.isInitialized) {
+            testThinkingPlayButton.text = if (CharacterDiagnostics.snapshot().staticPngThinkingPlaybackActive == "YES") {
+                "TEST THINKING PLAY ON"
+            } else {
+                "TEST THINKING PLAY OFF"
+            }
+        }
         updateStaticPngControlVisibility()
     }
 
@@ -1457,6 +1534,21 @@ class MainActivity : Activity() {
         }
         if (::testStaticPngHairTransitionBridgeButton.isInitialized) {
             testStaticPngHairTransitionBridgeButton.visibility = visibility
+        }
+        if (::testThinkingFrameAButton.isInitialized) testThinkingFrameAButton.visibility = visibility
+        if (::testThinkingFrameBButton.isInitialized) testThinkingFrameBButton.visibility = visibility
+        if (::testThinkingFrameCButton.isInitialized) testThinkingFrameCButton.visibility = visibility
+        if (::testThinkingFrameDButton.isInitialized) testThinkingFrameDButton.visibility = visibility
+        if (::testThinkingFrameEButton.isInitialized) testThinkingFrameEButton.visibility = visibility
+        if (::testThinkingPlayButton.isInitialized) testThinkingPlayButton.visibility = visibility
+        if (::testThinkingTransitionDirectButton.isInitialized) {
+            testThinkingTransitionDirectButton.visibility = visibility
+        }
+        if (::testThinkingTransitionCrossfadeButton.isInitialized) {
+            testThinkingTransitionCrossfadeButton.visibility = visibility
+        }
+        if (::testThinkingTransitionBridgeButton.isInitialized) {
+            testThinkingTransitionBridgeButton.visibility = visibility
         }
         if (::staticPngCrossfadeLabel.isInitialized) staticPngCrossfadeLabel.visibility = visibility
         if (::staticPngCrossfadeSeekBar.isInitialized) staticPngCrossfadeSeekBar.visibility = visibility
@@ -1809,6 +1901,22 @@ class MainActivity : Activity() {
             staticPngHairLayerBackgroundValue.text = character.staticPngHairLayerBackground
             staticPngHairLayerTintValue.text = character.staticPngHairLayerTint
             staticPngHairLayerColorFilterValue.text = character.staticPngHairLayerColorFilter
+            staticPngThinkingFrameValue.text = character.staticPngThinkingFrame
+            staticPngThinkingPlaybackActiveValue.text = character.staticPngThinkingPlaybackActive
+            staticPngThinkingTransitionModeValue.text = character.staticPngThinkingTransitionMode
+            staticPngThinkingTransitionDurationValue.text = "${character.staticPngThinkingTransitionDurationMs} ms"
+            staticPngCurrentThinkingAssetPathValue.text = character.staticPngCurrentThinkingAssetPath
+            staticPngThinkingAssetSummaryValue.text = character.staticPngThinkingAssetSummary
+            staticPngThinkingFrameCountValue.text = character.staticPngThinkingFrameCount.toString()
+            staticPngThinkingLayerVisibleValue.text = character.staticPngThinkingLayerVisible
+            staticPngThinkingLayerDrawableSizeValue.text = character.staticPngThinkingLayerDrawableSize
+            staticPngThinkingLayerViewBoundsValue.text = character.staticPngThinkingLayerViewBounds
+            staticPngThinkingMouthActiveValue.text = character.staticPngThinkingMouthActive
+            staticPngThinkingBlinkActiveValue.text = character.staticPngThinkingBlinkActive
+            staticPngThinkingChestActiveValue.text = character.staticPngThinkingChestActive
+            staticPngThinkingHairActiveValue.text = character.staticPngThinkingHairActive
+            staticPngNextThinkingTransitionInValue.text =
+                character.staticPngNextThinkingTransitionInMs?.let { "$it ms" } ?: "n/a"
             live2dProfileIdValue.text = character.live2dProfileId
             live2dProfileNameValue.text = character.live2dProfileName
             live2dModel3FileValue.text = character.live2dModel3File

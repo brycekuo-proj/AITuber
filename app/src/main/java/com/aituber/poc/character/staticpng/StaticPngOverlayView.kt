@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import com.aituber.poc.character.CharacterDiagnostics
+import com.aituber.poc.state.UniversalAiState
 import kotlin.random.Random
 
 class StaticPngOverlayView(
@@ -24,12 +25,15 @@ class StaticPngOverlayView(
     private val imageView = ImageView(context)
     private val hairLayerView = ImageView(context)
     private val hairTransitionLayerView = ImageView(context)
+    private val thinkingLayerView = ImageView(context)
+    private val thinkingTransitionLayerView = ImageView(context)
     private val chestBreathLayerView = StaticPngChestBreathOverlayView(context)
     private val eyeLayerView = ImageView(context)
     private val mouthLayerView = ImageView(context)
     private val masterBitmap: Bitmap
     private val chestPieceBitmap: Bitmap
     private val hairBitmaps: Map<StaticPngHairShape, Bitmap>
+    private val thinkingBitmaps: Map<StaticPngThinkingFrameId, Bitmap>
     private val eyeBitmaps: Map<StaticPngEyeShape, Bitmap>
     private val mouthBitmaps: Map<StaticPngMouthShape, Bitmap>
     private var activeHairShape = StaticPngHairShape.BASE
@@ -65,6 +69,15 @@ class StaticPngOverlayView(
     private var lastHairTransitionTo = StaticPngHairShape.BASE
     private var lastHairPipelineTriggered = false
     private var lastHairTransitionDurationMs = 0L
+    private var currentUniversalState = UniversalAiState.UNKNOWN
+    private var thinkingDebugOverride = false
+    private var activeThinkingFrame = StaticPngThinkingFrameId.A
+    private var thinkingPlaybackRunning = false
+    private var thinkingTransitionMode = StaticPngThinkingTransitionMode.CROSSFADE
+    private var thinkingSequenceIndex = 0
+    private var nextThinkingTransitionAtMs: Long? = null
+    private var lastThinkingTransitionDurationMs = 0L
+    private val thinkingTransitionRunnables = mutableListOf<Runnable>()
     private val idleMotionRunnable = object : Runnable {
         override fun run() {
             if (!idleMotionRunning) return
@@ -104,6 +117,21 @@ class StaticPngOverlayView(
             }
             transitionHairTo(StaticPngHairMotion.SEQUENCE[hairSequenceIndex].shape)
             scheduleNextHairTransition()
+        }
+    }
+    private val thinkingPlaybackRunnable = object : Runnable {
+        override fun run() {
+            if (!thinkingPlaybackRunning || !isAttachedToWindow || !isThinkingVisible()) {
+                recordThinkingLayer()
+                return
+            }
+            thinkingSequenceIndex = if (thinkingSequenceIndex >= StaticPngThinkingMotion.SEQUENCE.lastIndex) {
+                1
+            } else {
+                thinkingSequenceIndex + 1
+            }
+            transitionThinkingTo(StaticPngThinkingMotion.SEQUENCE[thinkingSequenceIndex].frameId)
+            scheduleNextThinkingTransition()
         }
     }
 
@@ -168,6 +196,21 @@ class StaticPngOverlayView(
             hairTransitionLayerView,
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
+        thinkingBitmaps = characterPackage.thinkingFrames.mapValues { (_, layer) ->
+            context.assets.open(layer.assetPath).use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        }
+        configureReplacementImageView(thinkingLayerView)
+        configureReplacementImageView(thinkingTransitionLayerView)
+        breathView.addView(
+            thinkingLayerView,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        breathView.addView(
+            thinkingTransitionLayerView,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
         chestPieceBitmap = context.assets.open(characterPackage.chestPiece.assetPath).use { input ->
             BitmapFactory.decodeStream(input)
         }
@@ -212,6 +255,7 @@ class StaticPngOverlayView(
         recordBlink()
         recordEyeLayer()
         recordHairLayer()
+        recordThinkingLayer()
     }
 
     fun show() {
@@ -224,7 +268,7 @@ class StaticPngOverlayView(
         val nextShape = StaticPngMouthShape.fromRatio(activeRatio)
         if (nextShape != activeShape) {
             activeShape = nextShape
-            updateMouthLayer()
+            if (!isThinkingVisible()) updateMouthLayer()
         }
         recordMouthShape()
     }
@@ -232,7 +276,7 @@ class StaticPngOverlayView(
     fun setMouthShapeForDebug(shape: StaticPngMouthShape) {
         activeShape = shape
         activeRatio = StaticPngMouthShape.debugRatio(shape)
-        updateMouthLayer()
+        if (!isThinkingVisible()) updateMouthLayer()
         recordMouthShape()
     }
 
@@ -339,7 +383,50 @@ class StaticPngOverlayView(
         recordHairLayer()
     }
 
+    fun setUniversalState(state: UniversalAiState) {
+        val wasThinking = isThinkingVisible()
+        currentUniversalState = state
+        val isThinking = isThinkingVisible()
+        if (isThinking && !wasThinking) {
+            enterThinking()
+        } else if (!isThinking && wasThinking) {
+            exitThinking()
+        } else if (isThinking) {
+            applyThinkingLayerMode()
+            recordThinkingLayer()
+        }
+    }
+
+    fun setThinkingFrameForDebug(frameId: StaticPngThinkingFrameId) {
+        thinkingDebugOverride = true
+        stopThinkingPlayback(resetFrame = false)
+        if (!isThinkingVisible()) {
+            enterThinking(startPlayback = false)
+        }
+        transitionThinkingTo(frameId)
+        recordThinkingLayer()
+    }
+
+    fun setThinkingPlaybackForDebug(enabled: Boolean) {
+        thinkingDebugOverride = enabled
+        if (enabled) {
+            enterThinking(startPlayback = true)
+        } else if (currentUniversalState != UniversalAiState.THINKING) {
+            exitThinking()
+        } else {
+            stopThinkingPlayback(resetFrame = true)
+            startThinkingPlayback()
+        }
+        recordThinkingLayer()
+    }
+
+    fun setThinkingTransitionMode(mode: StaticPngThinkingTransitionMode) {
+        thinkingTransitionMode = mode
+        recordThinkingLayer()
+    }
+
     fun release() {
+        stopThinkingPlayback(resetFrame = true)
         stopHairMotion(resetShape = true)
         cancelBlinkCallbacks(resetShape = true)
         stopBreathMotion(resetTransform = true)
@@ -360,9 +447,13 @@ class StaticPngOverlayView(
         if (hairMotionEnabled) {
             startHairMotion()
         }
+        if (isThinkingVisible()) {
+            enterThinking()
+        }
     }
 
     override fun onDetachedFromWindow() {
+        stopThinkingPlayback(resetFrame = true)
         stopHairMotion(resetShape = true)
         cancelBlinkCallbacks(resetShape = true)
         stopBreathMotion(resetTransform = true)
@@ -380,9 +471,184 @@ class StaticPngOverlayView(
         recordEyeLayer()
         recordHairLayer()
         recordBreathMotion()
+        recordThinkingLayer()
+    }
+
+    private fun configureReplacementImageView(view: ImageView) {
+        view.visibility = View.GONE
+        view.background = null
+        view.imageTintList = null
+        view.clearColorFilter()
+        view.scaleType = ImageView.ScaleType.FIT_CENTER
+        view.adjustViewBounds = false
+        view.clipToOutline = false
+    }
+
+    private fun isThinkingVisible(): Boolean {
+        return currentUniversalState == UniversalAiState.THINKING || thinkingDebugOverride
+    }
+
+    private fun enterThinking(startPlayback: Boolean = true) {
+        applyThinkingLayerMode()
+        applyThinkingFrameDirect(StaticPngThinkingFrameId.A)
+        if (startPlayback) {
+            startThinkingPlayback()
+        } else {
+            recordThinkingLayer()
+        }
+    }
+
+    private fun exitThinking() {
+        stopThinkingPlayback(resetFrame = true)
+        thinkingLayerView.visibility = View.GONE
+        thinkingLayerView.setImageDrawable(null)
+        thinkingTransitionLayerView.visibility = View.GONE
+        thinkingTransitionLayerView.setImageDrawable(null)
+        imageView.visibility = if (activeHairShape == StaticPngHairShape.BASE) View.VISIBLE else View.GONE
+        updateHairLayer()
+        updateEyeLayer()
+        updateMouthLayer()
+        chestBreathLayerView.visibility = View.VISIBLE
+        if (hairMotionEnabled) startHairMotion()
+        if (autoBlinkEnabled) scheduleNextBlink()
+        if (breathMotionEnabled) startBreathMotion()
+        recordThinkingLayer()
+    }
+
+    private fun applyThinkingLayerMode() {
+        cancelHairTransitions()
+        hairLayerView.visibility = View.GONE
+        hairTransitionLayerView.visibility = View.GONE
+        imageView.visibility = View.GONE
+        eyeLayerView.visibility = View.GONE
+        mouthLayerView.visibility = View.GONE
+        chestBreathLayerView.visibility = View.GONE
+    }
+
+    private fun startThinkingPlayback() {
+        if (thinkingPlaybackRunning || !isAttachedToWindow) {
+            recordThinkingLayer()
+            return
+        }
+        thinkingPlaybackRunning = true
+        thinkingSequenceIndex = 0
+        activeThinkingFrame = StaticPngThinkingFrameId.A
+        applyThinkingFrameDirect(activeThinkingFrame)
+        scheduleNextThinkingTransition()
+    }
+
+    private fun stopThinkingPlayback(resetFrame: Boolean) {
+        thinkingPlaybackRunning = false
+        nextThinkingTransitionAtMs = null
+        handler.removeCallbacks(thinkingPlaybackRunnable)
+        cancelThinkingTransitions()
+        if (resetFrame) {
+            activeThinkingFrame = StaticPngThinkingFrameId.A
+            thinkingSequenceIndex = 0
+        }
+        recordThinkingLayer()
+    }
+
+    private fun scheduleNextThinkingTransition() {
+        if (!thinkingPlaybackRunning || !isAttachedToWindow || !isThinkingVisible()) {
+            recordThinkingLayer()
+            return
+        }
+        nextThinkingTransitionAtMs = SystemClock.uptimeMillis() + StaticPngThinkingMotion.FRAME_HOLD_MS
+        handler.removeCallbacks(thinkingPlaybackRunnable)
+        handler.postDelayed(thinkingPlaybackRunnable, StaticPngThinkingMotion.FRAME_HOLD_MS)
+        recordThinkingLayer()
+    }
+
+    private fun transitionThinkingTo(frameId: StaticPngThinkingFrameId) {
+        if (!isThinkingVisible()) return
+        if (frameId == activeThinkingFrame) {
+            lastThinkingTransitionDurationMs = 0L
+            recordThinkingLayer()
+            return
+        }
+        lastThinkingTransitionDurationMs = StaticPngThinkingMotion.transitionDurationMs(thinkingTransitionMode)
+        when (thinkingTransitionMode) {
+            StaticPngThinkingTransitionMode.DIRECT -> applyThinkingFrameDirect(frameId)
+            StaticPngThinkingTransitionMode.CROSSFADE -> crossfadeThinkingTo(frameId)
+            StaticPngThinkingTransitionMode.BRIDGE -> bridgeThinkingTo(frameId)
+        }
+    }
+
+    private fun applyThinkingFrameDirect(frameId: StaticPngThinkingFrameId, cancelTransitions: Boolean = true) {
+        if (cancelTransitions) cancelThinkingTransitions()
+        activeThinkingFrame = frameId
+        val bitmap = thinkingBitmaps[frameId]
+        if (bitmap == null) {
+            thinkingLayerView.visibility = View.GONE
+            thinkingLayerView.setImageDrawable(null)
+            recordThinkingLayer()
+            return
+        }
+        applyThinkingLayerMode()
+        thinkingLayerView.setImageBitmap(bitmap)
+        thinkingLayerView.alpha = 1f
+        thinkingLayerView.visibility = View.VISIBLE
+        thinkingTransitionLayerView.visibility = View.GONE
+        thinkingTransitionLayerView.setImageDrawable(null)
+        recordThinkingLayer()
+    }
+
+    private fun crossfadeThinkingTo(frameId: StaticPngThinkingFrameId) {
+        cancelThinkingTransitions()
+        val bitmap = thinkingBitmaps[frameId]
+        if (bitmap == null) {
+            applyThinkingFrameDirect(frameId)
+            return
+        }
+        applyThinkingLayerMode()
+        thinkingLayerView.visibility = View.VISIBLE
+        thinkingTransitionLayerView.setImageBitmap(bitmap)
+        thinkingTransitionLayerView.alpha = 0f
+        thinkingTransitionLayerView.visibility = View.VISIBLE
+        thinkingTransitionLayerView.animate()
+            .alpha(1f)
+            .setDuration(StaticPngThinkingMotion.CROSSFADE_MS)
+            .withEndAction {
+                applyThinkingFrameDirect(frameId)
+            }
+            .start()
+        recordThinkingLayer()
+    }
+
+    private fun bridgeThinkingTo(frameId: StaticPngThinkingFrameId) {
+        cancelThinkingTransitions()
+        val toBridge = Runnable {
+            applyThinkingFrameDirect(StaticPngThinkingFrameId.A, cancelTransitions = false)
+        }
+        val toTarget = Runnable {
+            thinkingTransitionRunnables.clear()
+            applyThinkingFrameDirect(frameId)
+        }
+        thinkingTransitionRunnables += toBridge
+        thinkingTransitionRunnables += toTarget
+        handler.postDelayed(toBridge, StaticPngThinkingMotion.BRIDGE_TO_A_MS)
+        handler.postDelayed(
+            toTarget,
+            StaticPngThinkingMotion.BRIDGE_TO_A_MS +
+                StaticPngThinkingMotion.BRIDGE_A_HOLD_MS +
+                StaticPngThinkingMotion.BRIDGE_FROM_A_MS
+        )
+        recordThinkingLayer()
+    }
+
+    private fun cancelThinkingTransitions() {
+        thinkingTransitionLayerView.animate().cancel()
+        thinkingTransitionRunnables.forEach { handler.removeCallbacks(it) }
+        thinkingTransitionRunnables.clear()
     }
 
     private fun updateHairLayer() {
+        if (isThinkingVisible()) {
+            applyThinkingLayerMode()
+            recordHairLayer()
+            return
+        }
         applyHairShapeDirect(activeHairShape)
     }
 
@@ -413,6 +679,12 @@ class StaticPngOverlayView(
     }
 
     private fun applyHairShapeDirect(shape: StaticPngHairShape, cancelTransitions: Boolean = true) {
+        if (isThinkingVisible()) {
+            activeHairShape = shape
+            applyThinkingLayerMode()
+            recordHairLayer()
+            return
+        }
         if (cancelTransitions) {
             cancelHairTransitions()
         }
@@ -438,6 +710,11 @@ class StaticPngOverlayView(
     }
 
     private fun crossfadeHairTo(shape: StaticPngHairShape) {
+        if (isThinkingVisible()) {
+            activeHairShape = shape
+            recordHairLayer()
+            return
+        }
         cancelHairTransitions()
         val targetBitmap = hairBitmapFor(shape)
         if (targetBitmap == null) {
@@ -458,6 +735,11 @@ class StaticPngOverlayView(
     }
 
     private fun bridgeHairTo(shape: StaticPngHairShape) {
+        if (isThinkingVisible()) {
+            activeHairShape = shape
+            recordHairLayer()
+            return
+        }
         cancelHairTransitions()
         val toBase = Runnable {
             applyHairShapeDirect(StaticPngHairShape.BASE, cancelTransitions = false)
@@ -489,6 +771,11 @@ class StaticPngOverlayView(
     }
 
     private fun updateMouthLayer() {
+        if (isThinkingVisible()) {
+            mouthLayerView.visibility = View.GONE
+            mouthLayerView.setImageDrawable(null)
+            return
+        }
         val layer = characterPackage.mouthLayers[activeShape]
         val bitmap = mouthBitmaps[activeShape]
         if (layer == null || bitmap == null) {
@@ -501,6 +788,12 @@ class StaticPngOverlayView(
     }
 
     private fun updateEyeLayer() {
+        if (isThinkingVisible()) {
+            eyeLayerView.visibility = View.GONE
+            eyeLayerView.setImageDrawable(null)
+            recordEyeLayer()
+            return
+        }
         val layer = characterPackage.eyeLayers[activeEyeShape]
         val bitmap = eyeBitmaps[activeEyeShape]
         if (layer == null || bitmap == null) {
@@ -839,6 +1132,40 @@ class StaticPngOverlayView(
             background = if (hairLayerView.background == null) "null" else hairLayerView.background.javaClass.simpleName,
             tint = if (hairLayerView.imageTintList == null) "null" else "present",
             colorFilter = if (hairLayerView.colorFilter == null) "null" else "present"
+        )
+    }
+
+    private fun recordThinkingLayer() {
+        val drawable = if (thinkingTransitionLayerView.visibility == View.VISIBLE) {
+            thinkingTransitionLayerView.drawable
+        } else {
+            thinkingLayerView.drawable
+        }
+        val frameCount = characterPackage.thinkingFrames.size
+        CharacterDiagnostics.recordStaticPngThinking(
+            frame = activeThinkingFrame.name,
+            playbackActive = thinkingPlaybackRunning,
+            transitionMode = thinkingTransitionMode.name,
+            transitionDurationMs = lastThinkingTransitionDurationMs,
+            assetPath = characterPackage.thinkingFrames[activeThinkingFrame]?.assetPath ?: "n/a",
+            assetSummary = characterPackage.thinkingFrames.entries
+                .sortedBy { it.key.ordinal }
+                .joinToString(",") { "${it.key.name}:${it.value.assetPath.substringAfterLast('/')}" },
+            frameCount = frameCount,
+            layerVisible = thinkingLayerView.visibility == View.VISIBLE ||
+                thinkingTransitionLayerView.visibility == View.VISIBLE,
+            drawableWidth = drawable?.intrinsicWidth ?: 0,
+            drawableHeight = drawable?.intrinsicHeight ?: 0,
+            viewWidth = thinkingLayerView.width,
+            viewHeight = thinkingLayerView.height,
+            mouthActiveInThinking = isThinkingVisible() && mouthLayerView.visibility == View.VISIBLE,
+            blinkActiveInThinking = isThinkingVisible() && eyeLayerView.visibility == View.VISIBLE,
+            chestActiveInThinking = isThinkingVisible() && chestBreathLayerView.visibility == View.VISIBLE,
+            hairActiveInThinking = isThinkingVisible() &&
+                (hairLayerView.visibility == View.VISIBLE || hairTransitionLayerView.visibility == View.VISIBLE),
+            nextTransitionInMs = nextThinkingTransitionAtMs?.let {
+                (it - SystemClock.uptimeMillis()).coerceAtLeast(0L)
+            }
         )
     }
 }
