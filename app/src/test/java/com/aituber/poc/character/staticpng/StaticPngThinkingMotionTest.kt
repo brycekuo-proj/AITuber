@@ -8,13 +8,17 @@ import org.junit.Test
 
 class StaticPngThinkingMotionTest {
     @Test
-    fun thinkingEntrySequenceUsesPoseProgressionOrderAndStopsAtFinalThinkingPose() {
+    fun thinkingEntrySequenceUsesPhoneApprovedCbaDedabcOrder() {
         assertEquals(
             listOf(
-                StaticPngThinkingFrameId.A,
+                StaticPngThinkingFrameId.C,
                 StaticPngThinkingFrameId.B,
+                StaticPngThinkingFrameId.A,
+                StaticPngThinkingFrameId.D,
                 StaticPngThinkingFrameId.E,
                 StaticPngThinkingFrameId.D,
+                StaticPngThinkingFrameId.A,
+                StaticPngThinkingFrameId.B,
                 StaticPngThinkingFrameId.C
             ),
             StaticPngThinkingMotion.ENTRY_SEQUENCE.map { it.frameId }
@@ -22,31 +26,26 @@ class StaticPngThinkingMotionTest {
     }
 
     @Test
-    fun thinkingExitSequenceReturnsFromFinalThinkingPoseToNeutral() {
+    fun thinkingExitSequenceRestoresFromNeutralFrameC() {
         assertEquals(
-            listOf(
-                StaticPngThinkingFrameId.D,
-                StaticPngThinkingFrameId.E,
-                StaticPngThinkingFrameId.B,
-                StaticPngThinkingFrameId.A
-            ),
+            listOf(StaticPngThinkingFrameId.C),
             StaticPngThinkingMotion.EXIT_SEQUENCE.map { it.frameId }
         )
     }
 
     @Test
-    fun debugLoopSequenceUsesFullForwardAndReverseProgression() {
+    fun debugLoopSequenceUsesExactPhoneApprovedCbaDedabcOrder() {
         assertEquals(
             listOf(
+                StaticPngThinkingFrameId.C,
+                StaticPngThinkingFrameId.B,
+                StaticPngThinkingFrameId.A,
+                StaticPngThinkingFrameId.D,
+                StaticPngThinkingFrameId.E,
+                StaticPngThinkingFrameId.D,
                 StaticPngThinkingFrameId.A,
                 StaticPngThinkingFrameId.B,
-                StaticPngThinkingFrameId.E,
-                StaticPngThinkingFrameId.D,
-                StaticPngThinkingFrameId.C,
-                StaticPngThinkingFrameId.D,
-                StaticPngThinkingFrameId.E,
-                StaticPngThinkingFrameId.B,
-                StaticPngThinkingFrameId.A
+                StaticPngThinkingFrameId.C
             ),
             StaticPngThinkingMotion.DEBUG_LOOP_SEQUENCE.map { it.frameId }
         )
@@ -72,13 +71,37 @@ class StaticPngThinkingMotionTest {
     }
 
     @Test
+    fun thinkingRuntimeSpeedDefaultsToApprovedFrameHoldAndClampsSeekBarRange() {
+        assertEquals(200L, StaticPngThinkingRuntimeTuning.FRAME_HOLD_MIN_MS)
+        assertEquals(1_200L, StaticPngThinkingRuntimeTuning.FRAME_HOLD_MAX_MS)
+        assertEquals(520L, StaticPngThinkingRuntimeTuning.DEFAULT_FRAME_HOLD_MS)
+
+        StaticPngThinkingRuntimeTuning.setFrameHoldMs(1L)
+        assertEquals(
+            StaticPngThinkingRuntimeTuning.FRAME_HOLD_MIN_MS,
+            StaticPngThinkingRuntimeTuning.frameHoldMs
+        )
+        StaticPngThinkingRuntimeTuning.setFrameHoldMs(9_999L)
+        assertEquals(
+            StaticPngThinkingRuntimeTuning.FRAME_HOLD_MAX_MS,
+            StaticPngThinkingRuntimeTuning.frameHoldMs
+        )
+        StaticPngThinkingRuntimeTuning.setFrameHoldMs(430L)
+        assertEquals(430L, StaticPngThinkingRuntimeTuning.frameHoldMs)
+
+        StaticPngThinkingRuntimeTuning.setFrameHoldMs(
+            StaticPngThinkingRuntimeTuning.DEFAULT_FRAME_HOLD_MS
+        )
+    }
+
+    @Test
     fun loopStateStartSchedulesOnceUntilAdvanced() {
         val state = StaticPngThinkingLoopState()
 
         assertTrue(state.start())
         assertTrue(state.playbackEnabled)
         assertTrue(state.transitionScheduled)
-        assertEquals(StaticPngThinkingFrameId.A, state.frameId)
+        assertEquals(StaticPngThinkingFrameId.C, state.frameId)
         assertEquals(1, state.scheduleCount)
 
         assertFalse(state.start())
@@ -93,7 +116,7 @@ class StaticPngThinkingMotionTest {
     }
 
     @Test
-    fun nonLoopingEntryStopsAtFrameCInsteadOfRepeatingLargeMotion() {
+    fun nonLoopingEntryCompletesFullCbaDedabcCycleAndStopsAtFrameC() {
         val state = StaticPngThinkingLoopState()
 
         assertTrue(state.start(loop = false))
@@ -106,8 +129,12 @@ class StaticPngThinkingMotionTest {
         assertEquals(
             listOf(
                 StaticPngThinkingFrameId.B,
+                StaticPngThinkingFrameId.A,
+                StaticPngThinkingFrameId.D,
                 StaticPngThinkingFrameId.E,
                 StaticPngThinkingFrameId.D,
+                StaticPngThinkingFrameId.A,
+                StaticPngThinkingFrameId.B,
                 StaticPngThinkingFrameId.C
             ),
             advanced
@@ -116,7 +143,7 @@ class StaticPngThinkingMotionTest {
     }
 
     @Test
-    fun loopStateStopPreventsFurtherAdvanceAndReturnsToFrameA() {
+    fun loopStateStopPreventsFurtherAdvanceAndReturnsToFrameC() {
         val state = StaticPngThinkingLoopState()
 
         assertTrue(state.start())
@@ -125,7 +152,7 @@ class StaticPngThinkingMotionTest {
 
         assertFalse(state.playbackEnabled)
         assertFalse(state.transitionScheduled)
-        assertEquals(StaticPngThinkingFrameId.A, state.frameId)
+        assertEquals(StaticPngThinkingFrameId.C, state.frameId)
         assertFalse(state.scheduleNext())
         assertNull(state.advance())
     }

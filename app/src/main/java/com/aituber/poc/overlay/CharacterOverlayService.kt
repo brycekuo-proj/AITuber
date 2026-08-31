@@ -30,6 +30,7 @@ import com.aituber.poc.character.staticpng.StaticPngHairShape
 import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngThinkingFrameId
+import com.aituber.poc.character.staticpng.StaticPngThinkingRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngThinkingTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
@@ -813,6 +814,13 @@ class CharacterOverlayService : Service() {
             activeService?.runStaticPngThinkingTransitionModeTest(mode)
         }
 
+        fun setStaticPngThinkingFrameHoldDurationForDebug(durationMs: Long) {
+            StaticPngThinkingRuntimeTuning.setFrameHoldMs(durationMs)
+            activeService?.runStaticPngThinkingFrameHoldDurationTest(
+                StaticPngThinkingRuntimeTuning.frameHoldMs
+            )
+        }
+
         fun setOverlayAlphaForDebug(alphaPercent: Int) {
             OverlayWindowConfig.setOverlayAlphaPercent(alphaPercent)
             activeService?.runOverlayAlphaTest(OverlayWindowConfig.overlayAlphaPercent)
@@ -1000,6 +1008,14 @@ class CharacterOverlayService : Service() {
         handler.post {
             if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
             staticPngView?.setThinkingTransitionMode(mode)
+        }
+    }
+
+    private fun runStaticPngThinkingFrameHoldDurationTest(durationMs: Long) {
+        if (serviceCharacterMode != CharacterMode.STATIC_PNG) return
+        handler.post {
+            if (serviceCharacterMode != CharacterMode.STATIC_PNG) return@post
+            staticPngView?.setThinkingFrameHoldDurationMs(durationMs)
         }
     }
 

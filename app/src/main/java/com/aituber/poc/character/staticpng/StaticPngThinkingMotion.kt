@@ -5,33 +5,49 @@ data class StaticPngThinkingKeyframe(
 )
 
 object StaticPngThinkingMotion {
-    const val FRAME_HOLD_MS = 520L
     const val CROSSFADE_MS = 220L
-    const val BRIDGE_TO_A_MS = 120L
-    const val BRIDGE_A_HOLD_MS = 40L
-    const val BRIDGE_FROM_A_MS = 160L
+    const val BRIDGE_TO_C_MS = 120L
+    const val BRIDGE_C_HOLD_MS = 40L
+    const val BRIDGE_FROM_C_MS = 160L
 
     val ENTRY_SEQUENCE = listOf(
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.A),
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.C),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.B),
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.A),
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.D),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.E),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.D),
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.A),
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.B),
         StaticPngThinkingKeyframe(StaticPngThinkingFrameId.C)
     )
 
+    // Frame C is the neutral start/end pose in the approved phone-tested sequence.
+    // Leaving THINKING should restore IDLE from C rather than replaying a second pose chain.
     val EXIT_SEQUENCE = listOf(
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.D),
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.E),
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.B),
-        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.A)
+        StaticPngThinkingKeyframe(StaticPngThinkingFrameId.C)
     )
 
-    val DEBUG_LOOP_SEQUENCE = ENTRY_SEQUENCE + EXIT_SEQUENCE
+    val DEBUG_LOOP_SEQUENCE = ENTRY_SEQUENCE
 
     fun transitionDurationMs(mode: StaticPngThinkingTransitionMode): Long = when (mode) {
         StaticPngThinkingTransitionMode.DIRECT -> 0L
         StaticPngThinkingTransitionMode.CROSSFADE -> CROSSFADE_MS
-        StaticPngThinkingTransitionMode.BRIDGE -> BRIDGE_TO_A_MS + BRIDGE_A_HOLD_MS + BRIDGE_FROM_A_MS
+        StaticPngThinkingTransitionMode.BRIDGE -> BRIDGE_TO_C_MS + BRIDGE_C_HOLD_MS + BRIDGE_FROM_C_MS
+    }
+}
+
+object StaticPngThinkingRuntimeTuning {
+    const val FRAME_HOLD_MIN_MS = 200L
+    const val FRAME_HOLD_MAX_MS = 1_200L
+    const val DEFAULT_FRAME_HOLD_MS = 520L
+
+    @Volatile
+    var frameHoldMs: Long = DEFAULT_FRAME_HOLD_MS
+        private set
+
+    fun setFrameHoldMs(value: Long) {
+        frameHoldMs = value.coerceIn(FRAME_HOLD_MIN_MS, FRAME_HOLD_MAX_MS)
     }
 }
 
@@ -41,7 +57,7 @@ class StaticPngThinkingLoopState {
         private set
     var transitionScheduled: Boolean = false
         private set
-    var frameId: StaticPngThinkingFrameId = StaticPngThinkingFrameId.A
+    var frameId: StaticPngThinkingFrameId = StaticPngThinkingFrameId.C
         private set
     var sequenceIndex: Int = 0
         private set
@@ -51,7 +67,7 @@ class StaticPngThinkingLoopState {
     fun start(loop: Boolean = false): Boolean {
         loopMode = loop
         playbackEnabled = true
-        frameId = StaticPngThinkingFrameId.A
+        frameId = StaticPngThinkingFrameId.C
         sequenceIndex = 0
         return scheduleNext()
     }
@@ -60,7 +76,7 @@ class StaticPngThinkingLoopState {
         playbackEnabled = false
         transitionScheduled = false
         loopMode = false
-        frameId = StaticPngThinkingFrameId.A
+        frameId = StaticPngThinkingFrameId.C
         sequenceIndex = 0
     }
 

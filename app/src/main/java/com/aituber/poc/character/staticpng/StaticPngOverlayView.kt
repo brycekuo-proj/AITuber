@@ -71,11 +71,12 @@ class StaticPngOverlayView(
     private var lastHairTransitionDurationMs = 0L
     private var currentUniversalState = UniversalAiState.UNKNOWN
     private var thinkingDebugOverride = false
-    private var activeThinkingFrame = StaticPngThinkingFrameId.A
+    private var activeThinkingFrame = StaticPngThinkingFrameId.C
     private var thinkingPlaybackRunning = false
     private var thinkingPlaybackLoop = false
     private var thinkingExitRunning = false
     private var thinkingTransitionMode = StaticPngThinkingTransitionMode.CROSSFADE
+    private var thinkingFrameHoldMs = StaticPngThinkingRuntimeTuning.frameHoldMs
     private var thinkingSequenceIndex = 0
     private var activeThinkingSequence = StaticPngThinkingMotion.ENTRY_SEQUENCE
     private var nextThinkingTransitionAtMs: Long? = null
@@ -441,6 +442,16 @@ class StaticPngOverlayView(
         recordThinkingLayer()
     }
 
+    fun setThinkingFrameHoldDurationMs(durationMs: Long) {
+        StaticPngThinkingRuntimeTuning.setFrameHoldMs(durationMs)
+        thinkingFrameHoldMs = StaticPngThinkingRuntimeTuning.frameHoldMs
+        if (thinkingPlaybackRunning) {
+            scheduleNextThinkingTransition()
+        } else {
+            recordThinkingLayer()
+        }
+    }
+
     fun release() {
         stopThinkingPlayback(resetFrame = true)
         stopHairMotion(resetShape = true)
@@ -512,7 +523,7 @@ class StaticPngOverlayView(
             StaticPngThinkingMotion.ENTRY_SEQUENCE
         }
         applyThinkingLayerMode()
-        applyThinkingFrameDirect(StaticPngThinkingFrameId.A)
+        applyThinkingFrameDirect(StaticPngThinkingFrameId.C)
         if (startPlayback) {
             startThinkingPlayback(loopPlayback = loopPlayback)
         } else {
@@ -531,7 +542,7 @@ class StaticPngOverlayView(
         activeThinkingFrame = StaticPngThinkingFrameId.C
         applyThinkingLayerMode()
         applyThinkingFrameDirect(activeThinkingFrame)
-        startThinkingPlayback(loopPlayback = false, resetFrameToA = false)
+        startThinkingPlayback(loopPlayback = false, resetFrameToC = false)
     }
 
     private fun restoreIdleLayersAfterThinking() {
@@ -541,7 +552,7 @@ class StaticPngOverlayView(
         nextThinkingTransitionAtMs = null
         handler.removeCallbacks(thinkingPlaybackRunnable)
         cancelThinkingTransitions()
-        activeThinkingFrame = StaticPngThinkingFrameId.A
+        activeThinkingFrame = StaticPngThinkingFrameId.C
         thinkingSequenceIndex = 0
         thinkingLayerView.visibility = View.GONE
         thinkingLayerView.setImageDrawable(null)
@@ -568,7 +579,7 @@ class StaticPngOverlayView(
         applyChestPieceVisibility()
     }
 
-    private fun startThinkingPlayback(loopPlayback: Boolean = false, resetFrameToA: Boolean = true) {
+    private fun startThinkingPlayback(loopPlayback: Boolean = false, resetFrameToC: Boolean = true) {
         if (thinkingPlaybackRunning || !isAttachedToWindow) {
             recordThinkingLayer()
             return
@@ -580,9 +591,9 @@ class StaticPngOverlayView(
         } else {
             activeThinkingSequence
         }
-        if (resetFrameToA) {
+        if (resetFrameToC) {
             thinkingSequenceIndex = 0
-            activeThinkingFrame = StaticPngThinkingFrameId.A
+            activeThinkingFrame = StaticPngThinkingFrameId.C
             applyThinkingFrameDirect(activeThinkingFrame)
         }
         scheduleNextThinkingTransition()
@@ -594,7 +605,7 @@ class StaticPngOverlayView(
         handler.removeCallbacks(thinkingPlaybackRunnable)
         cancelThinkingTransitions()
         if (resetFrame) {
-            activeThinkingFrame = StaticPngThinkingFrameId.A
+            activeThinkingFrame = StaticPngThinkingFrameId.C
             thinkingSequenceIndex = 0
         }
         recordThinkingLayer()
@@ -605,9 +616,9 @@ class StaticPngOverlayView(
             recordThinkingLayer()
             return
         }
-        nextThinkingTransitionAtMs = SystemClock.uptimeMillis() + StaticPngThinkingMotion.FRAME_HOLD_MS
+        nextThinkingTransitionAtMs = SystemClock.uptimeMillis() + thinkingFrameHoldMs
         handler.removeCallbacks(thinkingPlaybackRunnable)
-        handler.postDelayed(thinkingPlaybackRunnable, StaticPngThinkingMotion.FRAME_HOLD_MS)
+        handler.postDelayed(thinkingPlaybackRunnable, thinkingFrameHoldMs)
         recordThinkingLayer()
     }
 
@@ -670,7 +681,7 @@ class StaticPngOverlayView(
     private fun bridgeThinkingTo(frameId: StaticPngThinkingFrameId) {
         cancelThinkingTransitions()
         val toBridge = Runnable {
-            applyThinkingFrameDirect(StaticPngThinkingFrameId.A, cancelTransitions = false)
+            applyThinkingFrameDirect(StaticPngThinkingFrameId.C, cancelTransitions = false)
         }
         val toTarget = Runnable {
             thinkingTransitionRunnables.clear()
@@ -678,12 +689,12 @@ class StaticPngOverlayView(
         }
         thinkingTransitionRunnables += toBridge
         thinkingTransitionRunnables += toTarget
-        handler.postDelayed(toBridge, StaticPngThinkingMotion.BRIDGE_TO_A_MS)
+        handler.postDelayed(toBridge, StaticPngThinkingMotion.BRIDGE_TO_C_MS)
         handler.postDelayed(
             toTarget,
-            StaticPngThinkingMotion.BRIDGE_TO_A_MS +
-                StaticPngThinkingMotion.BRIDGE_A_HOLD_MS +
-                StaticPngThinkingMotion.BRIDGE_FROM_A_MS
+            StaticPngThinkingMotion.BRIDGE_TO_C_MS +
+                StaticPngThinkingMotion.BRIDGE_C_HOLD_MS +
+                StaticPngThinkingMotion.BRIDGE_FROM_C_MS
         )
         recordThinkingLayer()
     }
@@ -1217,6 +1228,7 @@ class StaticPngOverlayView(
             playbackActive = thinkingPlaybackRunning,
             transitionMode = thinkingTransitionMode.name,
             transitionDurationMs = lastThinkingTransitionDurationMs,
+            frameHoldMs = thinkingFrameHoldMs,
             assetPath = characterPackage.thinkingFrames[activeThinkingFrame]?.assetPath ?: "n/a",
             assetSummary = characterPackage.thinkingFrames.entries
                 .sortedBy { it.key.ordinal }

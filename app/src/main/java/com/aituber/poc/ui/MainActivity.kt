@@ -35,6 +35,7 @@ import com.aituber.poc.character.staticpng.StaticPngHairTransitionMode
 import com.aituber.poc.character.staticpng.StaticPngMouthShape
 import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngThinkingFrameId
+import com.aituber.poc.character.staticpng.StaticPngThinkingRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngThinkingTransitionMode
 import com.aituber.poc.overlay.CharacterOverlayService
 import com.aituber.poc.overlay.MouthDriveDiagnostics
@@ -122,6 +123,8 @@ class MainActivity : Activity() {
     private lateinit var testThinkingTransitionDirectButton: Button
     private lateinit var testThinkingTransitionCrossfadeButton: Button
     private lateinit var testThinkingTransitionBridgeButton: Button
+    private lateinit var staticPngThinkingFrameHoldLabel: TextView
+    private lateinit var staticPngThinkingFrameHoldSeekBar: SeekBar
     private lateinit var staticPngCrossfadeLabel: TextView
     private lateinit var staticPngCrossfadeSeekBar: SeekBar
     private lateinit var staticPngImageAlphaLabel: TextView
@@ -275,6 +278,7 @@ class MainActivity : Activity() {
     private lateinit var staticPngThinkingPlaybackActiveValue: TextView
     private lateinit var staticPngThinkingTransitionModeValue: TextView
     private lateinit var staticPngThinkingTransitionDurationValue: TextView
+    private lateinit var staticPngThinkingFrameHoldValue: TextView
     private lateinit var staticPngCurrentThinkingAssetPathValue: TextView
     private lateinit var staticPngThinkingAssetSummaryValue: TextView
     private lateinit var staticPngThinkingFrameCountValue: TextView
@@ -913,6 +917,37 @@ class MainActivity : Activity() {
             CharacterOverlayService.setStaticPngThinkingTransitionModeForDebug(StaticPngThinkingTransitionMode.BRIDGE)
         }
 
+        staticPngThinkingFrameHoldLabel = TextView(this).apply {
+            textSize = 14f
+            setTextColor(Color.rgb(30, 34, 44))
+            text = thinkingFrameHoldLabel()
+            setPadding(0, 16, 0, 0)
+        }
+        root.addView(staticPngThinkingFrameHoldLabel)
+        staticPngThinkingFrameHoldSeekBar = SeekBar(this).apply {
+            max = (StaticPngThinkingRuntimeTuning.FRAME_HOLD_MAX_MS -
+                StaticPngThinkingRuntimeTuning.FRAME_HOLD_MIN_MS).toInt()
+            progress = (StaticPngThinkingRuntimeTuning.frameHoldMs -
+                StaticPngThinkingRuntimeTuning.FRAME_HOLD_MIN_MS).toInt()
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val value = StaticPngThinkingRuntimeTuning.FRAME_HOLD_MIN_MS + progress
+                    StaticPngThinkingRuntimeTuning.setFrameHoldMs(value)
+                    staticPngThinkingFrameHoldLabel.text = thinkingFrameHoldLabel()
+                    CharacterOverlayService.setStaticPngThinkingFrameHoldDurationForDebug(
+                        StaticPngThinkingRuntimeTuning.frameHoldMs
+                    )
+                }
+
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    persistStaticPngTuning()
+                }
+            })
+        }
+        root.addView(staticPngThinkingFrameHoldSeekBar)
+
         staticPngCrossfadeLabel = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.rgb(30, 34, 44))
@@ -1033,6 +1068,7 @@ class MainActivity : Activity() {
         staticPngThinkingPlaybackActiveValue = addDiagnosticField(root, "Thinking Playback Active")
         staticPngThinkingTransitionModeValue = addDiagnosticField(root, "Thinking Transition Mode")
         staticPngThinkingTransitionDurationValue = addDiagnosticField(root, "Thinking Transition Duration")
+        staticPngThinkingFrameHoldValue = addDiagnosticField(root, "Thinking Frame Hold")
         staticPngCurrentThinkingAssetPathValue = addDiagnosticField(root, "Current Thinking Asset Path")
         staticPngThinkingAssetSummaryValue = addDiagnosticField(root, "Thinking Asset Paths")
         staticPngThinkingFrameCountValue = addDiagnosticField(root, "Thinking Frame Count")
@@ -1554,6 +1590,12 @@ class MainActivity : Activity() {
         if (::testThinkingTransitionBridgeButton.isInitialized) {
             testThinkingTransitionBridgeButton.visibility = visibility
         }
+        if (::staticPngThinkingFrameHoldLabel.isInitialized) {
+            staticPngThinkingFrameHoldLabel.visibility = visibility
+        }
+        if (::staticPngThinkingFrameHoldSeekBar.isInitialized) {
+            staticPngThinkingFrameHoldSeekBar.visibility = visibility
+        }
         if (::staticPngCrossfadeLabel.isInitialized) staticPngCrossfadeLabel.visibility = visibility
         if (::staticPngCrossfadeSeekBar.isInitialized) staticPngCrossfadeSeekBar.visibility = visibility
         // Overlay alpha is global across all character modes, so keep it visible.
@@ -1565,6 +1607,12 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(STATIC_PNG_TUNING_PREFS, Context.MODE_PRIVATE)
         StaticPngRuntimeTuning.setCrossfadeMs(
             prefs.getLong(STATIC_PNG_CROSSFADE_KEY, StaticPngRuntimeTuning.DEFAULT_CROSSFADE_MS)
+        )
+        StaticPngThinkingRuntimeTuning.setFrameHoldMs(
+            prefs.getLong(
+                STATIC_PNG_THINKING_FRAME_HOLD_KEY,
+                StaticPngThinkingRuntimeTuning.DEFAULT_FRAME_HOLD_MS
+            )
         )
         OverlayWindowConfig.setOverlayAlphaPercent(
             prefs.getInt(OVERLAY_ALPHA_KEY, OverlayWindowConfig.DEFAULT_OVERLAY_ALPHA_PERCENT)
@@ -1587,11 +1635,16 @@ class MainActivity : Activity() {
         getSharedPreferences(STATIC_PNG_TUNING_PREFS, Context.MODE_PRIVATE)
             .edit()
             .putLong(STATIC_PNG_CROSSFADE_KEY, StaticPngRuntimeTuning.crossfadeMs)
+            .putLong(STATIC_PNG_THINKING_FRAME_HOLD_KEY, StaticPngThinkingRuntimeTuning.frameHoldMs)
             .putInt(OVERLAY_ALPHA_KEY, OverlayWindowConfig.overlayAlphaPercent)
             .putInt(STATIC_PNG_BREATH_AMPLITUDE_KEY, StaticPngBreathMotion.amplitudePercent)
             .putInt(STATIC_PNG_CHEST_BREATH_AMPLITUDE_KEY, StaticPngChestBreathMotion.amplitudePercent)
             .putLong(STATIC_PNG_BREATH_PERIOD_KEY, StaticPngBreathMotion.periodMs)
             .apply()
+    }
+
+    private fun thinkingFrameHoldLabel(): String {
+        return "THINKING FRAME HOLD: ${StaticPngThinkingRuntimeTuning.frameHoldMs} ms"
     }
 
     private fun startDetection() {
@@ -1911,6 +1964,7 @@ class MainActivity : Activity() {
             staticPngThinkingPlaybackActiveValue.text = character.staticPngThinkingPlaybackActive
             staticPngThinkingTransitionModeValue.text = character.staticPngThinkingTransitionMode
             staticPngThinkingTransitionDurationValue.text = "${character.staticPngThinkingTransitionDurationMs} ms"
+            staticPngThinkingFrameHoldValue.text = "${character.staticPngThinkingFrameHoldMs} ms"
             staticPngCurrentThinkingAssetPathValue.text = character.staticPngCurrentThinkingAssetPath
             staticPngThinkingAssetSummaryValue.text = character.staticPngThinkingAssetSummary
             staticPngThinkingFrameCountValue.text = character.staticPngThinkingFrameCount.toString()
@@ -2346,6 +2400,7 @@ class MainActivity : Activity() {
     companion object {
         private const val STATIC_PNG_TUNING_PREFS = "static_png_tuning"
         private const val STATIC_PNG_CROSSFADE_KEY = "crossfade_ms"
+        private const val STATIC_PNG_THINKING_FRAME_HOLD_KEY = "thinking_frame_hold_ms"
         private const val OVERLAY_ALPHA_KEY = "overlay_alpha_percent_v2"
         private const val STATIC_PNG_BREATH_AMPLITUDE_KEY = "breath_amplitude_percent"
         private const val STATIC_PNG_CHEST_BREATH_AMPLITUDE_KEY = "chest_breath_amplitude_percent"
