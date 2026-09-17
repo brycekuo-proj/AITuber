@@ -68,6 +68,8 @@ data class Live2DCharacterProfile(
 object Live2DCharacterProfiles {
     const val HARU_ID = "haru"
     const val LOAF_DOG_ID = "duokhay-loaf-dog"
+    const val TORORO_ID = "tororo"
+    const val HIJIKI_ID = "hijiki"
 
     val Haru = Live2DCharacterProfile(
         id = HARU_ID,
@@ -126,7 +128,51 @@ object Live2DCharacterProfiles {
         )
     )
 
-    val all: List<Live2DCharacterProfile> = listOf(Haru, LoafDog)
+    val Tororo = Live2DCharacterProfile(
+        id = TORORO_ID,
+        displayName = "Tororo",
+        assetDir = "live2d/tororo",
+        model3File = "tororo.model3.json",
+        parameterMapping = Live2DParameterMapping(
+            mouthOpen = "PARAM_MOUTH_OPEN_Y",
+            eyeLeftOpen = "PARAM_EYE_L_OPEN",
+            eyeRightOpen = "PARAM_EYE_R_OPEN",
+            breath = "PARAM_BREATH",
+            headX = "PARAM_ANGLE_X",
+            headY = "PARAM_ANGLE_Y",
+            headZ = "PARAM_ANGLE_Z"
+        ),
+        capabilities = Live2DCharacterCapabilities(
+            idleMotion = true,
+            physics = true,
+            pose = true,
+            expressions = false
+        )
+    )
+
+    val Hijiki = Live2DCharacterProfile(
+        id = HIJIKI_ID,
+        displayName = "Hijiki",
+        assetDir = "live2d/hijiki",
+        model3File = "hijiki.model3.json",
+        parameterMapping = Live2DParameterMapping(
+            mouthOpen = "PARAM_MOUTH_OPEN_Y",
+            eyeLeftOpen = "PARAM_EYE_L_OPEN",
+            eyeRightOpen = "PARAM_EYE_R_OPEN",
+            breath = "PARAM_BREATH",
+            headX = "PARAM_ANGLE_X",
+            headY = "PARAM_ANGLE_Y",
+            headZ = "PARAM_ANGLE_Z"
+        ),
+        capabilities = Live2DCharacterCapabilities(
+            idleMotion = true,
+            physics = true,
+            pose = true,
+            expressions = false
+        )
+    )
+
+    val all: List<Live2DCharacterProfile> = listOf(Tororo, Hijiki, Haru, LoafDog)
 
     fun byId(id: String?): Live2DCharacterProfile =
         all.firstOrNull { it.id == id } ?: Haru

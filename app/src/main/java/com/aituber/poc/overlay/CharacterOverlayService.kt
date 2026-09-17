@@ -717,7 +717,7 @@ class CharacterOverlayService : Service() {
         var requestedCharacterMode: CharacterMode = CharacterMode.MINIMAL_MOUTH
 
         @Volatile
-        var requestedLive2DProfileId: String = Live2DCharacterProfiles.HARU_ID
+        var requestedLive2DProfileId: String = Live2DCharacterProfiles.TORORO_ID
 
         @Volatile
         private var activeService: CharacterOverlayService? = null

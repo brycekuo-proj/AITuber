@@ -8,7 +8,7 @@ object Live2DProfileStore {
 
     fun load(context: Context): Live2DCharacterProfile {
         val id = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_PROFILE_ID, Live2DCharacterProfiles.HARU_ID)
+            .getString(KEY_PROFILE_ID, Live2DCharacterProfiles.TORORO_ID)
         return Live2DCharacterProfiles.byId(id)
     }
 

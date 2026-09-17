@@ -26,6 +26,7 @@ import com.aituber.poc.character.BreathDiagnostics
 import com.aituber.poc.character.CharacterCapabilities
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterMode
+import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
 import com.aituber.poc.character.staticpng.StaticPngBreathMotion
@@ -591,31 +592,39 @@ class MainActivity : Activity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "AITuber Debug"
-            textSize = 24f
+            text = "AITuber"
+            textSize = 26f
             setTextColor(Color.rgb(24, 28, 36))
             typeface = Typeface.DEFAULT_BOLD
         })
+        root.addView(TextView(this).apply {
+            text = "Live2D · Tororo & Hijiki"
+            textSize = 14f
+            setTextColor(Color.rgb(92, 98, 112))
+            setPadding(0, 4, 0, 8)
+        })
 
-        universalStateValue = addCoreField(root, "Universal State")
-        voiceSessionValue = addCoreField(root, "Voice Session")
-        visualizerSignalValue = addCoreField(root, "Visualizer Signal")
-        visualizerRmsCoreValue = addCoreField(root, "RMS")
-        visualizerPeakCoreValue = addCoreField(root, "Peak")
-        derivedSpeakingCoreValue = addCoreField(root, "Derived Speaking")
-        mouthOverlayStateValue = addCoreField(root, "Mouth Overlay")
-        mouthDriveModeValue = addCoreField(root, "Mouth Drive Mode")
-        mouthTargetOpenValue = addCoreField(root, "Mouth Target Open")
-        mouthSmoothedOpenValue = addCoreField(root, "Mouth Smoothed Open")
+        universalStateValue = addCoreField(root, "目前狀態")
+        mouthOverlayStateValue = addCoreField(root, "角色 Overlay")
+        derivedSpeakingCoreValue = addCoreField(root, "語音狀態")
+
+        // Keep legacy diagnostic views initialized off-screen so the existing runtime
+        // diagnostics pipeline remains stable without cluttering the user-facing UI.
+        val hiddenCore = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        voiceSessionValue = addCoreField(hiddenCore, "Voice Session")
+        visualizerSignalValue = addCoreField(hiddenCore, "Visualizer Signal")
+        visualizerRmsCoreValue = addCoreField(hiddenCore, "RMS")
+        visualizerPeakCoreValue = addCoreField(hiddenCore, "Peak")
+        mouthDriveModeValue = addCoreField(hiddenCore, "Mouth Drive Mode")
+        mouthTargetOpenValue = addCoreField(hiddenCore, "Mouth Target Open")
+        mouthSmoothedOpenValue = addCoreField(hiddenCore, "Mouth Smoothed Open")
 
         addControls(root)
 
         diagnosticsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
-            setPadding(0, 12, 0, 0)
         }
-        root.addView(diagnosticsContainer)
         addDiagnosticsFields(diagnosticsContainer)
 
         return ScrollView(this).apply {
@@ -624,29 +633,17 @@ class MainActivity : Activity() {
     }
 
     private fun addControls(root: LinearLayout) {
-        captureToggleButton = addButton(root, DebugControlLabels.capture(CaptureSessionService.isRunning)) {
+        captureToggleButton = addButton(root, "AI 偵測：${if (CaptureSessionService.isRunning) "ON" else "OFF"}") {
             toggleCapture()
         }
-        overlayToggleButton = addButton(root, DebugControlLabels.overlay(CharacterOverlayService.isRunning)) {
+        overlayToggleButton = addButton(root, "角色顯示：${if (CharacterOverlayService.isRunning) "ON" else "OFF"}") {
             toggleOverlay()
         }
-        characterModeToggleButton = addButton(
-            root,
-            DebugControlLabels.character(
-                CharacterOverlayService.requestedCharacterMode,
-                CharacterOverlayService.requestedLive2DProfile().displayName
-            )
-        ) {
-            toggleCharacterMode()
+        addButton(root, "Tororo（白貓）") {
+            selectLive2DProfile(Live2DCharacterProfiles.Tororo)
         }
-
-        diagnosticsToggleButton = Button(this).apply {
-            text = DebugControlLabels.diagnostics(diagnosticsExpanded)
-            setOnClickListener { toggleDiagnostics() }
-        }
-        root.addView(diagnosticsToggleButton, buttonLayoutParams())
-        addButton(root, "OPEN MANDARIN VISEME MVP") {
-            startActivity(Intent(this, VisemeMvpActivity::class.java))
+        addButton(root, "Hijiki（黑貓）") {
+            selectLive2DProfile(Live2DCharacterProfiles.Hijiki)
         }
     }
 
@@ -1446,31 +1443,21 @@ class MainActivity : Activity() {
 
     private fun toggleCharacterMode() {
         when (CharacterOverlayService.requestedCharacterMode) {
-            CharacterMode.MINIMAL_MOUTH -> {
-                val haru = Live2DCharacterProfiles.Haru
-                Live2DProfileStore.save(this, haru)
-                CharacterOverlayService.requestedLive2DProfileId = haru.id
-                setCharacterMode(CharacterMode.LIVE2D)
-            }
-            CharacterMode.LIVE2D -> {
-                val currentProfile = CharacterOverlayService.requestedLive2DProfile()
-                if (currentProfile.id == Live2DCharacterProfiles.HARU_ID) {
-                    setCharacterMode(CharacterMode.STATIC_PNG)
-                } else {
-                    val haru = Live2DCharacterProfiles.Haru
-                    Live2DProfileStore.save(this, haru)
-                    CharacterOverlayService.requestedLive2DProfileId = haru.id
-                    CharacterDiagnostics.recordLive2DProfile(haru)
-                    setCharacterMode(CharacterMode.LIVE2D)
-                }
-            }
-            CharacterMode.STATIC_PNG -> {
-                val dog = Live2DCharacterProfiles.LoafDog
-                Live2DProfileStore.save(this, dog)
-                CharacterOverlayService.requestedLive2DProfileId = dog.id
-                CharacterDiagnostics.recordLive2DProfile(dog)
-                setCharacterMode(CharacterMode.LIVE2D)
-            }
+            CharacterMode.MINIMAL_MOUTH -> selectLive2DProfile(Live2DCharacterProfiles.Tororo)
+            CharacterMode.LIVE2D,
+            CharacterMode.STATIC_PNG -> setCharacterMode(CharacterMode.MINIMAL_MOUTH)
+        }
+        refreshControlLabels()
+    }
+
+    private fun selectLive2DProfile(profile: Live2DCharacterProfile) {
+        Live2DProfileStore.save(this, profile)
+        CharacterOverlayService.requestedLive2DProfileId = profile.id
+        CharacterDiagnostics.recordLive2DProfile(profile)
+        OverlayLifecycleTrace.record("live2d profile requested ${profile.id}")
+        setCharacterMode(CharacterMode.LIVE2D)
+        if (!CharacterOverlayService.isRunning) {
+            enableMouthOverlay()
         }
         refreshControlLabels()
     }
@@ -1490,10 +1477,10 @@ class MainActivity : Activity() {
 
     private fun refreshControlLabels() {
         if (::captureToggleButton.isInitialized) {
-            captureToggleButton.text = DebugControlLabels.capture(CaptureSessionService.isRunning)
+            captureToggleButton.text = "AI 偵測：${if (CaptureSessionService.isRunning) "ON" else "OFF"}"
         }
         if (::overlayToggleButton.isInitialized) {
-            overlayToggleButton.text = DebugControlLabels.overlay(CharacterOverlayService.isRunning)
+            overlayToggleButton.text = "角色顯示：${if (CharacterOverlayService.isRunning) "ON" else "OFF"}"
         }
         if (::characterModeToggleButton.isInitialized) {
             characterModeToggleButton.text = DebugControlLabels.character(
