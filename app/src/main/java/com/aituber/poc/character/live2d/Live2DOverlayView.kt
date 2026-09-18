@@ -1,6 +1,7 @@
 package com.aituber.poc.character.live2d
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
 import android.os.Handler
@@ -41,6 +42,7 @@ class Live2DOverlayView(
     private var lastMappedMouthOpen: Float = 0f
 
     init {
+        setBackgroundColor(Color.TRANSPARENT)
         holder.setFormat(PixelFormat.TRANSLUCENT)
         setEGLContextClientVersion(2)
         setEGLConfigChooser(8, 8, 8, 8, 16, 0)

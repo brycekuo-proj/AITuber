@@ -67,9 +67,9 @@ class BroadwayHomeView(
             }
         )
 
-        // Real artwork layers, back to front.
-        addFullArtwork(R.drawable.broadway_theatre_background)
-        addFullArtwork(R.drawable.broadway_stage)
+        // Single clean Broadway background exported from the approved layered design.
+        // Interactive controls and the Live2D preview remain independent views.
+        addFullArtwork(R.drawable.broadway_bg_main)
 
         stageHost.apply {
             setBackgroundColor(Color.TRANSPARENT)
@@ -79,28 +79,13 @@ class BroadwayHomeView(
         addAt(stageHost, 198f, 292f, 468f, 787f)
         stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> ensurePreviewAttached() }
 
-        addFullArtwork(R.drawable.broadway_curtain_top)
-        addFullArtwork(R.drawable.broadway_curtain_left)
-        addFullArtwork(R.drawable.broadway_curtain_right)
-        addFullArtwork(R.drawable.broadway_foreground)
-
-        // Economy/status artwork. Meter and + are independent assets.
-        addAt(artwork(R.drawable.broadway_coin_meter_up), 18f, 18f, 270f, 74f)
+        // Top bar: diamond + counter + add + settings. Coin UI stays removed.
+        addAt(artwork(R.drawable.broadway_diamond_icon), 378f, 18f, 72f, 74f)
+        addAt(artwork(R.drawable.broadway_diamond_counter_bg), 450f, 18f, 162f, 74f)
         addAt(
             artworkButton(
-                R.drawable.broadway_coin_plus_up,
-                R.drawable.broadway_coin_plus_down,
-                "增加金幣",
-                onCoinAdd
-            ),
-            288f, 18f, 72f, 74f
-        )
-
-        addAt(artwork(R.drawable.broadway_diamond_meter_up), 378f, 18f, 234f, 74f)
-        addAt(
-            artworkButton(
-                R.drawable.broadway_diamond_plus_up,
-                R.drawable.broadway_diamond_plus_down,
+                R.drawable.broadway_plus_icon,
+                R.drawable.broadway_plus_icon_down,
                 "增加鑽石",
                 onDiamondAdd
             ),
@@ -165,25 +150,6 @@ class BroadwayHomeView(
             ) { onLaunch(previewProfile) },
             234f, 1298f, 396f, 184f
         )
-        addAt(
-            artworkButton(
-                R.drawable.broadway_back_up,
-                R.drawable.broadway_back_down,
-                "返回",
-                onBack
-            ),
-            18f, 1334f, 180f, 166f
-        )
-        addAt(
-            artworkButton(
-                R.drawable.broadway_home_up,
-                R.drawable.broadway_home_down,
-                "首頁",
-                onHome
-            ),
-            666f, 1334f, 180f, 166f
-        )
-
         designCanvas.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> relayoutDesignChildren() }
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutDesignCanvas() }
 
