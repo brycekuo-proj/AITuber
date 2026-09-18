@@ -183,4 +183,11 @@ object Live2DCharacterProfiles {
         val nextIndex = if (currentIndex < 0) 0 else (currentIndex + 1) % all.size
         return all[nextIndex]
     }
+
+    fun previous(id: String?): Live2DCharacterProfile {
+        val currentIndex = all.indexOfFirst { it.id == byId(id).id }
+        val safeIndex = if (currentIndex < 0) 0 else currentIndex
+        val previousIndex = (safeIndex - 1 + all.size) % all.size
+        return all[previousIndex]
+    }
 }

@@ -501,11 +501,17 @@ class MainActivity : Activity() {
         uiRefreshScheduler.submit(snapshot)
     }
     private var playbackProbe: AndroidPlaybackStateProbe? = null
+    private var broadwayHomeView: BroadwayHomeView? = null
+    private lateinit var broadwayPreviewProfile: Live2DCharacterProfile
+    private var pendingBroadwayLaunch = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         loadStaticPngTuning()
         val selectedProfile = Live2DProfileStore.load(this)
+        broadwayPreviewProfile = selectedProfile
+        window.statusBarColor = Color.rgb(43, 8, 18)
+        window.navigationBarColor = Color.rgb(33, 8, 14)
         CharacterOverlayService.requestedLive2DProfileId = selectedProfile.id
         CharacterDiagnostics.recordLive2DProfile(selectedProfile)
         playbackProbe = AndroidPlaybackStateProbe(this) { snapshot ->
@@ -520,12 +526,36 @@ class MainActivity : Activity() {
         playbackProbe?.start()
     }
 
+    override fun onResume() {
+        super.onResume()
+        broadwayHomeView?.resumePreview()
+        if (pendingBroadwayLaunch) {
+            if (Settings.canDrawOverlays(this)) {
+                completeBroadwayLaunch()
+            } else {
+                pendingBroadwayLaunch = false
+                android.widget.Toast.makeText(
+                    this,
+                    "需要允許顯示在其他應用程式上層，才能啟動 AITuber",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    override fun onPause() {
+        broadwayHomeView?.pausePreview()
+        super.onPause()
+    }
+
     override fun onStop() {
         CaptureSessionState.unsubscribe(stateListener)
         super.onStop()
     }
 
     override fun onDestroy() {
+        broadwayHomeView?.releasePreview()
+        broadwayHomeView = null
         uiRefreshScheduler.destroy()
         uiHandler.removeCallbacksAndMessages(null)
         playbackProbe?.stop()
@@ -585,32 +615,12 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi(): View {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(36, 44, 36, 36)
-            setBackgroundColor(Color.rgb(250, 250, 250))
-        }
-
-        root.addView(TextView(this).apply {
-            text = "AITuber"
-            textSize = 26f
-            setTextColor(Color.rgb(24, 28, 36))
-            typeface = Typeface.DEFAULT_BOLD
-        })
-        root.addView(TextView(this).apply {
-            text = "Live2D · Haru / Loaf Dog / Tororo / Hijiki"
-            textSize = 14f
-            setTextColor(Color.rgb(92, 98, 112))
-            setPadding(0, 4, 0, 8)
-        })
-
-        universalStateValue = addCoreField(root, "目前狀態")
-        mouthOverlayStateValue = addCoreField(root, "角色 Overlay")
-        derivedSpeakingCoreValue = addCoreField(root, "語音狀態")
-
-        // Keep legacy diagnostic views initialized off-screen so the existing runtime
-        // diagnostics pipeline remains stable without cluttering the user-facing UI.
+        // Keep the old diagnostics tree alive off-screen so runtime probes can continue
+        // updating without leaking engineering UI into the Broadway consumer home.
         val hiddenCore = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        universalStateValue = addCoreField(hiddenCore, "目前狀態")
+        mouthOverlayStateValue = addCoreField(hiddenCore, "角色 Overlay")
+        derivedSpeakingCoreValue = addCoreField(hiddenCore, "語音狀態")
         voiceSessionValue = addCoreField(hiddenCore, "Voice Session")
         visualizerSignalValue = addCoreField(hiddenCore, "Visualizer Signal")
         visualizerRmsCoreValue = addCoreField(hiddenCore, "RMS")
@@ -619,17 +629,41 @@ class MainActivity : Activity() {
         mouthTargetOpenValue = addCoreField(hiddenCore, "Mouth Target Open")
         mouthSmoothedOpenValue = addCoreField(hiddenCore, "Mouth Smoothed Open")
 
-        addControls(root)
-
         diagnosticsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
         }
         addDiagnosticsFields(diagnosticsContainer)
 
-        return ScrollView(this).apply {
-            addView(root)
-        }
+        return BroadwayHomeView(
+            context = this,
+            initialProfile = broadwayPreviewProfile,
+            onPreviewChanged = { profile ->
+                // Preview only: do not persist and do not touch the running overlay.
+                broadwayPreviewProfile = profile
+            },
+            onLaunch = ::launchBroadwayAituber,
+            onDiamondAdd = {
+                android.widget.Toast.makeText(this, "鑽石功能準備中", android.widget.Toast.LENGTH_SHORT).show()
+            },
+            onSettings = {
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.parse("package:$packageName")
+                    }
+                )
+            },
+            onMyCharacters = {
+                android.widget.Toast.makeText(
+                    this,
+                    "目前角色：${broadwayPreviewProfile.displayName}",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            },
+            onCharacterShop = {
+                android.widget.Toast.makeText(this, "角色商城準備中", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        ).also { broadwayHomeView = it }
     }
 
     private fun addControls(root: LinearLayout) {
@@ -657,6 +691,7 @@ class MainActivity : Activity() {
         val button = Button(this).apply {
             text = label
             setOnClickListener { action() }
+            installBroadwayPressFeedback()
         }
         root.addView(button, buttonLayoutParams())
         return button
@@ -1443,6 +1478,47 @@ class MainActivity : Activity() {
             disableMouthOverlay()
         } else {
             enableMouthOverlay()
+        }
+        refreshControlLabels()
+    }
+
+    private fun launchBroadwayAituber(profile: Live2DCharacterProfile) {
+        broadwayPreviewProfile = profile
+        Live2DProfileStore.save(this, profile)
+        CharacterOverlayService.requestedLive2DProfileId = profile.id
+        CharacterOverlayService.requestedCharacterMode = CharacterMode.LIVE2D
+        CharacterDiagnostics.recordLive2DProfile(profile)
+        CharacterDiagnostics.recordRequestedMode(
+            requestedMode = CharacterMode.LIVE2D,
+            overlayRunning = CharacterOverlayService.isRunning
+        )
+        OverlayLifecycleTrace.record("broadway launch requested ${profile.id}")
+
+        if (!Settings.canDrawOverlays(this)) {
+            pendingBroadwayLaunch = true
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                )
+            )
+            return
+        }
+
+        completeBroadwayLaunch()
+    }
+
+    private fun completeBroadwayLaunch() {
+        pendingBroadwayLaunch = false
+        if (CharacterOverlayService.isRunning) {
+            stopService(Intent(this, CharacterOverlayService::class.java))
+            uiHandler.postDelayed({ enableMouthOverlay() }, 150L)
+        } else {
+            enableMouthOverlay()
+        }
+
+        if (!CaptureSessionService.isRunning) {
+            startDetection()
         }
         refreshControlLabels()
     }
