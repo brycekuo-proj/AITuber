@@ -277,6 +277,7 @@ class BroadwayHomeView(
             isClickable = true
             isFocusable = true
             setOnClickListener { action() }
+            installBroadwayPressFeedback()
         }
     }
 
