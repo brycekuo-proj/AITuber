@@ -2,14 +2,9 @@ package com.aituber.poc.ui
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.PorterDuff
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.TextView
-import com.aituber.poc.R
 import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DOverlayView
@@ -17,11 +12,12 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Broadway home rebuilt from the approved Canva artwork.
+ * Broadway home rebuilt as independent runtime layers.
  *
- * The artwork supplies the theatre, curtains, stage, lights and button chrome.
- * Android only adds Live2D plus transparent/visual hit layers, so the home does
- * not drift back toward generic Cards / rounded engineering buttons.
+ * The approved Canva screen is reference-only. The app does not draw the flat
+ * Canva image. Theatre scenery and all controls are separate resolution-
+ * independent Android views, so the UI stays sharp and every button keeps its
+ * own hit area, pressed state and callback.
  */
 class BroadwayHomeView(
     context: Context,
@@ -55,7 +51,7 @@ class BroadwayHomeView(
     )
 
     init {
-        setBackgroundColor(Color.rgb(24, 2, 7))
+        setBackgroundColor(Color.rgb(20, 1, 7))
         clipChildren = false
         clipToPadding = false
 
@@ -68,14 +64,10 @@ class BroadwayHomeView(
             }
         )
 
-        designCanvas.addView(
-            ImageView(context).apply {
-                setImageResource(R.drawable.aituber_broadway_reference_bg)
-                scaleType = ImageView.ScaleType.FIT_XY
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },
-            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-        )
+        // Back-to-front scene composition. Each visual layer is independent.
+        addSceneryLayer(BroadwaySceneryLayerView.Layer.BACKDROP)
+        addSceneryLayer(BroadwaySceneryLayerView.Layer.LIGHTS)
+        addSceneryLayer(BroadwaySceneryLayerView.Layer.FLOOR)
 
         stageHost.apply {
             setBackgroundColor(Color.TRANSPARENT)
@@ -84,129 +76,120 @@ class BroadwayHomeView(
         }
         addAt(
             stageHost,
-            left = 184f,
-            top = 298f,
-            width = 496f,
-            height = 782f
+            left = 164f,
+            top = 284f,
+            width = 536f,
+            height = 806f
         )
         stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             ensurePreviewAttached()
         }
 
-        // Diamond count is dynamic; the gem + meter are part of the approved artwork.
+        // Foreground theatre pieces can overlap the avatar naturally.
+        addSceneryLayer(BroadwaySceneryLayerView.Layer.CURTAINS)
+        addSceneryLayer(BroadwaySceneryLayerView.Layer.FOREGROUND)
+
+        // Diamond meter is decorative/status only; + is a separate button.
         addAt(
-            TextView(context).apply {
-                text = "0"
-                gravity = Gravity.CENTER
-                textSize = 22f
-                setTextColor(Color.WHITE)
-                setShadowLayer(3f, 0f, 2f, 0xCC12346DL.toInt())
-                includeFontPadding = false
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },
-            left = 528f,
-            top = 31f,
-            width = 94f,
-            height = 71f
+            BroadwayControlView(
+                context = context,
+                kind = BroadwayControlView.Kind.DIAMOND_METER,
+                label = "0"
+            ),
+            left = 500f,
+            top = 24f,
+            width = 154f,
+            height = 82f
         )
 
         addAt(
-            artworkButton(
-                drawableRes = R.drawable.aituber_broadway_plus,
-                contentDescriptionText = "增加鑽石",
+            controlButton(
+                kind = BroadwayControlView.Kind.PLUS,
+                description = "增加鑽石",
                 action = onDiamondAdd
             ),
-            left = 620f,
-            top = 27f,
-            width = 68f,
-            height = 72f
+            left = 644f,
+            top = 24f,
+            width = 72f,
+            height = 78f
         )
 
         addAt(
-            artworkButton(
-                drawableRes = R.drawable.aituber_broadway_settings,
-                contentDescriptionText = "Settings",
+            controlButton(
+                kind = BroadwayControlView.Kind.SETTINGS,
+                description = "Settings",
                 action = onSettings
             ),
-            left = 720f,
-            top = 8f,
-            width = 122f,
-            height = 112f
+            left = 742f,
+            top = 13f,
+            width = 98f,
+            height = 98f
         )
 
         addAt(
-            artworkButton(
-                drawableRes = R.drawable.aituber_broadway_tab_char,
+            controlButton(
+                kind = BroadwayControlView.Kind.TAB,
                 label = "我的角色",
-                labelTextSize = 22f,
-                labelColor = Color.WHITE,
-                labelShadowColor = 0xD72066B5.toInt(),
-                contentDescriptionText = "我的角色",
+                description = "我的角色",
                 action = onMyCharacters
             ),
-            left = 18f,
-            top = 112f,
-            width = 430f,
-            height = 168f
+            left = 34f,
+            top = 126f,
+            width = 380f,
+            height = 124f
         )
 
         addAt(
-            artworkButton(
-                drawableRes = R.drawable.aituber_broadway_tab_shop,
+            controlButton(
+                kind = BroadwayControlView.Kind.TAB,
                 label = "角色商城",
-                labelTextSize = 22f,
-                labelColor = Color.WHITE,
-                labelShadowColor = 0xD72066B5.toInt(),
-                contentDescriptionText = "角色商城",
+                description = "角色商城",
                 action = onCharacterShop
             ),
-            left = 442f,
-            top = 112f,
-            width = 408f,
-            height = 163f
+            left = 450f,
+            top = 126f,
+            width = 380f,
+            height = 124f
         )
 
         addAt(
-            artworkButton(
-                drawableRes = R.drawable.aituber_broadway_arrow_left,
-                contentDescriptionText = "上一個角色"
+            controlButton(
+                kind = BroadwayControlView.Kind.ARROW_LEFT,
+                description = "上一個角色"
             ) {
                 switchPreview(Live2DCharacterProfiles.previous(previewProfile.id))
             },
-            left = 25f,
-            top = 625f,
-            width = 180f,
-            height = 185f
+            left = 32f,
+            top = 610f,
+            width = 160f,
+            height = 166f
         )
 
         addAt(
-            artworkButton(
-                drawableRes = R.drawable.aituber_broadway_arrow_right,
-                contentDescriptionText = "下一個角色"
+            controlButton(
+                kind = BroadwayControlView.Kind.ARROW_RIGHT,
+                description = "下一個角色"
             ) {
                 switchPreview(Live2DCharacterProfiles.next(previewProfile.id))
             },
-            left = 660f,
-            top = 625f,
-            width = 180f,
-            height = 185f
+            left = 672f,
+            top = 610f,
+            width = 160f,
+            height = 166f
         )
 
         addAt(
-            artworkButton(
-                drawableRes = R.drawable.aituber_broadway_launch,
+            controlButton(
+                kind = BroadwayControlView.Kind.LAUNCH,
                 label = "啟動 AITuber",
-                labelTextSize = 26f,
-                labelColor = 0xFF9A5600.toInt(),
-                labelShadowColor = 0x66FFFFFF,
-                contentDescriptionText = "啟動 AITuber"
+                description = "啟動 AITuber"
             ) {
                 onLaunch(previewProfile)
             },
-            left = 225f,
-            top = 1308f,
-            width = 420f,
-            height = 187f
+            left = 214f,
+            top = 1310f,
+            width = 436f,
+            height = 150f
         )
 
         designCanvas.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
@@ -248,6 +231,29 @@ class BroadwayHomeView(
         previewView = null
         stageHost.removeAllViews()
         old?.release()
+    }
+
+    private fun addSceneryLayer(layer: BroadwaySceneryLayerView.Layer) {
+        designCanvas.addView(
+            BroadwaySceneryLayerView(context, layer),
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        )
+    }
+
+    private fun controlButton(
+        kind: BroadwayControlView.Kind,
+        label: String? = null,
+        description: String,
+        action: () -> Unit
+    ): BroadwayControlView {
+        return BroadwayControlView(
+            context = context,
+            kind = kind,
+            label = label
+        ).apply {
+            contentDescription = description
+            setOnClickListener { action() }
+        }
     }
 
     private fun addAt(
@@ -319,17 +325,13 @@ class BroadwayHomeView(
         stageHost.removeAllViews()
 
         if (old == null) {
-            // A rapid second arrow press can arrive while the previous GL release is still
-            // running. In that case the pending release will attach the latest profile.
             if (!previewReleaseInFlight) {
                 attachPreview(profile, requestSerial)
             }
             return
         }
 
-        // The native Cubism runtime is process-global. Wait for the previous GL view to
-        // release it before constructing the next preview, otherwise a late release from
-        // the old view can wipe the newly initialized model and leave the stage empty.
+        // Cubism runtime is process-global; release old preview before attaching next.
         previewReleaseInFlight = true
         old.release {
             previewReleaseInFlight = false
@@ -369,93 +371,9 @@ class BroadwayHomeView(
         }, 350L)
     }
 
-    private fun artworkButton(
-        drawableRes: Int,
-        label: String? = null,
-        labelTextSize: Float = 20f,
-        labelColor: Int = Color.WHITE,
-        labelShadowColor: Int = 0x99000000.toInt(),
-        contentDescriptionText: String,
-        action: () -> Unit
-    ): FrameLayout {
-        return FrameLayout(context).apply {
-            isClickable = true
-            isFocusable = true
-            contentDescription = contentDescriptionText
-            background = null
-            foreground = null
-            stateListAnimator = null
-
-            val artwork = ImageView(context).apply {
-                setImageResource(drawableRes)
-                scaleType = ImageView.ScaleType.FIT_XY
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            }
-            addView(
-                artwork,
-                LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            )
-
-            if (label != null) {
-                addView(
-                    TextView(context).apply {
-                        text = label
-                        gravity = Gravity.CENTER
-                        textSize = labelTextSize
-                        setTextColor(labelColor)
-                        setShadowLayer(3f, 0f, 2f, labelShadowColor)
-                        includeFontPadding = false
-                        isClickable = false
-                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    },
-                    LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-                )
-            }
-
-            setOnClickListener { action() }
-            installArtworkPressFeedback(artwork)
-        }
-    }
-
-    private fun View.installArtworkPressFeedback(artwork: ImageView) {
-        setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    animate().cancel()
-                    animate()
-                        .scaleX(PRESSED_SCALE)
-                        .scaleY(PRESSED_SCALE)
-                        .translationY(dp(4).toFloat())
-                        .setDuration(PRESS_DOWN_MS)
-                        .start()
-                    artwork.setColorFilter(0xFFD7D7D7.toInt(), PorterDuff.Mode.MULTIPLY)
-                }
-
-                MotionEvent.ACTION_UP,
-                MotionEvent.ACTION_CANCEL -> {
-                    animate().cancel()
-                    animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .translationY(0f)
-                        .setDuration(PRESS_UP_MS)
-                        .start()
-                    artwork.clearColorFilter()
-                }
-            }
-            false
-        }
-    }
-
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density + 0.5f).toInt()
-
     companion object {
         private const val DESIGN_WIDTH = 864f
         private const val DESIGN_HEIGHT = 1536f
-        private const val PRESSED_SCALE = 0.965f
-        private const val PRESS_DOWN_MS = 60L
-        private const val PRESS_UP_MS = 120L
         private const val MIN_PREVIEW_EDGE_PX = 32
     }
 }

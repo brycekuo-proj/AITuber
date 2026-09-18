@@ -17,7 +17,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import com.aituber.poc.R
 
 class CharacterStoreActivity : Activity() {
 
@@ -143,20 +142,11 @@ class CharacterStoreActivity : Activity() {
             )
 
             addView(
-                FrameLayout(this@CharacterStoreActivity).apply {
-                    isClickable = true
-                    isFocusable = true
+                BroadwayControlView(
+                    context = this@CharacterStoreActivity,
+                    kind = BroadwayControlView.Kind.SETTINGS
+                ).apply {
                     contentDescription = "Settings"
-                    addView(
-                        ImageView(this@CharacterStoreActivity).apply {
-                            setImageResource(R.drawable.aituber_broadway_settings)
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                        },
-                        FrameLayout.LayoutParams(
-                            FrameLayout.LayoutParams.MATCH_PARENT,
-                            FrameLayout.LayoutParams.MATCH_PARENT
-                        )
-                    )
                     setOnClickListener {
                         startActivity(
                             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -164,7 +154,6 @@ class CharacterStoreActivity : Activity() {
                             }
                         )
                     }
-                    installBroadwayPressFeedback()
                 },
                 FrameLayout.LayoutParams(dp(58), dp(58)).apply {
                     gravity = Gravity.END or Gravity.CENTER_VERTICAL
