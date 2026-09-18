@@ -2,10 +2,9 @@ package com.aituber.poc.ui
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
+import android.graphics.PorterDuff
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -14,14 +13,15 @@ import com.aituber.poc.R
 import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DOverlayView
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Broadway home v2.
+ * Broadway home rebuilt from the approved Canva artwork.
  *
- * The visual is a single high-resolution theatre artwork. Interactive Android views are layered
- * over the exact artwork coordinates so the screen does not fall back to "cards with gold borders".
- * Live2D is restricted to the stage opening; navigation only changes preview until Launch is tapped.
+ * The artwork supplies the theatre, curtains, stage, lights and button chrome.
+ * Android only adds Live2D plus transparent/visual hit layers, so the home does
+ * not drift back toward generic Cards / rounded engineering buttons.
  */
 class BroadwayHomeView(
     context: Context,
@@ -39,8 +39,9 @@ class BroadwayHomeView(
 
     private val designCanvas = FrameLayout(context)
     private val stageHost = FrameLayout(context)
-    private val characterName = TextView(context)
     private var previewView: Live2DOverlayView? = null
+    private var insetTopPx = 0
+    private var insetBottomPx = 0
 
     private data class DesignRect(
         val left: Float,
@@ -50,124 +51,26 @@ class BroadwayHomeView(
     )
 
     init {
-        setBackgroundColor(BACKGROUND)
+        setBackgroundColor(Color.rgb(24, 2, 7))
         clipChildren = false
         clipToPadding = false
 
-        addView(
-            designCanvas,
-            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-        )
-
         designCanvas.clipChildren = false
         designCanvas.clipToPadding = false
+        addView(
+            designCanvas,
+            LayoutParams(1, 1).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
+        )
 
         designCanvas.addView(
             ImageView(context).apply {
-                setImageResource(R.drawable.aituber_broadway_stage_v2)
+                setImageResource(R.drawable.aituber_broadway_reference_bg)
                 scaleType = ImageView.ScaleType.FIT_XY
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-        )
-
-        addAt(
-            TextView(context).apply {
-                text = "💎 0"
-                textSize = 17f
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-                typeface = Typeface.DEFAULT_BOLD
-                background = badgeBackground()
-            },
-            left = 14f,
-            top = 8f,
-            width = 65f,
-            height = 38f
-        )
-
-        addAt(
-            stageButton(
-                label = "+",
-                textSize = 22f,
-                compact = true,
-                contentDescriptionText = "增加鑽石",
-                action = onDiamondAdd
-            ),
-            left = 84f,
-            top = 8f,
-            width = 42f,
-            height = 38f
-        )
-
-        addAt(
-            stageButton(
-                label = "Settings",
-                textSize = 14f,
-                compact = true,
-                action = onSettings
-            ),
-            left = 252f,
-            top = 8f,
-            width = 94f,
-            height = 38f
-        )
-
-        addAt(
-            TextView(context).apply {
-                text = "AITuber"
-                gravity = Gravity.CENTER
-                textSize = 30f
-                setTextColor(TITLE_CREAM)
-                typeface = Typeface.create("serif", Typeface.BOLD)
-                letterSpacing = 0.075f
-                includeFontPadding = false
-            },
-            left = 54f,
-            top = 48f,
-            width = 252f,
-            height = 64f
-        )
-
-        addAt(
-            stageButton(
-                label = "我的角色",
-                textSize = 15f,
-                selected = true,
-                action = onMyCharacters
-            ),
-            left = 58f,
-            top = 132f,
-            width = 112f,
-            height = 36f
-        )
-
-        addAt(
-            stageButton(
-                label = "角色商城",
-                textSize = 15f,
-                action = onCharacterShop
-            ),
-            left = 190f,
-            top = 132f,
-            width = 112f,
-            height = 36f
-        )
-
-        addAt(
-            TextView(context).apply {
-                text = "✦  THE AITUBER STAGE  ✦"
-                gravity = Gravity.CENTER
-                textSize = 11f
-                setTextColor(STAGE_GOLD)
-                typeface = Typeface.DEFAULT_BOLD
-                includeFontPadding = false
-                letterSpacing = 0.035f
-            },
-            left = 92f,
-            top = 181f,
-            width = 176f,
-            height = 27f
         )
 
         stageHost.apply {
@@ -177,85 +80,139 @@ class BroadwayHomeView(
         }
         addAt(
             stageHost,
-            left = 84f,
-            top = 255f,
-            width = 192f,
-            height = 274f
+            left = 184f,
+            top = 298f,
+            width = 496f,
+            height = 782f
+        )
+
+        // Diamond count is dynamic; the gem + meter are part of the approved artwork.
+        addAt(
+            TextView(context).apply {
+                text = "0"
+                gravity = Gravity.CENTER
+                textSize = 22f
+                setTextColor(Color.WHITE)
+                setShadowLayer(3f, 0f, 2f, 0xCC12346DL.toInt())
+                includeFontPadding = false
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            },
+            left = 528f,
+            top = 31f,
+            width = 94f,
+            height = 71f
         )
 
         addAt(
-            stageButton(
-                label = "‹",
-                textSize = 32f,
-                compact = true,
+            artworkButton(
+                drawableRes = R.drawable.aituber_broadway_plus,
+                contentDescriptionText = "增加鑽石",
+                action = onDiamondAdd
+            ),
+            left = 620f,
+            top = 27f,
+            width = 68f,
+            height = 72f
+        )
+
+        addAt(
+            artworkButton(
+                drawableRes = R.drawable.aituber_broadway_settings,
+                contentDescriptionText = "Settings",
+                action = onSettings
+            ),
+            left = 720f,
+            top = 8f,
+            width = 122f,
+            height = 112f
+        )
+
+        addAt(
+            artworkButton(
+                drawableRes = R.drawable.aituber_broadway_tab_char,
+                label = "我的角色",
+                labelTextSize = 22f,
+                labelColor = Color.WHITE,
+                labelShadowColor = 0xD72066B5.toInt(),
+                contentDescriptionText = "我的角色",
+                action = onMyCharacters
+            ),
+            left = 18f,
+            top = 112f,
+            width = 430f,
+            height = 168f
+        )
+
+        addAt(
+            artworkButton(
+                drawableRes = R.drawable.aituber_broadway_tab_shop,
+                label = "角色商城",
+                labelTextSize = 22f,
+                labelColor = Color.WHITE,
+                labelShadowColor = 0xD72066B5.toInt(),
+                contentDescriptionText = "角色商城",
+                action = onCharacterShop
+            ),
+            left = 442f,
+            top = 112f,
+            width = 408f,
+            height = 163f
+        )
+
+        addAt(
+            artworkButton(
+                drawableRes = R.drawable.aituber_broadway_arrow_left,
                 contentDescriptionText = "上一個角色"
             ) {
                 switchPreview(Live2DCharacterProfiles.previous(previewProfile.id))
             },
-            left = 24f,
-            top = 340f,
-            width = 42f,
-            height = 58f
+            left = 25f,
+            top = 625f,
+            width = 180f,
+            height = 185f
         )
 
         addAt(
-            stageButton(
-                label = "›",
-                textSize = 32f,
-                compact = true,
+            artworkButton(
+                drawableRes = R.drawable.aituber_broadway_arrow_right,
                 contentDescriptionText = "下一個角色"
             ) {
                 switchPreview(Live2DCharacterProfiles.next(previewProfile.id))
             },
-            left = 294f,
-            top = 340f,
-            width = 42f,
-            height = 58f
-        )
-
-        characterName.apply {
-            gravity = Gravity.CENTER
-            textSize = 19f
-            setTextColor(TITLE_CREAM)
-            typeface = Typeface.create("serif", Typeface.BOLD)
-            includeFontPadding = false
-            setBackgroundColor(Color.TRANSPARENT)
-        }
-        addAt(
-            characterName,
-            left = 84f,
-            top = 588f,
-            width = 192f,
-            height = 36f
+            left = 660f,
+            top = 625f,
+            width = 180f,
+            height = 185f
         )
 
         addAt(
-            stageButton(
+            artworkButton(
+                drawableRes = R.drawable.aituber_broadway_launch,
                 label = "啟動 AITuber",
-                textSize = 19f,
-                prominent = true
+                labelTextSize = 26f,
+                labelColor = 0xFF9A5600.toInt(),
+                labelShadowColor = 0x66FFFFFF,
+                contentDescriptionText = "啟動 AITuber"
             ) {
                 onLaunch(previewProfile)
             },
-            left = 43f,
-            top = 644f,
-            width = 274f,
-            height = 50f
+            left = 225f,
+            top = 1308f,
+            width = 420f,
+            height = 187f
         )
 
         designCanvas.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             relayoutDesignChildren()
         }
+        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            layoutDesignCanvas()
+        }
 
         setOnApplyWindowInsetsListener { _, insets ->
-            val lp = designCanvas.layoutParams as LayoutParams
-            val nextTop = insets.systemWindowInsetTop
-            val nextBottom = insets.systemWindowInsetBottom
-            if (lp.topMargin != nextTop || lp.bottomMargin != nextBottom) {
-                lp.topMargin = nextTop
-                lp.bottomMargin = nextBottom
-                designCanvas.layoutParams = lp
-            }
+            insetTopPx = insets.systemWindowInsetTop
+            insetBottomPx = insets.systemWindowInsetBottom
+            layoutDesignCanvas()
             insets
         }
         post { requestApplyInsets() }
@@ -287,6 +244,30 @@ class BroadwayHomeView(
     ) {
         view.tag = DesignRect(left, top, width, height)
         designCanvas.addView(view, LayoutParams(1, 1))
+    }
+
+    private fun layoutDesignCanvas() {
+        val rootWidth = width
+        val rootHeight = height
+        if (rootWidth <= 0 || rootHeight <= 0) return
+
+        val availableHeight = (rootHeight - insetTopPx - insetBottomPx).coerceAtLeast(1)
+        val scale = min(
+            rootWidth / DESIGN_WIDTH,
+            availableHeight / DESIGN_HEIGHT
+        )
+        val canvasWidth = (DESIGN_WIDTH * scale).roundToInt().coerceAtLeast(1)
+        val canvasHeight = (DESIGN_HEIGHT * scale).roundToInt().coerceAtLeast(1)
+        val top = insetTopPx + ((availableHeight - canvasHeight) / 2)
+
+        val lp = designCanvas.layoutParams as LayoutParams
+        if (lp.width != canvasWidth || lp.height != canvasHeight || lp.topMargin != top) {
+            lp.width = canvasWidth
+            lp.height = canvasHeight
+            lp.topMargin = top
+            lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            designCanvas.layoutParams = lp
+        }
     }
 
     private fun relayoutDesignChildren() {
@@ -322,10 +303,7 @@ class BroadwayHomeView(
         old?.release()
         stageHost.removeAllViews()
 
-        characterName.text = profile.displayName
-        val live2d = Live2DOverlayView(context, profile = profile) {
-            characterName.text = profile.displayName
-        }
+        val live2d = Live2DOverlayView(context, profile = profile)
         previewView = live2d
         stageHost.addView(
             live2d,
@@ -341,111 +319,92 @@ class BroadwayHomeView(
         }, 350L)
     }
 
-    private fun stageButton(
-        label: String,
-        textSize: Float,
-        compact: Boolean = false,
-        prominent: Boolean = false,
-        selected: Boolean = false,
-        contentDescriptionText: String? = null,
+    private fun artworkButton(
+        drawableRes: Int,
+        label: String? = null,
+        labelTextSize: Float = 20f,
+        labelColor: Int = Color.WHITE,
+        labelShadowColor: Int = 0x99000000.toInt(),
+        contentDescriptionText: String,
         action: () -> Unit
-    ): TextView {
-        return TextView(context).apply {
-            text = label
-            contentDescription = contentDescriptionText ?: label
-            this.textSize = textSize
-            gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
+    ): FrameLayout {
+        return FrameLayout(context).apply {
             isClickable = true
             isFocusable = true
-            setTextColor(if (prominent) Color.WHITE else TITLE_CREAM)
-            setPadding(dp(if (compact) 4 else 8), 0, dp(if (compact) 4 else 8), 0)
-            background = buttonBackground(prominent = prominent, selected = selected)
-            elevation = dp(if (prominent) 6 else 3).toFloat()
+            contentDescription = contentDescriptionText
+            background = null
+            foreground = null
             stateListAnimator = null
+
+            val artwork = ImageView(context).apply {
+                setImageResource(drawableRes)
+                scaleType = ImageView.ScaleType.FIT_XY
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+            addView(
+                artwork,
+                LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            )
+
+            if (label != null) {
+                addView(
+                    TextView(context).apply {
+                        text = label
+                        gravity = Gravity.CENTER
+                        textSize = labelTextSize
+                        setTextColor(labelColor)
+                        setShadowLayer(3f, 0f, 2f, labelShadowColor)
+                        includeFontPadding = false
+                        isClickable = false
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    },
+                    LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+                )
+            }
+
             setOnClickListener { action() }
-            installBroadwayPressFeedback()
+            installArtworkPressFeedback(artwork)
         }
     }
 
-    private fun badgeBackground(): GradientDrawable =
-        GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0xFFD2A13FL.toInt(), 0xFF986823L.toInt())
-        ).apply {
-            cornerRadius = dp(18).toFloat()
-            setStroke(dp(1), 0xFFF6D88AL.toInt())
-        }
+    private fun View.installArtworkPressFeedback(artwork: ImageView) {
+        setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    animate().cancel()
+                    animate()
+                        .scaleX(PRESSED_SCALE)
+                        .scaleY(PRESSED_SCALE)
+                        .translationY(dp(4).toFloat())
+                        .setDuration(PRESS_DOWN_MS)
+                        .start()
+                    artwork.setColorFilter(0xFFD7D7D7.toInt(), PorterDuff.Mode.MULTIPLY)
+                }
 
-    private fun buttonBackground(prominent: Boolean, selected: Boolean): StateListDrawable {
-        val normalTop: Int
-        val normalBottom: Int
-        val stroke: Int
-        val strokeWidth: Int
-
-        when {
-            prominent -> {
-                normalTop = 0xFFB32743L.toInt()
-                normalBottom = 0xFF7D1429L.toInt()
-                stroke = 0xFFF3CE73L.toInt()
-                strokeWidth = dp(2)
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    animate().cancel()
+                    animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .translationY(0f)
+                        .setDuration(PRESS_UP_MS)
+                        .start()
+                    artwork.clearColorFilter()
+                }
             }
-            selected -> {
-                normalTop = 0xFF8B1832L.toInt()
-                normalBottom = 0xFF601020L.toInt()
-                stroke = 0xFFE5B657L.toInt()
-                strokeWidth = dp(1)
-            }
-            else -> {
-                normalTop = 0xFF671226L.toInt()
-                normalBottom = 0xFF480B18L.toInt()
-                stroke = 0xFFB67A2CL.toInt()
-                strokeWidth = dp(1)
-            }
-        }
-
-        val pressedTop = darken(normalTop, 0.78f)
-        val pressedBottom = darken(normalBottom, 0.72f)
-        val pressedStroke = darken(stroke, 0.82f)
-
-        val pressed = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(pressedTop, pressedBottom)
-        ).apply {
-            cornerRadius = dp(if (prominent) 17 else 14).toFloat()
-            setStroke(strokeWidth, pressedStroke)
-        }
-
-        val normal = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(normalTop, normalBottom)
-        ).apply {
-            cornerRadius = dp(if (prominent) 17 else 14).toFloat()
-            setStroke(strokeWidth, stroke)
-        }
-
-        return StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_pressed), pressed)
-            addState(intArrayOf(), normal)
+            false
         }
     }
-
-    private fun darken(color: Int, factor: Float): Int =
-        Color.rgb(
-            (Color.red(color) * factor).roundToInt().coerceIn(0, 255),
-            (Color.green(color) * factor).roundToInt().coerceIn(0, 255),
-            (Color.blue(color) * factor).roundToInt().coerceIn(0, 255)
-        )
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density + 0.5f).toInt()
 
     companion object {
-        private const val DESIGN_WIDTH = 360f
-        private const val DESIGN_HEIGHT = 700f
-        private val BACKGROUND = Color.rgb(20, 3, 8)
-        private val TITLE_CREAM = Color.rgb(255, 238, 196)
-        private val STAGE_GOLD = Color.rgb(246, 205, 104)
+        private const val DESIGN_WIDTH = 864f
+        private const val DESIGN_HEIGHT = 1536f
+        private const val PRESSED_SCALE = 0.965f
+        private const val PRESS_DOWN_MS = 60L
+        private const val PRESS_UP_MS = 120L
     }
 }
