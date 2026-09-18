@@ -164,6 +164,7 @@ object Live2DCharacterProfiles {
             headY = "PARAM_ANGLE_Y",
             headZ = "PARAM_ANGLE_Z"
         ),
+        mouthTuning = Live2DMouthTuning(exponent = 0.55f),
         capabilities = Live2DCharacterCapabilities(
             idleMotion = true,
             physics = true,

@@ -155,6 +155,17 @@ class Live2DParameterBridgeTest {
     }
 
     @Test
+    fun hijikiMouthBoostsLowAndMidInputWhilePreservingEndpoints() {
+        val profile = Live2DCharacterProfiles.Hijiki
+
+        assertEquals(0f, profile.mouthTuning.map(0f), 0.0001f)
+        assertTrue(profile.mouthTuning.map(0.1f) > 0.25f)
+        assertTrue(profile.mouthTuning.map(0.2f) > 0.40f)
+        assertTrue(profile.mouthTuning.map(0.5f) > 0.65f)
+        assertEquals(1f, profile.mouthTuning.map(1f), 0.0001f)
+    }
+
+    @Test
     fun missingOptionalProfileCapabilityDoesNotMakeAdapterUnavailable() {
         val sink = FakeSink(availableParameterIds = setOf("ParamMouthOpen"))
         val adapter = Live2DCharacterAdapter(
