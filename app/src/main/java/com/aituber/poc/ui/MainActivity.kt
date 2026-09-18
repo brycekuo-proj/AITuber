@@ -643,6 +643,9 @@ class MainActivity : Activity() {
                 broadwayPreviewProfile = profile
             },
             onLaunch = ::launchBroadwayAituber,
+            onCoinAdd = {
+                android.widget.Toast.makeText(this, "金幣功能準備中", android.widget.Toast.LENGTH_SHORT).show()
+            },
             onDiamondAdd = {
                 android.widget.Toast.makeText(this, "鑽石功能準備中", android.widget.Toast.LENGTH_SHORT).show()
             },
@@ -662,6 +665,14 @@ class MainActivity : Activity() {
             },
             onCharacterShop = {
                 startActivity(Intent(this, CharacterStoreActivity::class.java))
+            },
+            onBack = {
+                finish()
+            },
+            onHome = {
+                val storedProfile = Live2DProfileStore.load(this)
+                broadwayPreviewProfile = storedProfile
+                broadwayHomeView?.showPreview(storedProfile)
             }
         ).also { broadwayHomeView = it }
     }

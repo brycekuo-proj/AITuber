@@ -12,22 +12,23 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Broadway home rebuilt as independent runtime layers.
+ * Broadway home composed from independent runtime layers.
  *
- * The approved Canva screen is reference-only. The app does not draw the flat
- * Canva image. Theatre scenery and all controls are separate resolution-
- * independent Android views, so the UI stays sharp and every button keeps its
- * own hit area, pressed state and callback.
+ * The uploaded reference is used as the geometry/style authority. Scenery,
+ * avatar preview and every interactive control are still separate Android views.
  */
 class BroadwayHomeView(
     context: Context,
     initialProfile: Live2DCharacterProfile,
     private val onPreviewChanged: (Live2DCharacterProfile) -> Unit,
     private val onLaunch: (Live2DCharacterProfile) -> Unit,
+    private val onCoinAdd: () -> Unit,
     private val onDiamondAdd: () -> Unit,
     private val onSettings: () -> Unit,
     private val onMyCharacters: () -> Unit,
-    private val onCharacterShop: () -> Unit
+    private val onCharacterShop: () -> Unit,
+    private val onBack: () -> Unit,
+    private val onHome: () -> Unit
 ) : FrameLayout(context) {
 
     var previewProfile: Live2DCharacterProfile = initialProfile
@@ -43,15 +44,10 @@ class BroadwayHomeView(
     private var insetTopPx = 0
     private var insetBottomPx = 0
 
-    private data class DesignRect(
-        val left: Float,
-        val top: Float,
-        val width: Float,
-        val height: Float
-    )
+    private data class DesignRect(val left: Float, val top: Float, val width: Float, val height: Float)
 
     init {
-        setBackgroundColor(Color.rgb(20, 1, 7))
+        setBackgroundColor(Color.rgb(34, 3, 9))
         clipChildren = false
         clipToPadding = false
 
@@ -64,7 +60,7 @@ class BroadwayHomeView(
             }
         )
 
-        // Back-to-front scene composition. Each visual layer is independent.
+        // Reference order: theatre -> stage/avatar -> foreground curtains/podium -> controls.
         addSceneryLayer(BroadwaySceneryLayerView.Layer.BACKDROP)
         addSceneryLayer(BroadwaySceneryLayerView.Layer.LIGHTS)
         addSceneryLayer(BroadwaySceneryLayerView.Layer.FLOOR)
@@ -74,130 +70,88 @@ class BroadwayHomeView(
             clipChildren = true
             clipToPadding = true
         }
-        addAt(
-            stageHost,
-            left = 164f,
-            top = 284f,
-            width = 536f,
-            height = 806f
-        )
-        stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            ensurePreviewAttached()
-        }
+        addAt(stageHost, 198f, 292f, 468f, 787f)
+        stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> ensurePreviewAttached() }
 
-        // Foreground theatre pieces can overlap the avatar naturally.
         addSceneryLayer(BroadwaySceneryLayerView.Layer.CURTAINS)
         addSceneryLayer(BroadwaySceneryLayerView.Layer.FOREGROUND)
 
-        // Diamond meter is decorative/status only; + is a separate button.
+        // Top economy/status strip — exact reference geometry.
         addAt(
-            BroadwayControlView(
-                context = context,
-                kind = BroadwayControlView.Kind.DIAMOND_METER,
-                label = "0"
-            ),
-            left = 500f,
-            top = 24f,
-            width = 154f,
-            height = 82f
+            BroadwayControlView(context, BroadwayControlView.Kind.COIN_METER, "99999"),
+            18f, 18f, 342f, 74f
+        )
+        addAt(
+            controlButton(BroadwayControlView.Kind.PLUS, description = "增加金幣", action = onCoinAdd),
+            288f, 18f, 72f, 74f
+        )
+
+        addAt(
+            BroadwayControlView(context, BroadwayControlView.Kind.DIAMOND_METER, "9999"),
+            378f, 18f, 306f, 74f
+        )
+        addAt(
+            controlButton(BroadwayControlView.Kind.PLUS, description = "增加鑽石", action = onDiamondAdd),
+            612f, 18f, 72f, 74f
+        )
+
+        addAt(
+            controlButton(BroadwayControlView.Kind.SETTINGS, description = "Settings", action = onSettings),
+            720f, 18f, 126f, 110f
         )
 
         addAt(
             controlButton(
-                kind = BroadwayControlView.Kind.PLUS,
-                description = "增加鑽石",
-                action = onDiamondAdd
-            ),
-            left = 644f,
-            top = 24f,
-            width = 72f,
-            height = 78f
-        )
-
-        addAt(
-            controlButton(
-                kind = BroadwayControlView.Kind.SETTINGS,
-                description = "Settings",
-                action = onSettings
-            ),
-            left = 742f,
-            top = 13f,
-            width = 98f,
-            height = 98f
-        )
-
-        addAt(
-            controlButton(
-                kind = BroadwayControlView.Kind.TAB,
-                label = "我的角色",
-                description = "我的角色",
+                BroadwayControlView.Kind.TAB,
+                label = "Characters",
+                description = "Characters",
                 action = onMyCharacters
             ),
-            left = 34f,
-            top = 126f,
-            width = 380f,
-            height = 124f
+            18f, 109f, 432f, 184f
         )
-
         addAt(
             controlButton(
-                kind = BroadwayControlView.Kind.TAB,
-                label = "角色商城",
-                description = "角色商城",
+                BroadwayControlView.Kind.TAB,
+                label = "Props",
+                description = "Props",
                 action = onCharacterShop
             ),
-            left = 450f,
-            top = 126f,
-            width = 380f,
-            height = 124f
+            432f, 109f, 414f, 166f
         )
 
         addAt(
-            controlButton(
-                kind = BroadwayControlView.Kind.ARROW_LEFT,
-                description = "上一個角色"
-            ) {
+            controlButton(BroadwayControlView.Kind.ARROW_LEFT, description = "上一個角色") {
                 switchPreview(Live2DCharacterProfiles.previous(previewProfile.id))
             },
-            left = 32f,
-            top = 610f,
-            width = 160f,
-            height = 166f
+            18f, 621f, 180f, 202f
         )
-
         addAt(
-            controlButton(
-                kind = BroadwayControlView.Kind.ARROW_RIGHT,
-                description = "下一個角色"
-            ) {
+            controlButton(BroadwayControlView.Kind.ARROW_RIGHT, description = "下一個角色") {
                 switchPreview(Live2DCharacterProfiles.next(previewProfile.id))
             },
-            left = 672f,
-            top = 610f,
-            width = 160f,
-            height = 166f
+            666f, 621f, 180f, 202f
         )
 
         addAt(
             controlButton(
-                kind = BroadwayControlView.Kind.LAUNCH,
-                label = "啟動 AITuber",
+                BroadwayControlView.Kind.LAUNCH,
+                label = "Play",
                 description = "啟動 AITuber"
-            ) {
-                onLaunch(previewProfile)
-            },
-            left = 214f,
-            top = 1310f,
-            width = 436f,
-            height = 150f
+            ) { onLaunch(previewProfile) },
+            234f, 1298f, 396f, 184f
         )
 
-        designCanvas.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            relayoutDesignChildren()
-        }
-        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            layoutDesignCanvas()
-        }
+        addAt(
+            controlButton(BroadwayControlView.Kind.BACK, description = "返回", action = onBack),
+            18f, 1334f, 180f, 166f
+        )
+        addAt(
+            controlButton(BroadwayControlView.Kind.HOME, description = "首頁", action = onHome),
+            666f, 1334f, 180f, 166f
+        )
+
+        designCanvas.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> relayoutDesignChildren() }
+        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutDesignCanvas() }
 
         setOnApplyWindowInsetsListener { _, insets ->
             insetTopPx = insets.systemWindowInsetTop
@@ -206,7 +160,6 @@ class BroadwayHomeView(
             insets
         }
         post { requestApplyInsets() }
-
         post { ensurePreviewAttached() }
     }
 
@@ -233,6 +186,15 @@ class BroadwayHomeView(
         old?.release()
     }
 
+    fun showPreview(profile: Live2DCharacterProfile) {
+        if (previewDisposed) return
+        if (profile.id == previewProfile.id) {
+            ensurePreviewAttached()
+            return
+        }
+        switchPreview(profile)
+    }
+
     private fun addSceneryLayer(layer: BroadwaySceneryLayerView.Layer) {
         designCanvas.addView(
             BroadwaySceneryLayerView(context, layer),
@@ -245,24 +207,13 @@ class BroadwayHomeView(
         label: String? = null,
         description: String,
         action: () -> Unit
-    ): BroadwayControlView {
-        return BroadwayControlView(
-            context = context,
-            kind = kind,
-            label = label
-        ).apply {
+    ): BroadwayControlView =
+        BroadwayControlView(context, kind, label).apply {
             contentDescription = description
             setOnClickListener { action() }
         }
-    }
 
-    private fun addAt(
-        view: View,
-        left: Float,
-        top: Float,
-        width: Float,
-        height: Float
-    ) {
+    private fun addAt(view: View, left: Float, top: Float, width: Float, height: Float) {
         view.tag = DesignRect(left, top, width, height)
         designCanvas.addView(view, LayoutParams(1, 1))
     }
@@ -273,10 +224,7 @@ class BroadwayHomeView(
         if (rootWidth <= 0 || rootHeight <= 0) return
 
         val availableHeight = (rootHeight - insetTopPx - insetBottomPx).coerceAtLeast(1)
-        val scale = min(
-            rootWidth / DESIGN_WIDTH,
-            availableHeight / DESIGN_HEIGHT
-        )
+        val scale = min(rootWidth / DESIGN_WIDTH, availableHeight / DESIGN_HEIGHT)
         val canvasWidth = (DESIGN_WIDTH * scale).roundToInt().coerceAtLeast(1)
         val canvasHeight = (DESIGN_HEIGHT * scale).roundToInt().coerceAtLeast(1)
         val top = insetTopPx + ((availableHeight - canvasHeight) / 2)
@@ -298,7 +246,6 @@ class BroadwayHomeView(
 
         val scaleX = canvasWidth / DESIGN_WIDTH
         val scaleY = canvasHeight / DESIGN_HEIGHT
-
         for (index in 0 until designCanvas.childCount) {
             val child = designCanvas.getChildAt(index)
             val spec = child.tag as? DesignRect ?: continue
@@ -325,13 +272,11 @@ class BroadwayHomeView(
         stageHost.removeAllViews()
 
         if (old == null) {
-            if (!previewReleaseInFlight) {
-                attachPreview(profile, requestSerial)
-            }
+            if (!previewReleaseInFlight) attachPreview(profile, requestSerial)
             return
         }
 
-        // Cubism runtime is process-global; release old preview before attaching next.
+        // Cubism runtime is process-global: release previous preview before next.
         previewReleaseInFlight = true
         old.release {
             previewReleaseInFlight = false
@@ -340,17 +285,15 @@ class BroadwayHomeView(
     }
 
     private fun ensurePreviewAttached() {
-        if (previewDisposed || previewReleaseInFlight) return
-        if (previewView != null) return
+        if (previewDisposed || previewReleaseInFlight || previewView != null) return
         if (stageHost.width < MIN_PREVIEW_EDGE_PX || stageHost.height < MIN_PREVIEW_EDGE_PX) return
         attachPreview(previewProfile, previewRequestSerial)
     }
 
     private fun attachPreview(profile: Live2DCharacterProfile, requestSerial: Long) {
-        if (previewDisposed || previewReleaseInFlight) return
+        if (previewDisposed || previewReleaseInFlight || previewView != null) return
         if (requestSerial != previewRequestSerial) return
         if (stageHost.width < MIN_PREVIEW_EDGE_PX || stageHost.height < MIN_PREVIEW_EDGE_PX) return
-        if (previewView != null) return
 
         val live2d = Live2DOverlayView(context, profile = profile)
         previewView = live2d
@@ -361,9 +304,7 @@ class BroadwayHomeView(
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
-        if (previewResumed) {
-            live2d.onResume()
-        }
+        if (previewResumed) live2d.onResume()
         live2d.postDelayed({
             if (previewView === live2d && profile.capabilities.idleMotion) {
                 live2d.startIdleMotionForDebug()

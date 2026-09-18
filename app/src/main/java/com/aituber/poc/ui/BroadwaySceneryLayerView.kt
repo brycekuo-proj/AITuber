@@ -10,26 +10,19 @@ import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.view.View
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
- * Resolution-independent Broadway scenery.
- *
- * The approved Canva screen is reference-only. Nothing here draws the flat
- * reference bitmap. Each scenery layer is rendered independently at runtime so
- * curtains, lights, floor and proscenium stay sharp on any device density.
+ * Resolution-independent Broadway scenery matching the supplied 864x1536
+ * reference composition. Each scenery plane is independent from controls/avatar.
  */
 class BroadwaySceneryLayerView(
     context: Context,
     private val layer: Layer
 ) : View(context) {
 
-    enum class Layer {
-        BACKDROP,
-        LIGHTS,
-        FLOOR,
-        CURTAINS,
-        FOREGROUND
-    }
+    enum class Layer { BACKDROP, LIGHTS, FLOOR, CURTAINS, FOREGROUND }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
@@ -38,15 +31,14 @@ class BroadwaySceneryLayerView(
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         isClickable = false
         isFocusable = false
+        setLayerType(LAYER_TYPE_SOFTWARE, null)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (width <= 0 || height <= 0) return
-
         canvas.save()
         canvas.scale(width / DESIGN_WIDTH, height / DESIGN_HEIGHT)
-
         when (layer) {
             Layer.BACKDROP -> drawBackdrop(canvas)
             Layer.LIGHTS -> drawLights(canvas)
@@ -54,347 +46,315 @@ class BroadwaySceneryLayerView(
             Layer.CURTAINS -> drawCurtains(canvas)
             Layer.FOREGROUND -> drawForeground(canvas)
         }
-
         canvas.restore()
     }
 
     private fun drawBackdrop(canvas: Canvas) {
         paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(
-            0f,
-            0f,
-            0f,
-            DESIGN_HEIGHT,
+            0f, 0f, 0f, DESIGN_HEIGHT,
             intArrayOf(
-                Color.rgb(20, 1, 7),
-                Color.rgb(49, 4, 15),
-                Color.rgb(12, 3, 9)
+                Color.rgb(74, 5, 15),
+                Color.rgb(38, 5, 11),
+                Color.rgb(94, 28, 16),
+                Color.rgb(20, 4, 9)
             ),
-            floatArrayOf(0f, 0.52f, 1f),
+            floatArrayOf(0f, 0.22f, 0.68f, 1f),
             Shader.TileMode.CLAMP
         )
         canvas.drawRect(0f, 0f, DESIGN_WIDTH, DESIGN_HEIGHT, paint)
         paint.shader = null
 
-        // Theatre opening.
-        paint.color = Color.rgb(6, 4, 10)
-        canvas.drawRoundRect(RectF(119f, 236f, 745f, 1135f), 42f, 42f, paint)
+        // Warm blurred theatre auditorium behind the avatar.
+        paint.color = Color.rgb(67, 30, 18)
+        canvas.drawRoundRect(RectF(88f, 236f, 776f, 1085f), 52f, 52f, paint)
+        repeat(4) { row ->
+            val y = 430f + row * 125f
+            paint.color = Color.argb(100, 238, 139, 55)
+            canvas.drawRoundRect(RectF(160f, y, 704f, y + 56f), 28f, 28f, paint)
+            paint.color = Color.argb(80, 91, 28, 16)
+            canvas.drawRoundRect(RectF(180f, y + 20f, 684f, y + 74f), 24f, 24f, paint)
+        }
 
-        // Outer proscenium shadow.
+        // Golden proscenium frame.
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 42f
-        paint.color = Color.rgb(57, 27, 6)
-        canvas.drawRoundRect(RectF(117f, 226f, 747f, 1144f), 54f, 54f, paint)
-
-        // Gold proscenium.
-        paint.strokeWidth = 24f
+        paint.strokeWidth = 38f
         paint.shader = LinearGradient(
-            90f,
-            0f,
-            774f,
-            0f,
+            50f, 0f, 814f, 0f,
             intArrayOf(
-                Color.rgb(112, 57, 7),
-                Color.rgb(255, 214, 105),
-                Color.rgb(143, 76, 10)
+                Color.rgb(139, 72, 8),
+                Color.rgb(255, 205, 89),
+                Color.rgb(255, 237, 144),
+                Color.rgb(171, 90, 10)
             ),
-            null,
-            Shader.TileMode.CLAMP
+            null, Shader.TileMode.CLAMP
         )
-        canvas.drawRoundRect(RectF(118f, 227f, 746f, 1142f), 52f, 52f, paint)
+        canvas.drawRoundRect(RectF(28f, 106f, 836f, 1120f), 56f, 56f, paint)
         paint.shader = null
-
-        // Inner gold bevel.
         paint.strokeWidth = 7f
-        paint.color = Color.rgb(255, 235, 167)
-        canvas.drawRoundRect(RectF(138f, 247f, 726f, 1122f), 38f, 38f, paint)
+        paint.color = Color.rgb(255, 230, 133)
+        canvas.drawRoundRect(RectF(45f, 122f, 819f, 1104f), 48f, 48f, paint)
         paint.style = Paint.Style.FILL
 
-        // Side ornamental panels.
-        drawColumn(canvas, 70f, 272f, 112f, 1115f)
-        drawColumn(canvas, 752f, 272f, 794f, 1115f)
-
-        // Marquee bulbs around the arch.
-        drawBulbRow(canvas, 151f, 713f, 252f, 13)
-        drawBulbColumn(canvas, 124f, 306f, 1022f, 12)
-        drawBulbColumn(canvas, 740f, 306f, 1022f, 12)
-    }
-
-    private fun drawColumn(canvas: Canvas, left: Float, top: Float, right: Float, bottom: Float) {
-        paint.style = Paint.Style.FILL
+        // Side gold rails.
         paint.shader = LinearGradient(
-            left,
-            0f,
-            right,
-            0f,
-            intArrayOf(
-                Color.rgb(68, 31, 5),
-                Color.rgb(222, 165, 55),
-                Color.rgb(91, 42, 6)
-            ),
-            null,
-            Shader.TileMode.CLAMP
+            0f, 0f, 72f, 0f,
+            intArrayOf(Color.rgb(120, 60, 7), Color.rgb(251, 184, 59), Color.rgb(103, 47, 5)),
+            null, Shader.TileMode.CLAMP
         )
-        canvas.drawRoundRect(RectF(left, top, right, bottom), 16f, 16f, paint)
+        canvas.drawRoundRect(RectF(20f, 210f, 72f, 1116f), 24f, 24f, paint)
+        canvas.drawRoundRect(RectF(792f, 210f, 844f, 1116f), 24f, 24f, paint)
         paint.shader = null
-    }
 
-    private fun drawBulbRow(canvas: Canvas, startX: Float, endX: Float, y: Float, count: Int) {
-        val step = (endX - startX) / (count - 1)
-        repeat(count) { index ->
-            drawBulb(canvas, startX + step * index, y)
-        }
-    }
+        // Reference-like marquee bulbs.
+        drawBulbRow(canvas, 54f, 810f, 188f, 16)
+        drawBulbColumn(canvas, 49f, 254f, 1040f, 13)
+        drawBulbColumn(canvas, 815f, 254f, 1040f, 13)
 
-    private fun drawBulbColumn(canvas: Canvas, x: Float, startY: Float, endY: Float, count: Int) {
-        val step = (endY - startY) / (count - 1)
-        repeat(count) { index ->
-            drawBulb(canvas, x, startY + step * index)
-        }
-    }
-
-    private fun drawBulb(canvas: Canvas, cx: Float, cy: Float) {
-        paint.style = Paint.Style.FILL
-        paint.shader = RadialGradient(
-            cx,
-            cy,
-            13f,
-            intArrayOf(
-                Color.argb(220, 255, 248, 194),
-                Color.argb(110, 255, 183, 57),
-                Color.argb(0, 255, 141, 0)
-            ),
-            null,
-            Shader.TileMode.CLAMP
-        )
-        canvas.drawCircle(cx, cy, 13f, paint)
-        paint.shader = null
-        paint.color = Color.rgb(255, 241, 179)
-        canvas.drawCircle(cx, cy, 4.5f, paint)
+        // Decorative gold crest below the tabs.
+        paint.color = Color.rgb(235, 167, 53)
+        path.reset()
+        path.moveTo(414f, 250f)
+        path.lineTo(432f, 211f)
+        path.lineTo(450f, 250f)
+        path.lineTo(469f, 274f)
+        path.lineTo(432f, 261f)
+        path.lineTo(395f, 274f)
+        path.close()
+        canvas.drawPath(path, paint)
     }
 
     private fun drawLights(canvas: Canvas) {
-        drawSpotCone(canvas, 255f, 272f, 338f, 905f, Color.argb(68, 255, 226, 166))
-        drawSpotCone(canvas, 432f, 252f, 432f, 980f, Color.argb(76, 255, 239, 188))
-        drawSpotCone(canvas, 609f, 272f, 526f, 905f, Color.argb(68, 255, 226, 166))
-
-        listOf(255f, 432f, 609f).forEach { x ->
+        drawSpot(canvas, 388f, 288f, 330f, 880f)
+        drawSpot(canvas, 432f, 280f, 432f, 940f)
+        drawSpot(canvas, 476f, 288f, 534f, 880f)
+        listOf(388f, 432f, 476f).forEach { x ->
             paint.style = Paint.Style.FILL
-            paint.color = Color.rgb(78, 50, 18)
-            canvas.drawCircle(x, 252f, 24f, paint)
-            paint.color = Color.rgb(255, 216, 113)
-            canvas.drawCircle(x, 258f, 13f, paint)
+            paint.color = Color.rgb(83, 54, 21)
+            canvas.drawCircle(x, 280f, 15f, paint)
+            paint.color = Color.rgb(255, 227, 157)
+            canvas.drawCircle(x, 285f, 7f, paint)
         }
     }
 
-    private fun drawSpotCone(
-        canvas: Canvas,
-        sourceX: Float,
-        sourceY: Float,
-        targetX: Float,
-        targetY: Float,
-        color: Int
-    ) {
+    private fun drawSpot(canvas: Canvas, sx: Float, sy: Float, tx: Float, ty: Float) {
         path.reset()
-        path.moveTo(sourceX - 13f, sourceY + 10f)
-        path.lineTo(targetX - 116f, targetY)
-        path.lineTo(targetX + 116f, targetY)
-        path.lineTo(sourceX + 13f, sourceY + 10f)
+        path.moveTo(sx - 10f, sy + 4f)
+        path.lineTo(tx - 105f, ty)
+        path.lineTo(tx + 105f, ty)
+        path.lineTo(sx + 10f, sy + 4f)
         path.close()
-
         paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(
-            sourceX,
-            sourceY,
-            targetX,
-            targetY,
-            intArrayOf(color, Color.argb(3, 255, 240, 196)),
-            null,
-            Shader.TileMode.CLAMP
+            sx, sy, tx, ty,
+            intArrayOf(Color.argb(82, 255, 235, 185), Color.argb(0, 255, 218, 132)),
+            null, Shader.TileMode.CLAMP
         )
         canvas.drawPath(path, paint)
         paint.shader = null
     }
 
     private fun drawFloor(canvas: Canvas) {
-        path.reset()
-        path.moveTo(121f, 1008f)
-        path.lineTo(743f, 1008f)
-        path.lineTo(864f, 1342f)
-        path.lineTo(0f, 1342f)
-        path.close()
-
+        // Red-carpet floor behind the podium.
         paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(
-            0f,
-            1008f,
-            0f,
-            1342f,
-            intArrayOf(
-                Color.rgb(117, 43, 21),
-                Color.rgb(75, 20, 18),
-                Color.rgb(31, 8, 12)
-            ),
-            null,
-            Shader.TileMode.CLAMP
+            0f, 1000f, 0f, 1536f,
+            intArrayOf(Color.rgb(109, 27, 19), Color.rgb(74, 11, 17), Color.rgb(37, 4, 10)),
+            null, Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(0f, 995f, 864f, 1536f, paint)
+        paint.shader = null
+
+        // Carpet perspective.
+        path.reset()
+        path.moveTo(330f, 1080f)
+        path.lineTo(534f, 1080f)
+        path.lineTo(665f, 1536f)
+        path.lineTo(199f, 1536f)
+        path.close()
+        paint.shader = LinearGradient(
+            0f, 1080f, 0f, 1536f,
+            intArrayOf(Color.rgb(183, 29, 35), Color.rgb(122, 12, 24), Color.rgb(80, 5, 16)),
+            null, Shader.TileMode.CLAMP
         )
         canvas.drawPath(path, paint)
         paint.shader = null
-
-        // Floor boards.
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 2f
-        paint.color = Color.argb(110, 247, 158, 77)
-        for (x in -40..900 step 70) {
-            canvas.drawLine(432f, 1015f, x.toFloat(), 1340f, paint)
-        }
-        for (y in 1060..1320 step 55) {
-            canvas.drawLine(0f, y.toFloat(), 864f, y.toFloat(), paint)
-        }
+        paint.strokeWidth = 7f
+        paint.color = Color.rgb(222, 167, 65)
+        canvas.drawLine(330f, 1080f, 199f, 1536f, paint)
+        canvas.drawLine(534f, 1080f, 665f, 1536f, paint)
+        paint.style = Paint.Style.FILL
+
+        // Main circular podium.
+        paint.shader = LinearGradient(
+            0f, 1000f, 0f, 1180f,
+            intArrayOf(Color.rgb(255, 208, 98), Color.rgb(167, 83, 13), Color.rgb(86, 35, 5)),
+            null, Shader.TileMode.CLAMP
+        )
+        canvas.drawOval(RectF(116f, 1000f, 748f, 1156f), paint)
+        paint.shader = null
+        paint.color = Color.rgb(139, 45, 25)
+        canvas.drawOval(RectF(149f, 1018f, 715f, 1115f), paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 5f
+        paint.color = Color.rgb(255, 203, 89)
+        canvas.drawOval(RectF(149f, 1018f, 715f, 1115f), paint)
         paint.style = Paint.Style.FILL
     }
 
     private fun drawCurtains(canvas: Canvas) {
-        drawTopValance(canvas)
-        drawSideCurtain(canvas, leftSide = true)
-        drawSideCurtain(canvas, leftSide = false)
+        drawTopCurtain(canvas)
+        drawSideCurtain(canvas, true)
+        drawSideCurtain(canvas, false)
     }
 
-    private fun drawTopValance(canvas: Canvas) {
+    private fun drawTopCurtain(canvas: Canvas) {
         path.reset()
-        path.moveTo(-10f, 72f)
-        path.lineTo(874f, 72f)
-        path.lineTo(874f, 286f)
-
-        var x = 874f
-        var high = true
-        while (x >= -10f) {
-            path.lineTo(x, if (high) 260f else 326f)
-            high = !high
-            x -= 72f
-        }
-        path.lineTo(-10f, 286f)
+        path.moveTo(-20f, -12f)
+        path.lineTo(884f, -12f)
+        path.lineTo(884f, 212f)
+        path.cubicTo(735f, 245f, 614f, 223f, 531f, 180f)
+        path.cubicTo(478f, 150f, 456f, 129f, 432f, 92f)
+        path.cubicTo(408f, 129f, 386f, 150f, 333f, 180f)
+        path.cubicTo(250f, 223f, 129f, 245f, -20f, 212f)
         path.close()
-
         paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(
-            0f,
-            70f,
-            0f,
-            330f,
-            intArrayOf(
-                Color.rgb(77, 4, 14),
-                Color.rgb(192, 22, 49),
-                Color.rgb(91, 4, 20)
-            ),
-            null,
-            Shader.TileMode.CLAMP
+            0f, 0f, 0f, 260f,
+            intArrayOf(Color.rgb(90, 2, 12), Color.rgb(207, 20, 40), Color.rgb(83, 3, 17)),
+            null, Shader.TileMode.CLAMP
         )
         canvas.drawPath(path, paint)
         paint.shader = null
 
-        // Top gold trim.
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 10f
-        paint.color = Color.rgb(223, 163, 49)
-        canvas.drawLine(0f, 82f, 864f, 82f, paint)
+        paint.color = Color.rgb(234, 171, 53)
+        canvas.drawLine(0f, 204f, 864f, 204f, paint)
         paint.style = Paint.Style.FILL
+
+        // Gold fringe.
+        paint.color = Color.rgb(244, 191, 72)
+        var x = 0f
+        while (x < 864f) {
+            path.reset()
+            path.moveTo(x, 205f)
+            path.lineTo(x + 13f, 225f)
+            path.lineTo(x + 26f, 205f)
+            path.close()
+            canvas.drawPath(path, paint)
+            x += 26f
+        }
     }
 
-    private fun drawSideCurtain(canvas: Canvas, leftSide: Boolean) {
+    private fun drawSideCurtain(canvas: Canvas, left: Boolean) {
         path.reset()
-        if (leftSide) {
-            path.moveTo(-25f, 188f)
-            path.lineTo(214f, 210f)
-            path.cubicTo(207f, 475f, 199f, 715f, 164f, 918f)
-            path.cubicTo(148f, 1014f, 124f, 1110f, 78f, 1220f)
-            path.lineTo(-25f, 1264f)
+        if (left) {
+            path.moveTo(-22f, 150f)
+            path.lineTo(205f, 225f)
+            path.cubicTo(194f, 380f, 184f, 560f, 160f, 720f)
+            path.cubicTo(142f, 870f, 118f, 995f, 75f, 1130f)
+            path.lineTo(-22f, 1150f)
         } else {
-            path.moveTo(889f, 188f)
-            path.lineTo(650f, 210f)
-            path.cubicTo(657f, 475f, 665f, 715f, 700f, 918f)
-            path.cubicTo(716f, 1014f, 740f, 1110f, 786f, 1220f)
-            path.lineTo(889f, 1264f)
+            path.moveTo(886f, 150f)
+            path.lineTo(659f, 225f)
+            path.cubicTo(670f, 380f, 680f, 560f, 704f, 720f)
+            path.cubicTo(722f, 870f, 746f, 995f, 789f, 1130f)
+            path.lineTo(886f, 1150f)
         }
         path.close()
 
-        val left = if (leftSide) 0f else 650f
-        val right = if (leftSide) 214f else 864f
         paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(
-            left,
-            0f,
-            right,
-            0f,
+            if (left) 0f else 650f, 0f, if (left) 214f else 864f, 0f,
             intArrayOf(
-                Color.rgb(58, 2, 12),
-                Color.rgb(170, 17, 42),
-                Color.rgb(104, 6, 24),
-                Color.rgb(208, 25, 51),
-                Color.rgb(63, 2, 14)
+                Color.rgb(68, 1, 11),
+                Color.rgb(174, 13, 35),
+                Color.rgb(110, 4, 23),
+                Color.rgb(210, 24, 47),
+                Color.rgb(65, 1, 13)
             ),
-            null,
-            Shader.TileMode.CLAMP
+            null, Shader.TileMode.CLAMP
         )
         canvas.drawPath(path, paint)
         paint.shader = null
 
-        // Curtain folds.
+        // Fold highlights.
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 5f
         paint.color = Color.argb(95, 255, 125, 135)
-        val foldXs = if (leftSide) {
-            listOf(38f, 82f, 126f, 168f)
-        } else {
-            listOf(826f, 782f, 738f, 696f)
-        }
-        foldXs.forEach { x ->
-            canvas.drawLine(x, 230f, if (leftSide) x - 36f else x + 36f, 1160f, paint)
-        }
+        val xs = if (left) listOf(35f, 78f, 121f, 165f) else listOf(829f, 786f, 743f, 699f)
+        xs.forEach { fx -> canvas.drawLine(fx, 215f, if (left) fx - 30f else fx + 30f, 1070f, paint) }
         paint.style = Paint.Style.FILL
 
-        // Tiebacks.
-        val tieX = if (leftSide) 151f else 713f
-        paint.color = Color.rgb(229, 177, 56)
-        canvas.drawOval(RectF(tieX - 34f, 730f, tieX + 34f, 768f), paint)
-        paint.color = Color.rgb(255, 223, 112)
-        canvas.drawOval(RectF(tieX - 22f, 738f, tieX + 22f, 758f), paint)
+        // Tiebacks and tassels.
+        val tx = if (left) 142f else 722f
+        paint.color = Color.rgb(238, 180, 57)
+        canvas.drawOval(RectF(tx - 30f, 505f, tx + 30f, 536f), paint)
+        paint.color = Color.rgb(252, 206, 86)
+        canvas.drawRect(tx - 6f, 530f, tx + 6f, 580f, paint)
+        canvas.drawCircle(tx, 585f, 13f, paint)
     }
 
     private fun drawForeground(canvas: Canvas) {
-        // Stage lip in front of the avatar feet.
+        // Podium front lip and footlights.
         paint.style = Paint.Style.FILL
         paint.shader = LinearGradient(
-            0f,
-            1070f,
-            0f,
-            1160f,
-            intArrayOf(
-                Color.rgb(139, 77, 17),
-                Color.rgb(245, 185, 62),
-                Color.rgb(73, 31, 7)
-            ),
-            null,
-            Shader.TileMode.CLAMP
+            0f, 1088f, 0f, 1195f,
+            intArrayOf(Color.rgb(250, 188, 62), Color.rgb(159, 75, 11), Color.rgb(77, 28, 4)),
+            null, Shader.TileMode.CLAMP
         )
-        canvas.drawRoundRect(RectF(101f, 1074f, 763f, 1142f), 20f, 20f, paint)
+        canvas.drawRoundRect(RectF(102f, 1088f, 762f, 1178f), 28f, 28f, paint)
         paint.shader = null
+        repeat(13) { i -> drawBulb(canvas, 132f + i * 50f, 1132f, 11f) }
 
-        // Footlights.
-        val count = 11
-        val startX = 142f
-        val endX = 722f
-        val step = (endX - startX) / (count - 1)
-        repeat(count) { index ->
-            drawBulb(canvas, startX + index * step, 1110f)
-        }
-
-        // Decorative lower framing, leaving the launch button area clear.
+        // Red central step.
+        paint.color = Color.rgb(133, 19, 27)
+        canvas.drawRoundRect(RectF(244f, 1162f, 620f, 1255f), 18f, 18f, paint)
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 5f
-        paint.color = Color.rgb(139, 76, 16)
-        canvas.drawRoundRect(RectF(146f, 1182f, 718f, 1277f), 34f, 34f, paint)
+        paint.strokeWidth = 4f
+        paint.color = Color.rgb(220, 151, 45)
+        canvas.drawRoundRect(RectF(244f, 1162f, 620f, 1255f), 18f, 18f, paint)
         paint.style = Paint.Style.FILL
+
+        // Audience silhouettes at the bottom, intentionally behind bottom buttons.
+        val heads = listOf(
+            22f to 1468f, 78f to 1452f, 142f to 1468f, 205f to 1448f,
+            656f to 1448f, 720f to 1468f, 786f to 1452f, 842f to 1468f
+        )
+        heads.forEachIndexed { i, (cx, cy) ->
+            paint.color = if (i % 2 == 0) Color.rgb(47, 18, 13) else Color.rgb(30, 13, 12)
+            canvas.drawCircle(cx, cy, 38f, paint)
+            canvas.drawOval(RectF(cx - 57f, cy + 18f, cx + 57f, 1548f), paint)
+        }
+    }
+
+    private fun drawBulbRow(canvas: Canvas, startX: Float, endX: Float, y: Float, count: Int) {
+        val step = (endX - startX) / (count - 1)
+        repeat(count) { drawBulb(canvas, startX + step * it, y, 13f) }
+    }
+
+    private fun drawBulbColumn(canvas: Canvas, x: Float, startY: Float, endY: Float, count: Int) {
+        val step = (endY - startY) / (count - 1)
+        repeat(count) { drawBulb(canvas, x, startY + step * it, 13f) }
+    }
+
+    private fun drawBulb(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        paint.style = Paint.Style.FILL
+        paint.shader = RadialGradient(
+            cx, cy, r,
+            intArrayOf(
+                Color.argb(230, 255, 250, 204),
+                Color.argb(145, 255, 183, 58),
+                Color.argb(0, 255, 139, 0)
+            ),
+            null, Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(cx, cy, r, paint)
+        paint.shader = null
+        paint.color = Color.rgb(255, 244, 197)
+        canvas.drawCircle(cx, cy, r * 0.38f, paint)
     }
 
     companion object {
