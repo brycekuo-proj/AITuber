@@ -3,6 +3,8 @@ package com.aituber.poc.character.live2d
 import android.content.Context
 import android.graphics.PixelFormat
 import android.opengl.GLSurfaceView
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterParameterFrame
@@ -17,6 +19,7 @@ class Live2DOverlayView(
     private val onRuntimeFailure: (String) -> Unit = {}
 ) : GLSurfaceView(context) {
     private val fallbackHeadIdle = Live2DFallbackHeadIdleController(profile)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     @Volatile
     var initialized: Boolean = false
@@ -102,10 +105,16 @@ class Live2DOverlayView(
         fallbackHeadIdle.startEarTest()
     }
 
-    fun release() {
+    fun release(onReleased: (() -> Unit)? = null) {
+        if (!initialized) {
+            onPause()
+            mainHandler.post { onReleased?.invoke() }
+            return
+        }
         queueEvent {
             bridge.release()
             publishDiagnostics()
+            mainHandler.post { onReleased?.invoke() }
         }
         onPause()
     }

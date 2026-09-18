@@ -40,6 +40,10 @@ class BroadwayHomeView(
     private val designCanvas = FrameLayout(context)
     private val stageHost = FrameLayout(context)
     private var previewView: Live2DOverlayView? = null
+    private var previewResumed = false
+    private var previewReleaseInFlight = false
+    private var previewDisposed = false
+    private var previewRequestSerial = 0L
     private var insetTopPx = 0
     private var insetBottomPx = 0
 
@@ -85,6 +89,9 @@ class BroadwayHomeView(
             width = 496f,
             height = 782f
         )
+        stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            ensurePreviewAttached()
+        }
 
         // Diamond count is dynamic; the gem + meter are part of the approved artwork.
         addAt(
@@ -217,22 +224,30 @@ class BroadwayHomeView(
         }
         post { requestApplyInsets() }
 
-        renderPreview(previewProfile)
+        post { ensurePreviewAttached() }
     }
 
     fun resumePreview() {
+        if (previewDisposed) return
+        previewResumed = true
+        ensurePreviewAttached()
         previewView?.onResume()
     }
 
     fun pausePreview() {
+        previewResumed = false
         previewView?.onPause()
     }
 
     fun releasePreview() {
+        previewDisposed = true
+        previewResumed = false
+        previewReleaseInFlight = false
+        previewRequestSerial += 1L
         val old = previewView
         previewView = null
-        old?.release()
         stageHost.removeAllViews()
+        old?.release()
     }
 
     private fun addAt(
@@ -298,10 +313,42 @@ class BroadwayHomeView(
     }
 
     private fun renderPreview(profile: Live2DCharacterProfile) {
+        val requestSerial = ++previewRequestSerial
         val old = previewView
         previewView = null
-        old?.release()
         stageHost.removeAllViews()
+
+        if (old == null) {
+            // A rapid second arrow press can arrive while the previous GL release is still
+            // running. In that case the pending release will attach the latest profile.
+            if (!previewReleaseInFlight) {
+                attachPreview(profile, requestSerial)
+            }
+            return
+        }
+
+        // The native Cubism runtime is process-global. Wait for the previous GL view to
+        // release it before constructing the next preview, otherwise a late release from
+        // the old view can wipe the newly initialized model and leave the stage empty.
+        previewReleaseInFlight = true
+        old.release {
+            previewReleaseInFlight = false
+            ensurePreviewAttached()
+        }
+    }
+
+    private fun ensurePreviewAttached() {
+        if (previewDisposed || previewReleaseInFlight) return
+        if (previewView != null) return
+        if (stageHost.width < MIN_PREVIEW_EDGE_PX || stageHost.height < MIN_PREVIEW_EDGE_PX) return
+        attachPreview(previewProfile, previewRequestSerial)
+    }
+
+    private fun attachPreview(profile: Live2DCharacterProfile, requestSerial: Long) {
+        if (previewDisposed || previewReleaseInFlight) return
+        if (requestSerial != previewRequestSerial) return
+        if (stageHost.width < MIN_PREVIEW_EDGE_PX || stageHost.height < MIN_PREVIEW_EDGE_PX) return
+        if (previewView != null) return
 
         val live2d = Live2DOverlayView(context, profile = profile)
         previewView = live2d
@@ -312,6 +359,9 @@ class BroadwayHomeView(
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
+        if (previewResumed) {
+            live2d.onResume()
+        }
         live2d.postDelayed({
             if (previewView === live2d && profile.capabilities.idleMotion) {
                 live2d.startIdleMotionForDebug()
@@ -406,5 +456,6 @@ class BroadwayHomeView(
         private const val PRESSED_SCALE = 0.965f
         private const val PRESS_DOWN_MS = 60L
         private const val PRESS_UP_MS = 120L
+        private const val MIN_PREVIEW_EDGE_PX = 32
     }
 }
