@@ -2,20 +2,27 @@ package com.aituber.poc.ui
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.StateListDrawable
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
+import com.aituber.poc.R
+import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DOverlayView
+import org.json.JSONObject
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Broadway home composed from independent runtime layers.
+ * Broadway home rebuilt from independent raster artwork layers.
  *
- * The uploaded reference is used as the geometry/style authority. Scenery,
- * avatar preview and every interactive control are still separate Android views.
+ * No stage/curtain/button artwork is painted with Android Canvas. Every visible
+ * Broadway component comes from a packaged image asset, and every interactive
+ * control has a distinct up/down bitmap.
  */
 class BroadwayHomeView(
     context: Context,
@@ -47,7 +54,7 @@ class BroadwayHomeView(
     private data class DesignRect(val left: Float, val top: Float, val width: Float, val height: Float)
 
     init {
-        setBackgroundColor(Color.rgb(34, 3, 9))
+        setBackgroundColor(Color.rgb(23, 2, 8))
         clipChildren = false
         clipToPadding = false
 
@@ -60,10 +67,9 @@ class BroadwayHomeView(
             }
         )
 
-        // Reference order: theatre -> stage/avatar -> foreground curtains/podium -> controls.
-        addSceneryLayer(BroadwaySceneryLayerView.Layer.BACKDROP)
-        addSceneryLayer(BroadwaySceneryLayerView.Layer.LIGHTS)
-        addSceneryLayer(BroadwaySceneryLayerView.Layer.FLOOR)
+        // Real artwork layers, back to front.
+        addFullArtwork(R.drawable.broadway_theatre_background)
+        addFullArtwork(R.drawable.broadway_stage)
 
         stageHost.apply {
             setBackgroundColor(Color.TRANSPARENT)
@@ -73,80 +79,108 @@ class BroadwayHomeView(
         addAt(stageHost, 198f, 292f, 468f, 787f)
         stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> ensurePreviewAttached() }
 
-        addSceneryLayer(BroadwaySceneryLayerView.Layer.CURTAINS)
-        addSceneryLayer(BroadwaySceneryLayerView.Layer.FOREGROUND)
+        addFullArtwork(R.drawable.broadway_curtain_top)
+        addFullArtwork(R.drawable.broadway_curtain_left)
+        addFullArtwork(R.drawable.broadway_curtain_right)
+        addFullArtwork(R.drawable.broadway_foreground)
 
-        // Top economy/status strip — exact reference geometry.
+        // Economy/status artwork. Meter and + are independent assets.
+        addAt(artwork(R.drawable.broadway_coin_meter_up), 18f, 18f, 270f, 74f)
         addAt(
-            BroadwayControlView(context, BroadwayControlView.Kind.COIN_METER, "99999"),
-            18f, 18f, 342f, 74f
-        )
-        addAt(
-            controlButton(BroadwayControlView.Kind.PLUS, description = "增加金幣", action = onCoinAdd),
+            artworkButton(
+                R.drawable.broadway_coin_plus_up,
+                R.drawable.broadway_coin_plus_down,
+                "增加金幣",
+                onCoinAdd
+            ),
             288f, 18f, 72f, 74f
         )
 
+        addAt(artwork(R.drawable.broadway_diamond_meter_up), 378f, 18f, 234f, 74f)
         addAt(
-            BroadwayControlView(context, BroadwayControlView.Kind.DIAMOND_METER, "9999"),
-            378f, 18f, 306f, 74f
-        )
-        addAt(
-            controlButton(BroadwayControlView.Kind.PLUS, description = "增加鑽石", action = onDiamondAdd),
+            artworkButton(
+                R.drawable.broadway_diamond_plus_up,
+                R.drawable.broadway_diamond_plus_down,
+                "增加鑽石",
+                onDiamondAdd
+            ),
             612f, 18f, 72f, 74f
         )
 
         addAt(
-            controlButton(BroadwayControlView.Kind.SETTINGS, description = "Settings", action = onSettings),
+            artworkButton(
+                R.drawable.broadway_settings_up,
+                R.drawable.broadway_settings_down,
+                "Settings",
+                onSettings
+            ),
             720f, 18f, 126f, 110f
         )
 
         addAt(
-            controlButton(
-                BroadwayControlView.Kind.TAB,
-                label = "Characters",
-                description = "Characters",
-                action = onMyCharacters
+            artworkButton(
+                R.drawable.broadway_characters_up,
+                R.drawable.broadway_characters_down,
+                "Characters",
+                onMyCharacters
             ),
             18f, 109f, 432f, 184f
         )
         addAt(
-            controlButton(
-                BroadwayControlView.Kind.TAB,
-                label = "Props",
-                description = "Props",
-                action = onCharacterShop
+            artworkButton(
+                R.drawable.broadway_props_up,
+                R.drawable.broadway_props_down,
+                "Props",
+                onCharacterShop
             ),
             432f, 109f, 414f, 166f
         )
 
         addAt(
-            controlButton(BroadwayControlView.Kind.ARROW_LEFT, description = "上一個角色") {
+            artworkButton(
+                R.drawable.broadway_arrow_left_up,
+                R.drawable.broadway_arrow_left_down,
+                "上一個角色"
+            ) {
                 switchPreview(Live2DCharacterProfiles.previous(previewProfile.id))
             },
             18f, 621f, 180f, 202f
         )
         addAt(
-            controlButton(BroadwayControlView.Kind.ARROW_RIGHT, description = "下一個角色") {
+            artworkButton(
+                R.drawable.broadway_arrow_right_up,
+                R.drawable.broadway_arrow_right_down,
+                "下一個角色"
+            ) {
                 switchPreview(Live2DCharacterProfiles.next(previewProfile.id))
             },
             666f, 621f, 180f, 202f
         )
 
         addAt(
-            controlButton(
-                BroadwayControlView.Kind.LAUNCH,
-                label = "Play",
-                description = "啟動 AITuber"
+            artworkButton(
+                R.drawable.broadway_play_up,
+                R.drawable.broadway_play_down,
+                "啟動 AITuber"
             ) { onLaunch(previewProfile) },
             234f, 1298f, 396f, 184f
         )
-
         addAt(
-            controlButton(BroadwayControlView.Kind.BACK, description = "返回", action = onBack),
+            artworkButton(
+                R.drawable.broadway_back_up,
+                R.drawable.broadway_back_down,
+                "返回",
+                onBack
+            ),
             18f, 1334f, 180f, 166f
         )
         addAt(
-            controlButton(BroadwayControlView.Kind.HOME, description = "首頁", action = onHome),
+            artworkButton(
+                R.drawable.broadway_home_up,
+                R.drawable.broadway_home_down,
+                "首頁",
+                onHome
+            ),
             666f, 1334f, 180f, 166f
         )
 
@@ -159,6 +193,8 @@ class BroadwayHomeView(
             layoutDesignCanvas()
             insets
         }
+
+        logAllBuiltInAssetPreflight()
         post { requestApplyInsets() }
         post { ensurePreviewAttached() }
     }
@@ -176,14 +212,21 @@ class BroadwayHomeView(
     }
 
     fun releasePreview() {
+        if (previewDisposed) return
         previewDisposed = true
         previewResumed = false
-        previewReleaseInFlight = false
         previewRequestSerial += 1L
         val old = previewView
         previewView = null
-        stageHost.removeAllViews()
-        old?.release()
+        previewReleaseInFlight = old != null
+        if (old == null) {
+            stageHost.removeAllViews()
+            return
+        }
+        old.release {
+            stageHost.removeView(old)
+            previewReleaseInFlight = false
+        }
     }
 
     fun showPreview(profile: Live2DCharacterProfile) {
@@ -195,23 +238,47 @@ class BroadwayHomeView(
         switchPreview(profile)
     }
 
-    private fun addSceneryLayer(layer: BroadwaySceneryLayerView.Layer) {
+    private fun addFullArtwork(drawableRes: Int) {
         designCanvas.addView(
-            BroadwaySceneryLayerView(context, layer),
+            artwork(drawableRes),
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         )
     }
 
-    private fun controlButton(
-        kind: BroadwayControlView.Kind,
-        label: String? = null,
+    private fun artwork(drawableRes: Int): ImageView =
+        ImageView(context).apply {
+            setImageResource(drawableRes)
+            scaleType = ImageView.ScaleType.FIT_XY
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            isClickable = false
+            isFocusable = false
+        }
+
+    private fun artworkButton(
+        upRes: Int,
+        downRes: Int,
         description: String,
         action: () -> Unit
-    ): BroadwayControlView =
-        BroadwayControlView(context, kind, label).apply {
+    ): ImageView {
+        val states = StateListDrawable().apply {
+            addState(
+                intArrayOf(android.R.attr.state_pressed),
+                requireNotNull(context.getDrawable(downRes))
+            )
+            addState(
+                intArrayOf(),
+                requireNotNull(context.getDrawable(upRes))
+            )
+        }
+        return ImageView(context).apply {
+            setImageDrawable(states)
+            scaleType = ImageView.ScaleType.FIT_XY
             contentDescription = description
+            isClickable = true
+            isFocusable = true
             setOnClickListener { action() }
         }
+    }
 
     private fun addAt(view: View, left: Float, top: Float, width: Float, height: Float) {
         view.tag = DesignRect(left, top, width, height)
@@ -259,8 +326,9 @@ class BroadwayHomeView(
     }
 
     private fun switchPreview(profile: Live2DCharacterProfile) {
-        if (profile.id == previewProfile.id) return
+        if (profile.id == previewProfile.id || previewDisposed) return
         previewProfile = profile
+        Log.i(TAG, "preview-select id=${profile.id} name=${profile.displayName}")
         renderPreview(profile)
         onPreviewChanged(profile)
     }
@@ -269,16 +337,18 @@ class BroadwayHomeView(
         val requestSerial = ++previewRequestSerial
         val old = previewView
         previewView = null
-        stageHost.removeAllViews()
 
         if (old == null) {
             if (!previewReleaseInFlight) attachPreview(profile, requestSerial)
             return
         }
 
-        // Cubism runtime is process-global: release previous preview before next.
+        // The bundled Cubism native runtime is process-global. Keep the old
+        // GLSurfaceView attached until its GL-thread release has actually run,
+        // then remove it and attach the next profile.
         previewReleaseInFlight = true
         old.release {
+            stageHost.removeView(old)
             previewReleaseInFlight = false
             ensurePreviewAttached()
         }
@@ -295,7 +365,19 @@ class BroadwayHomeView(
         if (requestSerial != previewRequestSerial) return
         if (stageHost.width < MIN_PREVIEW_EDGE_PX || stageHost.height < MIN_PREVIEW_EDGE_PX) return
 
-        val live2d = Live2DOverlayView(context, profile = profile)
+        val assetsOk = verifyProfileAssets(profile)
+        Log.i(
+            TAG,
+            "preview-attach id=${profile.id} assetsOk=$assetsOk host=${stageHost.width}x${stageHost.height}"
+        )
+
+        val live2d = Live2DOverlayView(
+            context,
+            profile = profile,
+            onRuntimeFailure = { error ->
+                Log.e(TAG, "preview-runtime-failure id=${profile.id} error=$error")
+            }
+        )
         previewView = live2d
         stageHost.addView(
             live2d,
@@ -304,15 +386,78 @@ class BroadwayHomeView(
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
+
         if (previewResumed) live2d.onResume()
+
         live2d.postDelayed({
             if (previewView === live2d && profile.capabilities.idleMotion) {
                 live2d.startIdleMotionForDebug()
             }
         }, 350L)
+
+        live2d.postDelayed({
+            if (previewView === live2d) {
+                live2d.publishDiagnostics()
+                val d = CharacterDiagnostics.snapshot()
+                Log.i(
+                    TAG,
+                    "preview-runtime id=${profile.id} lifecycle=${d.live2dLifecycleState} " +
+                        "model=${d.live2dModelLoaded} textures=${d.live2dTexturesLoaded}/${d.live2dTextureCount} " +
+                        "fps=${d.live2dRenderFps} error=${d.live2dLastError}"
+                )
+            }
+        }, 1200L)
     }
 
+    private fun logAllBuiltInAssetPreflight() {
+        Live2DCharacterProfiles.all.forEach { profile ->
+            Log.i(TAG, "asset-preflight id=${profile.id} ok=${verifyProfileAssets(profile)}")
+        }
+        val forward = buildList {
+            var p = Live2DCharacterProfiles.Tororo
+            repeat(8) {
+                add(p.id)
+                p = Live2DCharacterProfiles.next(p.id)
+            }
+        }
+        val backward = buildList {
+            var p = Live2DCharacterProfiles.Tororo
+            repeat(8) {
+                add(p.id)
+                p = Live2DCharacterProfiles.previous(p.id)
+            }
+        }
+        Log.i(TAG, "loop-forward=${forward.joinToString(" -> ")}")
+        Log.i(TAG, "loop-backward=${backward.joinToString(" -> ")}")
+    }
+
+    private fun verifyProfileAssets(profile: Live2DCharacterProfile): Boolean {
+        return runCatching {
+            verifyApkProfile(profile)
+        }.onFailure {
+            Log.e(TAG, "asset-preflight-failure id=${profile.id}", it)
+        }.getOrDefault(false)
+    }
+
+    private fun verifyApkProfile(profile: Live2DCharacterProfile): Boolean {
+        val model3Path = "${profile.assetDir}/${profile.model3File}"
+        val json = context.assets.open(model3Path).bufferedReader().use { it.readText() }
+        val refs = JSONObject(json).getJSONObject("FileReferences")
+        val required = mutableListOf(refs.getString("Moc"))
+        val textures = refs.optJSONArray("Textures")
+        if (textures != null) {
+            for (i in 0 until textures.length()) required += textures.getString(i)
+        }
+        return required.isNotEmpty() && required.all { relative ->
+            runCatching {
+                context.assets.open("${profile.assetDir}/$relative").use { it.read(byteArrayOf(1)) }
+            }.isSuccess
+        }
+    }
+
+
     companion object {
+        private const val TAG = "BroadwayHomeQA"
         private const val DESIGN_WIDTH = 864f
         private const val DESIGN_HEIGHT = 1536f
         private const val MIN_PREVIEW_EDGE_PX = 32

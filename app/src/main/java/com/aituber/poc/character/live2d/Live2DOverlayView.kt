@@ -111,12 +111,18 @@ class Live2DOverlayView(
             mainHandler.post { onReleased?.invoke() }
             return
         }
+
+        // Release the process-global Cubism runtime while this GLSurfaceView still
+        // owns a live GL thread/context. Pausing first can strand this queueEvent,
+        // leaving Broadway preview switching permanently waiting on a callback.
         queueEvent {
             bridge.release()
             publishDiagnostics()
-            mainHandler.post { onReleased?.invoke() }
+            mainHandler.post {
+                runCatching { onPause() }
+                onReleased?.invoke()
+            }
         }
-        onPause()
     }
 
     fun publishDiagnostics() {
