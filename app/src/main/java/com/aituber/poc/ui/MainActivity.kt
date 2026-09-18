@@ -661,7 +661,7 @@ class MainActivity : Activity() {
                 ).show()
             },
             onCharacterShop = {
-                android.widget.Toast.makeText(this, "角色商城準備中", android.widget.Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, CharacterStoreActivity::class.java))
             }
         ).also { broadwayHomeView = it }
     }
