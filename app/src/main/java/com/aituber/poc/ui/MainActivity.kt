@@ -598,7 +598,7 @@ class MainActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
         })
         root.addView(TextView(this).apply {
-            text = "Live2D · Tororo & Hijiki"
+            text = "Live2D · Haru / Loaf Dog / Tororo / Hijiki"
             textSize = 14f
             setTextColor(Color.rgb(92, 98, 112))
             setPadding(0, 4, 0, 8)
@@ -638,6 +638,12 @@ class MainActivity : Activity() {
         }
         overlayToggleButton = addButton(root, "角色顯示：${if (CharacterOverlayService.isRunning) "ON" else "OFF"}") {
             toggleOverlay()
+        }
+        addButton(root, "Haru") {
+            selectLive2DProfile(Live2DCharacterProfiles.Haru)
+        }
+        addButton(root, "Loaf Dog") {
+            selectLive2DProfile(Live2DCharacterProfiles.LoafDog)
         }
         addButton(root, "Tororo（白貓）") {
             selectLive2DProfile(Live2DCharacterProfiles.Tororo)

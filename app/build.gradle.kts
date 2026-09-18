@@ -16,10 +16,13 @@ val live2dSdkDir = localProperties.getProperty("live2d.sdk.dir")?.takeIf { it.is
 val live2dModelDir = localProperties.getProperty("live2d.test.model.dir")?.takeIf { it.isNotBlank() }
 val live2dDogModelDir = localProperties.getProperty("live2d.dog.model.dir")?.takeIf { it.isNotBlank() }
     ?: rootProject.file("../models/third-party/duokhay-loaf-corgi/model/duokhay mascot - loaf dog").absolutePath
-val live2dEnabled = live2dSdkDir != null && live2dModelDir != null &&
+val live2dSourceBuildEnabled = live2dSdkDir != null && live2dModelDir != null &&
     file(live2dSdkDir).isDirectory &&
     file("$live2dSdkDir/Core/lib/android/arm64-v8a/libLive2DCubismCore.a").isFile &&
     file(live2dModelDir).isDirectory
+val live2dPrebuiltLib = rootProject.file("app/src/main/jniLibs/arm64-v8a/libaituber_live2d.so")
+val live2dPrebuiltAvailable = live2dPrebuiltLib.isFile
+val live2dEnabled = live2dSourceBuildEnabled || live2dPrebuiltAvailable
 val live2dDogAvailable = file(live2dDogModelDir).isDirectory
 
 android {
@@ -38,6 +41,8 @@ android {
             ndk {
                 abiFilters += listOf("arm64-v8a")
             }
+        }
+        if (live2dSourceBuildEnabled) {
             externalNativeBuild {
                 cmake {
                     arguments += listOf(
@@ -53,7 +58,7 @@ android {
         buildConfig = true
     }
 
-    if (live2dEnabled) {
+    if (live2dSourceBuildEnabled) {
         ndkVersion = "26.3.11579264"
         externalNativeBuild {
             cmake {
@@ -70,7 +75,7 @@ kotlin {
 }
 
 
-if (live2dEnabled) {
+if (live2dSourceBuildEnabled) {
     val stageLive2DModelAssets by tasks.registering(Sync::class) {
         from(live2dModelDir)
         include(
