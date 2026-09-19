@@ -67,9 +67,11 @@ class BroadwayHomeView(
             }
         )
 
-        // Single clean Broadway background exported from the approved layered design.
-        // Interactive controls and the Live2D preview remain independent views.
+        // New high-resolution Image Generation pass. Keep the full-screen plate,
+        // curtain, stage, character preview and controls as independent layers.
         addFullArtwork(R.drawable.broadway_bg_main)
+        addAt(artwork(R.drawable.broadway_curtain_top), 0f, 0f, 864f, 358f)
+        addAt(artwork(R.drawable.broadway_stage_base), 122f, 930f, 620f, 310f)
 
         stageHost.apply {
             setBackgroundColor(Color.TRANSPARENT)
@@ -79,19 +81,16 @@ class BroadwayHomeView(
         addAt(stageHost, 198f, 292f, 468f, 787f)
         stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> ensurePreviewAttached() }
 
-        // Top bar: diamond + counter + add + settings. Coin UI stays removed.
-        addAt(artwork(R.drawable.broadway_diamond_icon), 378f, 18f, 72f, 74f)
-        addAt(artwork(R.drawable.broadway_diamond_counter_bg), 450f, 18f, 162f, 74f)
+        // Top bar: the generated diamond counter is one cohesive group.
         addAt(
             artworkButton(
-                R.drawable.broadway_plus_icon,
-                R.drawable.broadway_plus_icon_down,
+                R.drawable.broadway_diamond_counter_group_up,
+                R.drawable.broadway_diamond_counter_group_down,
                 "增加鑽石",
                 onDiamondAdd
             ),
-            612f, 18f, 72f, 74f
+            370f, 18f, 306f, 102f
         )
-
         addAt(
             artworkButton(
                 R.drawable.broadway_settings_up,
@@ -99,7 +98,7 @@ class BroadwayHomeView(
                 "Settings",
                 onSettings
             ),
-            720f, 18f, 126f, 110f
+            736f, 18f, 110f, 110f
         )
 
         addAt(
@@ -109,16 +108,16 @@ class BroadwayHomeView(
                 "Characters",
                 onMyCharacters
             ),
-            18f, 109f, 432f, 184f
+            24f, 120f, 396f, 132f
         )
         addAt(
             artworkButton(
                 R.drawable.broadway_props_up,
                 R.drawable.broadway_props_down,
-                "Props",
+                "Character Shop",
                 onCharacterShop
             ),
-            432f, 109f, 414f, 166f
+            444f, 120f, 396f, 132f
         )
 
         addAt(
@@ -129,7 +128,7 @@ class BroadwayHomeView(
             ) {
                 switchPreview(Live2DCharacterProfiles.previous(previewProfile.id))
             },
-            18f, 621f, 180f, 202f
+            32f, 622f, 170f, 170f
         )
         addAt(
             artworkButton(
@@ -139,7 +138,7 @@ class BroadwayHomeView(
             ) {
                 switchPreview(Live2DCharacterProfiles.next(previewProfile.id))
             },
-            666f, 621f, 180f, 202f
+            662f, 622f, 170f, 170f
         )
 
         addAt(
@@ -148,7 +147,7 @@ class BroadwayHomeView(
                 R.drawable.broadway_play_down,
                 "啟動 AITuber"
             ) { onLaunch(previewProfile) },
-            234f, 1298f, 396f, 184f
+            234f, 1322f, 396f, 158f
         )
         designCanvas.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> relayoutDesignChildren() }
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutDesignCanvas() }
@@ -206,7 +205,13 @@ class BroadwayHomeView(
 
     private fun addFullArtwork(drawableRes: Int) {
         designCanvas.addView(
-            artwork(drawableRes),
+            ImageView(context).apply {
+                setImageResource(drawableRes)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                isClickable = false
+                isFocusable = false
+            },
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         )
     }
@@ -214,7 +219,7 @@ class BroadwayHomeView(
     private fun artwork(drawableRes: Int): ImageView =
         ImageView(context).apply {
             setImageResource(drawableRes)
-            scaleType = ImageView.ScaleType.FIT_XY
+            scaleType = ImageView.ScaleType.FIT_CENTER
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             isClickable = false
             isFocusable = false
@@ -238,7 +243,7 @@ class BroadwayHomeView(
         }
         return ImageView(context).apply {
             setImageDrawable(states)
-            scaleType = ImageView.ScaleType.FIT_XY
+            scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = description
             isClickable = true
             isFocusable = true
