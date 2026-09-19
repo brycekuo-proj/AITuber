@@ -2,7 +2,9 @@ package com.aituber.poc.overlay
 
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -14,6 +16,7 @@ import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.widget.TextView
 import com.aituber.poc.character.CharacterAdapterFactory
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterEngine
@@ -50,6 +53,8 @@ class CharacterOverlayService : Service() {
     private var live2dView: Live2DOverlayView? = null
     private var staticPngView: StaticPngOverlayView? = null
     private var overlayView: View? = null
+    private var overlayCloseView: View? = null
+    private var overlayCloseParams: WindowManager.LayoutParams? = null
     private var characterEngine: CharacterEngine? = null
     private var windowManager: WindowManager? = null
     private var currentState = UniversalAiState.UNKNOWN
@@ -128,6 +133,7 @@ class CharacterOverlayService : Service() {
             installLive2DDrag(overlaySelection.view, layoutParams)
         }
         windowManager?.addView(overlaySelection.view, layoutParams)
+        attachOverlayCloseButton(layoutParams)
         OverlayLifecycleTrace.record("overlay view attached")
         CaptureSessionState.subscribe(stateListener)
         OverlayLifecycleTrace.record("overlay subscribed to state")
@@ -227,6 +233,80 @@ class CharacterOverlayService : Service() {
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
     }
 
+    private fun attachOverlayCloseButton(characterParams: WindowManager.LayoutParams) {
+        val wm = windowManager ?: return
+        if (overlayCloseView != null) return
+        val density = resources.displayMetrics.density
+        val sizePx = (44f * density).toInt().coerceAtLeast(1)
+        val visibleCirclePx = (36f * density).toInt().coerceAtLeast(1)
+        val paddingPx = ((sizePx - visibleCirclePx) / 2).coerceAtLeast(0)
+        val close = TextView(this).apply {
+            text = "×"
+            gravity = Gravity.CENTER
+            textSize = 26f
+            setTextColor(Color.WHITE)
+            setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(118, 0, 0, 0))
+                setStroke((1f * density).toInt().coerceAtLeast(1), Color.argb(150, 255, 255, 255))
+            }
+            contentDescription = "關閉角色並返回 AITuber"
+            isClickable = true
+            isFocusable = true
+            elevation = 8f * density
+            setOnClickListener { closeOverlayAndReturnToApp() }
+        }
+        val closeParams = WindowManager.LayoutParams(
+            sizePx,
+            sizePx,
+            OverlayWindowConfig.windowType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+        }
+        overlayCloseView = close
+        overlayCloseParams = closeParams
+        updateOverlayCloseButtonPosition(characterParams)
+        wm.addView(close, closeParams)
+        OverlayLifecycleTrace.record("overlay close button attached")
+    }
+
+    private fun updateOverlayCloseButtonPosition(characterParams: WindowManager.LayoutParams) {
+        val close = overlayCloseView ?: return
+        val closeParams = overlayCloseParams ?: return
+        val wm = windowManager ?: return
+        val metrics = resources.displayMetrics
+        val marginPx = (6f * metrics.density).toInt()
+        val charLeft = if ((characterParams.gravity and Gravity.END) == Gravity.END) {
+            metrics.widthPixels - characterParams.x - characterParams.width
+        } else {
+            characterParams.x
+        }
+        closeParams.x = (charLeft + characterParams.width - closeParams.width - marginPx)
+            .coerceIn(0, (metrics.widthPixels - closeParams.width).coerceAtLeast(0))
+        closeParams.y = (characterParams.y + marginPx)
+            .coerceIn(systemTopInsetPx(), (metrics.heightPixels - closeParams.height).coerceAtLeast(systemTopInsetPx()))
+        if (close.isAttachedToWindow) {
+            runCatching { wm.updateViewLayout(close, closeParams) }
+        }
+    }
+
+    private fun closeOverlayAndReturnToApp() {
+        requireMainThread("closeOverlayAndReturnToApp")
+        OverlayLifecycleTrace.record("overlay close button tapped")
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        cleanupOverlayOnMain()
+        stopSelf()
+        if (launchIntent != null) {
+            startActivity(launchIntent)
+        }
+    }
+
     private fun installLive2DDrag(view: View, params: WindowManager.LayoutParams) {
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         val positionStore = Live2DOverlayPositionStore(this)
@@ -276,6 +356,7 @@ class CharacterOverlayService : Service() {
                     params.x = nextPosition.x
                     params.y = nextPosition.y
                     windowManager?.updateViewLayout(view, params)
+                    updateOverlayCloseButtonPosition(params)
                     recordLive2DCurrentTransform(
                         params = params,
                         dragging = false,
@@ -339,6 +420,7 @@ class CharacterOverlayService : Service() {
                         params.x = next.x
                         params.y = next.y
                         windowManager?.updateViewLayout(view, params)
+                        updateOverlayCloseButtonPosition(params)
                         CharacterDiagnostics.recordLive2DDragState(
                             dragging = true,
                             x = params.x,
@@ -356,6 +438,7 @@ class CharacterOverlayService : Service() {
                     )
                     params.x = finalPosition.x
                     params.y = finalPosition.y
+                    updateOverlayCloseButtonPosition(params)
                     if (dragState?.dragging == true) {
                         positionStore.save(finalPosition, live2dCurrentScale)
                     }
@@ -540,7 +623,9 @@ class CharacterOverlayService : Service() {
             live2dLifecycleState = "FAILED"
         )
         characterEngine = CharacterEngine(selection.adapter)
-        windowManager?.addView(minimal, overlayLayoutParams(live2dActive = false))
+        val fallbackParams = overlayLayoutParams(live2dActive = false)
+        windowManager?.addView(minimal, fallbackParams)
+        updateOverlayCloseButtonPosition(fallbackParams)
         renderSnapshotOnMain(CaptureSessionState.current())
     }
 
@@ -587,12 +672,15 @@ class CharacterOverlayService : Service() {
         MouthRenderDiagnostics.reset()
         live2dView?.release()
         staticPngView?.release()
+        overlayCloseView?.let { view -> runCatching { windowManager?.removeView(view) } }
         overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
         live2dView = null
         staticPngView = null
         overlayView = null
+        overlayCloseView = null
+        overlayCloseParams = null
         characterEngine = null
         windowManager = null
         if (activeService === this) {
