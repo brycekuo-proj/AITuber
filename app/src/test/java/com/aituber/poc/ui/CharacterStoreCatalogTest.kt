@@ -6,8 +6,8 @@ import org.junit.Test
 
 class CharacterStoreCatalogTest {
     @Test
-    fun firstMarketplaceBatchHasTenCuratedEntries() {
-        assertEquals(10, CharacterStoreCatalog.entries.size)
+    fun marketplaceIncludesExpandedFreeCharacterPool() {
+        assertEquals(60, CharacterStoreCatalog.entries.size)
     }
 
     @Test
@@ -15,7 +15,7 @@ class CharacterStoreCatalogTest {
         CharacterStoreCatalog.entries.forEach { entry ->
             assertTrue(entry.sourceUrl.startsWith("https://"))
             assertTrue(entry.downloadUrl.startsWith("https://"))
-            assertTrue(entry.previewUrl.startsWith("https://"))
+            assertTrue(entry.previewUrl.isBlank() || entry.previewUrl.startsWith("https://"))
         }
     }
 

@@ -18,6 +18,7 @@ internal object CharacterStoreImageLoader {
     }
 
     fun load(url: String, target: ImageView) {
+        if (url.isBlank()) return
         target.tag = url
         cache.get(url)?.let { bitmap ->
             target.setImageBitmap(bitmap)

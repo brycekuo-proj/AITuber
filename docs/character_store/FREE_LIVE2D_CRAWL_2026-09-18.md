@@ -50,6 +50,87 @@ Name-your-own-price 免費商品會先進 purchase / download gate，通常還�
 | arch_chan | Arch Chan | GitHub | repository ZIP | 中～高 | **A-候選** | CC0-1.0；Live2D 目錄包含可供 VTube Studio / PrprLive 使用的 moc3；最適合測真正一鍵 |
 | garnet | Garnet | itch.io | GarnetGal.cmo3 + PSD | **低** | D | CC0 很乾淨，但下載頁目前列的是 cmo3 + PSD，沒有 runtime moc3/model3 package；無法直接一鍵安裝 |
 
+## 50 角色擴充候選池（2026-09-18）
+
+> 本段保存 2026-09-18 擴充搜尋結果。這裡的「可用」優先指 **已有 Live2D / VTube Studio Runtime 或官方 Sample，可作 AITuber Loader / Runtime 驗證**；不代表 AITuber 有權重新打包、再散布或作正式商業商城內建。正式上架前仍須逐一覆核作者條款。
+>
+> 原則：禁止再散布者採 **source-link / 使用者自行取得後匯入**；明確禁止 AI VTuber / AITuber / App 使用者不納入正式商城。
+
+| # | 角色 | 來源 | 免費狀態 | Runtime / 技術狀態 | AITuber 備註 |
+|---:|---|---|---|---|---|
+| 1 | Zundamon | Live2D Official Sample | 免費 Sample | 官方 Cubism Sample | 授權需依角色 / Sample Terms 覆核 |
+| 2 | Ren Foster | Live2D Official Sample | 免費 Sample | 官方 Cubism Sample | 適合 Cubism 5.3 / 表情功能驗證 |
+| 3 | Sample for Parameter Controller | Live2D Official Sample | 免費 Sample | 官方 Cubism Sample | 技術 Sample；非正式商城角色優先項 |
+| 4 | Kei | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | Motion-sync / lip-sync 驗證優先 |
+| 5 | Niziiro Mao | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | Blend Shape / 表情驗證優先 |
+| 6 | Hiyori Momose | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 標準 Cubism 3 模型 |
+| 7 | Mark-kun | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 簡單結構，適合 Loader 驗證 |
+| 8 | Hatsune Miku | Live2D Official Sample | 免費 Sample | 官方 Sample | IP / 使用條款需特別覆核 |
+| 9 | Jin Natori | Live2D Official Sample | 免費 Sample | 官方 Sample | Collaboration / 商城正式使用需覆核 |
+| 10 | Haru (Receptionist) | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | AITuber 已有 Haru Runtime 經驗 |
+| 11 | Rice Glassfield | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 適合進階遮罩 / interpolation 驗證 |
+| 12 | Miara | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 全身動畫驗證 |
+| 13 | Tororo | Live2D Official Sample | 免費 Sample | **已在 AITuber 實機使用** | 白貓 |
+| 14 | Hijiki | Live2D Official Sample | 免費 Sample | **已在 AITuber 實機使用** | 黑貓 |
+| 15 | Simple Model | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 最適合 Generic Loader 最小驗證 |
+| 16 | Epsilon | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 標準模型 |
+| 17 | Haru | Live2D Official Sample | 免費 Sample | **已在 AITuber 實機使用** | 現有內建角色之一 |
+| 18 | Chitose | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 男性角色 |
+| 19 | Shizuku | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 經典 Sample |
+| 20 | Hibiki | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 適合 Android Runtime 驗證 |
+| 21 | Koharu | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | SD / Q 版角色 |
+| 22 | Haruto | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | SD / Q 版角色 |
+| 23 | Wankoromochi | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 非人形方向驗證 |
+| 24 | Tsumiki Harugasa | Live2D Official Sample | 免費 Sample | 官方 Sample | Collaboration；正式商城需特別覆核 |
+| 25 | Unity-chan | Live2D Official Sample | 免費 Sample | 官方 Sample | 第三方 IP 條款需覆核 |
+| 26 | Izumi | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 4 種 art style texture |
+| 27 | Gantzert | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 歐風劍士角色 |
+| 28 | Felixander | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | 飛龍角色 |
+| 29 | Nito | Live2D Official Sample | 免費 Sample | 官方 Runtime Sample | SD 比例角色 |
+| 30 | Free Elf Model | BOOTH / ChoDenpa | 0 JPY | Elf.zip | 禁止販售 / 交易；正式 App 使用需再確認 |
+| 31 | Black Hair Red Eye Boy | BOOTH / myohanholmes | 0 JPY | BlackHairRedEye.zip | 商用 / 非商用 VTuber 可；禁止再散布 |
+| 32 | Toki / Rabbit Princess | BOOTH / yukinoa | 0 JPY | toki20220227.zip | Runtime 候選；正式商城條款需覆核 |
+| 33 | Idol-style Female Model | BOOTH / ChoDenpa | 0 JPY | Aido.zip | Streaming / video 可；App 使用需再確認 |
+| 34 | Raiga | BOOTH / 弘徽殿 | 0 JPY | **moc3 + model3.json** | 個人收益型使用可；超出個人商用禁止；禁止再散布 |
+| 35 | Retro Girl | BOOTH / ChoDenpa | 0 JPY | RetroGirl.zip | Runtime 候選；正式 App 使用需再確認 |
+| 36 | or_01 Free Model | BOOTH / tom cat | 0 JPY | or_01.zip / VTS tested | 只明確測過 VTube Studio；AITuber 實機需驗證 |
+| 37 | CreamSoda | BOOTH / 橘木直売所 | 0 JPY | **moc3 + model3.json + physics + expressions + motions** | **作者明確允許 App / Game**；禁止再散布；高優先 |
+| 38 | DARU-Angel | BOOTH / 橘木直売所 | 0 JPY | **moc3 + model3.json + physics + expressions + motions** | **作者明確允許 App / Game**；禁止再散布；高優先 |
+| 39 | Xiao'Lai | BOOTH / 兎味屋 | 0 JPY | Export Data / RAR | VTuber / video 使用可；禁止再散布；RAR 需額外處理 |
+| 40 | Nitorudraw | BOOTH / MOCHIPU | 0 JPY | VTube Studio folder | 個人使用導向；公司 / 商業情境有限制 |
+| 41 | King Gilgamesh | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game**；僅技術研究，不進正式商城 |
+| 42 | Jupiter | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game**；僅技術研究，不進正式商城 |
+| 43 | Arias | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game**；僅技術研究，不進正式商城 |
+| 44 | Queen Nefertiti | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | 個人用途導向；正式 AITuber 商城不優先 |
+| 45 | Ram Khamhaeng the Great | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | 個人用途導向；正式 AITuber 商城不優先 |
+| 46 | Julius Caesar | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game / 再散布**；研究用 |
+| 47 | Hippocrates | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game / 再散布**；研究用 |
+| 48 | Tyra | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game / 公司使用**；研究用 |
+| 49 | Apollo | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game / 公司使用**；研究用 |
+| 50 | Goddess Athena | BOOTH / mythosmakers | 0 JPY | ZIP / VTS model | **禁止建立 game / 再散布**；研究用 |
+
+### 擴充池來源索引
+
+- Live2D 官方 Sample Collection：`https://www.live2d.com/en/learn/sample/`
+- BOOTH Free Elf：`https://booth.pm/en/items/5260598`
+- BOOTH Black Hair Red Eye Boy：`https://booth.pm/en/items/6094263`
+- BOOTH Toki / Rabbit Princess：`https://booth.pm/en/items/3072192`
+- BOOTH Idol-style Female：`https://booth.pm/en/items/5775313`
+- BOOTH Raiga：`https://booth.pm/en/items/3869143`
+- BOOTH Retro Girl：`https://booth.pm/en/items/5098191`
+- BOOTH or_01：`https://booth.pm/en/items/3932628`
+- BOOTH CreamSoda：`https://booth.pm/en/items/5355619`
+- BOOTH DARU-Angel：`https://booth.pm/en/items/5274628`
+- BOOTH Xiao'Lai：`https://booth.pm/en/items/8661826`
+- BOOTH Nitorudraw：`https://booth.pm/en/items/3987160`
+- BOOTH mythosmakers 系列：King Gilgamesh / Jupiter / Arias / Queen Nefertiti / Ram Khamhaeng / Julius Caesar / Hippocrates / Tyra / Apollo / Goddess Athena（各商品頁已於本輪搜尋確認為 0 JPY）。
+
+### 不納入正式清單的已知排除例
+
+- Ribbon Nyanko（BOOTH 5731031）：作者條款 **明確禁止作為 AI VTuber 使用**，因此不作 AITuber 商城候選。
+- Live2DViewerEX ONLY 類模型：不符合目前 Generic Cubism Loader 目標。
+- Fanart / 第三方遊戲 IP 免費模型：即使 0 JPY，也不作 AITuber 正式商城候選。
+
 ## 分級
 
 - **A-候選**：適合優先做 AITuber 真機一鍵安裝驗證。

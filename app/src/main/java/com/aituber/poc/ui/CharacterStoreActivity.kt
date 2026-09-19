@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -19,6 +20,8 @@ import android.widget.TextView
 import android.widget.Toast
 
 class CharacterStoreActivity : Activity() {
+
+    private var selectedSource: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +46,11 @@ class CharacterStoreActivity : Activity() {
 
         root.addView(buildHeader())
         root.addView(buildTabs())
+        root.addView(buildSourceFilters())
+
+        val visibleEntries = selectedSource?.let { source ->
+            CharacterStoreCatalog.entries.filter { it.source == source }
+        } ?: CharacterStoreCatalog.entries
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
@@ -55,7 +63,11 @@ class CharacterStoreActivity : Activity() {
 
         content.addView(
             TextView(this).apply {
-                text = "精選免費角色"
+                text = if (selectedSource == null) {
+                    "精選免費角色 · ${visibleEntries.size}"
+                } else {
+                    "${sourceLabel(selectedSource!!)} · ${visibleEntries.size}"
+                }
                 textSize = 25f
                 setTextColor(GOLD)
                 setTypeface(typeface, Typeface.BOLD)
@@ -79,7 +91,7 @@ class CharacterStoreActivity : Activity() {
             }
         )
 
-        CharacterStoreCatalog.entries.chunked(2).forEach { rowEntries ->
+        visibleEntries.chunked(2).forEach { rowEntries ->
             content.addView(buildRow(rowEntries))
         }
 
@@ -181,6 +193,84 @@ class CharacterStoreActivity : Activity() {
                 }
             )
         }
+    }
+
+    private fun buildSourceFilters(): View {
+        val sources = CharacterStoreCatalog.entries.map { it.source }.distinct()
+
+        return HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(
+                LinearLayout(this@CharacterStoreActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(2), 0, dp(10))
+
+                    addView(
+                        sourceFilterButton(
+                            label = "全部",
+                            count = CharacterStoreCatalog.entries.size,
+                            source = null
+                        )
+                    )
+
+                    sources.forEach { source ->
+                        addView(
+                            sourceFilterButton(
+                                label = sourceLabel(source),
+                                count = CharacterStoreCatalog.entries.count { it.source == source },
+                                source = source
+                            ),
+                            LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                dp(42)
+                            ).apply {
+                                marginStart = dp(8)
+                            }
+                        )
+                    }
+                },
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+    }
+
+    private fun sourceFilterButton(label: String, count: Int, source: String?): View {
+        val active = selectedSource == source
+        return TextView(this).apply {
+            text = "$label  $count"
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dp(14), 0, dp(14), 0)
+            setTextColor(if (active) Color.rgb(78, 13, 10) else Color.WHITE)
+            background = roundedPanel(
+                fill = if (active) GOLD else Color.rgb(73, 12, 28),
+                stroke = GOLD,
+                strokeWidth = dp(2),
+                radius = dp(18).toFloat()
+            )
+            minHeight = dp(42)
+            isClickable = true
+            isFocusable = true
+            contentDescription = "篩選來源 $label"
+            setOnClickListener {
+                if (selectedSource != source) {
+                    selectedSource = source
+                    setContentView(buildStore())
+                }
+            }
+            installBroadwayPressFeedback()
+        }
+    }
+
+    private fun sourceLabel(source: String): String = when (source) {
+        "Live2D Official" -> "Live2D"
+        else -> source
     }
 
     private fun navTab(label: String, active: Boolean, action: () -> Unit): View {
