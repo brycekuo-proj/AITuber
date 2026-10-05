@@ -6,7 +6,7 @@ import com.aituber.poc.state.AccessibilitySignatureTransition
 import com.aituber.poc.state.SafeAccessibilityNodeMetadata
 
 class AccessibilityProbeLogger(
-    private val targetPackageName: String = ChatGptTarget.packageName,
+    private val targetPackageName: String = AiTargetApps.CHATGPT.packageName,
     private val eventCapacity: Int = 100,
     private val transitionCapacity: Int = 50
 ) {

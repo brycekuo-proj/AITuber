@@ -1,0 +1,6 @@
+{
+  "name": "aituber-buddy",
+  "version": "0.1.0",
+  "description": "AITuber 小角色：在 Claude Code 旁邊陪你工作，會思考、說話、做事、開心或擔心",
+  "types": "./types/index.d.ts"
+}

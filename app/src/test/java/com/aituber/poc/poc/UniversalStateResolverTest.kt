@@ -108,19 +108,53 @@ class UniversalStateResolverTest {
     }
 
     @Test
-    fun inactiveVoiceSessionResolvesIdle() {
+    fun inactiveVoiceSessionIgnoresVisualizer() {
         val resolver = UniversalStateResolver()
 
+        // Speaker output is loud (e.g. music) but no voice session and the AI app is quiet.
         val result = resolver.resolve(
             input(
                 voiceSessionActive = false,
                 visualizerDerivedState = UniversalAiState.SPEAKING,
-                playbackState = UniversalAiState.SPEAKING
+                playbackState = UniversalAiState.IDLE
             )
         )
 
         assertEquals(UniversalAiState.IDLE, result.state)
         assertEquals("NO_ACTIVE_SESSION", result.timing.stateAuthority)
+    }
+
+    @Test
+    fun readAloudWithoutVoiceSessionSpeaksFromPlaybackCapture() {
+        val resolver = UniversalStateResolver()
+
+        val result = resolver.resolve(
+            input(
+                voiceSessionActive = false,
+                visualizerDerivedState = UniversalAiState.IDLE,
+                playbackState = UniversalAiState.SPEAKING
+            )
+        )
+
+        assertEquals(UniversalAiState.SPEAKING, result.state)
+        assertEquals("PLAYBACK_CAPTURE", result.timing.stateAuthority)
+    }
+
+    @Test
+    fun mediaVoiceModeHeardByPlaybackCaptureWinsDuringVoiceSession() {
+        val resolver = UniversalStateResolver()
+
+        // A voice mode that plays as media: Playback Capture hears the AI app itself.
+        val result = resolver.resolve(
+            input(
+                voiceSessionActive = true,
+                visualizerDerivedState = UniversalAiState.IDLE,
+                playbackState = UniversalAiState.SPEAKING
+            )
+        )
+
+        assertEquals(UniversalAiState.SPEAKING, result.state)
+        assertEquals("PLAYBACK_CAPTURE", result.timing.stateAuthority)
     }
 
     @Test

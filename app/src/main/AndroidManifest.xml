@@ -7,8 +7,21 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- AI apps whose audio AITuber may capture (see AiTargetApps). -->
     <queries>
         <package android:name="com.openai.chatgpt" />
+        <package android:name="com.google.android.apps.bard" />
+        <package android:name="com.anthropic.claude" />
+        <package android:name="ai.x.grok" />
+        <package android:name="com.microsoft.copilot" />
+        <package android:name="ai.perplexity.app.android" />
+        <!-- Claude chat: the phone's text-to-speech and voice input. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
     </queries>
 
     <application
@@ -17,12 +30,20 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".ui.VisemeMvpActivity"
+            android:name=".ui.CharacterStoreActivity"
             android:exported="false" />
 
         <activity
-            android:name=".ui.CharacterStoreActivity"
+            android:name=".ui.StoreDownloadActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
             android:exported="false" />
+
+        <activity
+            android:name=".claudechat.ClaudeChatActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".ui.MainActivity"
@@ -47,17 +68,5 @@
             android:name=".overlay.CharacterOverlayService"
             android:exported="false" />
 
-        <service
-            android:name=".accessibility.ChatGptAccessibilityProbeService"
-            android:exported="true"
-            android:label="@string/accessibility_probe_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/chatgpt_accessibility_probe_service" />
-        </service>
     </application>
 </manifest>

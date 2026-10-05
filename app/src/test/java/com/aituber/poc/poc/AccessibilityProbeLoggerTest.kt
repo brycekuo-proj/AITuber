@@ -10,7 +10,7 @@ class AccessibilityProbeLoggerTest {
         val logger = AccessibilityProbeLogger()
         val valid = logger.record(
             elapsedTimestampMs = 1L,
-            packageName = ChatGptTarget.packageName,
+            packageName = AiTargetApps.CHATGPT.packageName,
             eventType = "WINDOW_CONTENT_CHANGED",
             rootAvailable = true,
             nodes = listOf(node(viewIdResourceName = "id/voice"))
@@ -18,7 +18,7 @@ class AccessibilityProbeLoggerTest {
 
         val ignored = logger.record(
             elapsedTimestampMs = 2L,
-            packageName = ChatGptTarget.packageName,
+            packageName = AiTargetApps.CHATGPT.packageName,
             eventType = "WINDOW_CONTENT_CHANGED",
             rootAvailable = false,
             nodes = emptyList()
@@ -53,8 +53,8 @@ class AccessibilityProbeLoggerTest {
         val logger = AccessibilityProbeLogger()
         val nodes = listOf(node(viewIdResourceName = "id/voice"))
 
-        logger.record(1L, ChatGptTarget.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
-        val snapshot = logger.record(2L, ChatGptTarget.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
+        logger.record(1L, AiTargetApps.CHATGPT.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
+        val snapshot = logger.record(2L, AiTargetApps.CHATGPT.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
 
         assertEquals(2, snapshot.validSignatureEventCount)
         assertEquals(1, snapshot.signatureTransitionCount)
@@ -67,14 +67,14 @@ class AccessibilityProbeLoggerTest {
 
         logger.record(
             elapsedTimestampMs = 1L,
-            packageName = ChatGptTarget.packageName,
+            packageName = AiTargetApps.CHATGPT.packageName,
             eventType = "WINDOW_CONTENT_CHANGED",
             rootAvailable = true,
             nodes = listOf(node(viewIdResourceName = "id/voice", boundsInScreen = "0,0,100,100"))
         )
         val snapshot = logger.record(
             elapsedTimestampMs = 2L,
-            packageName = ChatGptTarget.packageName,
+            packageName = AiTargetApps.CHATGPT.packageName,
             eventType = "WINDOW_CONTENT_CHANGED",
             rootAvailable = true,
             nodes = listOf(node(viewIdResourceName = "id/voice", boundsInScreen = "0,0,120,120"))
@@ -90,9 +90,9 @@ class AccessibilityProbeLoggerTest {
         val logger = AccessibilityProbeLogger()
         val nodes = listOf(node(viewIdResourceName = "id/voice"))
 
-        logger.record(1L, ChatGptTarget.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
-        logger.record(2L, ChatGptTarget.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
-        val snapshot = logger.record(3L, ChatGptTarget.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
+        logger.record(1L, AiTargetApps.CHATGPT.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
+        logger.record(2L, AiTargetApps.CHATGPT.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
+        val snapshot = logger.record(3L, AiTargetApps.CHATGPT.packageName, "WINDOW_CONTENT_CHANGED", true, nodes)
 
         assertEquals(2, snapshot.duplicateSignatureEvents)
         assertEquals(0, snapshot.ignoredEmptyEvents)

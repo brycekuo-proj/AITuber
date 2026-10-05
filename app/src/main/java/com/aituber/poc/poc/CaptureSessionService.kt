@@ -26,6 +26,7 @@ class CaptureSessionService : Service() {
     private var adapter: AiAdapter? = null
     private var playbackProbe: AndroidPlaybackStateProbe? = null
     private var foregroundStarted = false
+    private var targetLabel = AiTargetApps.GENERIC_LABEL
     private var stopping = false
 
     override fun onCreate() {
@@ -45,7 +46,9 @@ class CaptureSessionService : Service() {
             ACTION_STOP -> stopCapture(CaptureStatus.STOPPED)
             else -> CaptureStartupTrace.record("unexpected service action: ${intent?.action ?: "null"}")
         }
-        return START_STICKY
+        // A MediaProjection consent token cannot be reused after the system kills us,
+        // so a sticky restart would come back as a running service that captures nothing.
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -101,13 +104,11 @@ class CaptureSessionService : Service() {
             return
         }
 
-        val targetUid = ChatGptTarget.uid(this)
-        if (targetUid == null) {
-            CaptureStartupTrace.record("ChatGPT UID unavailable")
-            publish(CaptureStatus.CHATGPT_NOT_INSTALLED)
-            stopSelf()
-            return
-        }
+        // Every installed AI app is captured. With none installed, Playback Capture is
+        // skipped but the speaker-output Visualizer (already started above) still works.
+        val targets = AiTargetApps.installed(this)
+        targetLabel = AiTargetApps.label(targets)
+        CaptureStartupTrace.record("AI targets: ${targets.joinToString { it.app.packageName }.ifEmpty { "none" }}")
 
         val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val projection = projectionManager.getMediaProjection(resultCode, resultData)
@@ -126,8 +127,8 @@ class CaptureSessionService : Service() {
         adapter = PlaybackCaptureAiAdapter(
             context = this,
             mediaProjection = projection,
-            targetUid = targetUid,
-            targetLabel = ChatGptTarget.label
+            targetUids = targets.map { it.uid },
+            targetLabel = targetLabel
         )
         CaptureStartupTrace.record("PlaybackCaptureAiAdapter start requested")
         adapter?.start { snapshot -> CaptureSessionState.update(snapshot) }
@@ -163,7 +164,7 @@ class CaptureSessionService : Service() {
     private fun publish(status: String) {
         CaptureSessionState.update(
             UniversalStateSnapshot(
-                targetApp = ChatGptTarget.label,
+                targetApp = targetLabel,
                 detectionMethod = DetectionMethod.PLAYBACK_CAPTURE.label,
                 state = UniversalAiState.UNKNOWN,
                 audioLevel = null,
@@ -191,8 +192,8 @@ class CaptureSessionService : Service() {
         }
         return builder
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("AITuber PoC capture")
-            .setContentText("ChatGPT playback detection is active")
+            .setContentTitle("AITuber")
+            .setContentText("正在偵測 AI 語音，讓角色跟著說話")
             .setOngoing(true)
             .build()
     }
