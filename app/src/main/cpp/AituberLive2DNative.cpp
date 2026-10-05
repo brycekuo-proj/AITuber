@@ -5,11 +5,14 @@
 #include <GLES2/gl2.h>
 
 #include <algorithm>
+#include <climits>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <memory>
+#include <new>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -26,7 +29,10 @@
 #include <Motion/ACubismMotion.hpp>
 #include <Motion/CubismMotionQueueEntry.hpp>
 #include <Physics/CubismPhysics.hpp>
+#include <Utils/CubismJson.hpp>
+#include <Rendering/OpenGL/CubismOffscreenManager_OpenGLES2.hpp>
 #include <Rendering/OpenGL/CubismRenderer_OpenGLES2.hpp>
+#include <Rendering/OpenGL/CubismShader_OpenGLES2.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -39,6 +45,7 @@ constexpr const char* kLogTag = "AITuberLive2D";
 constexpr const char* kDefaultModelAssetDir = "live2d/Haru";
 constexpr const char* kDefaultModelName = "Haru";
 constexpr const char* kDefaultModelJson = "Haru.model3.json";
+constexpr const char* kFileSystemModelPrefix = "__AITUBER_FILE__:";
 constexpr const char* kMouthParameterId = "ParamMouthOpenY";
 constexpr const char* kLeftEyeParameterId = "ParamEyeLOpen";
 constexpr const char* kRightEyeParameterId = "ParamEyeROpen";
@@ -52,6 +59,12 @@ constexpr const char* kShaderAssetDir = "live2d/framework/shaders";
 constexpr const char* kIdleMotionGroup = "Idle";
 constexpr int kPriorityIdle = 1;
 constexpr csmFloat32 kMaxPhysicsDeltaSeconds = 0.1f;
+// Limits for models installed from the store (untrusted files).
+constexpr long kMaxModelFileBytes = 128L * 1024L * 1024L;
+constexpr long kMaxJsonFileBytes = 16L * 1024L * 1024L;
+constexpr int kMaxTextureEdge = 8192;
+constexpr float kDefaultLayoutHeight = 2.0f;
+constexpr float kDefaultLayoutOffsetY = -0.1f;
 
 class AituberCubismAllocator : public ICubismAllocator {
 public:
@@ -133,7 +146,8 @@ public:
         const csmChar* group,
         csmInt32 index
     ) {
-        return LoadMotion(buffer, size, nullptr, nullptr, nullptr, setting, group, index);
+        // shouldCheckMotionConsistency: reject motions whose Meta counts do not match the data.
+        return LoadMotion(buffer, size, nullptr, nullptr, nullptr, setting, group, index, true);
     }
 
     CubismMotionQueueEntryHandle startMotion(ACubismMotion* motion, csmInt32 priority) {
@@ -211,6 +225,7 @@ struct RuntimeStatus {
 
 struct Runtime {
     AAssetManager* assetManager = nullptr;
+    bool modelFromFileSystem = false;
     std::string modelAssetDir = kDefaultModelAssetDir;
     std::string modelJsonFile = kDefaultModelJson;
     std::string modelName = kDefaultModelName;
@@ -218,6 +233,10 @@ struct Runtime {
     std::string leftEyeParameterId = kLeftEyeParameterId;
     std::string rightEyeParameterId = kRightEyeParameterId;
     std::string breathParameterId = kBreathParameterId;
+    std::string headXParameterId = kHeadXParameterId;
+    std::string headYParameterId = kHeadYParameterId;
+    float layoutHeight = kDefaultLayoutHeight;
+    float layoutOffsetY = kDefaultLayoutOffsetY;
     std::unique_ptr<SmokeModel> model;
     std::unique_ptr<CubismModelSettingJson> modelSetting;
     std::vector<GLuint> textures;
@@ -243,6 +262,20 @@ std::mutex g_mutex;
 std::unique_ptr<Runtime> g_runtime;
 bool g_frameworkStarted = false;
 bool g_frameworkInitialized = false;
+// True once a model has been rendered in some GL context. The Cubism shader and
+// offscreen singletons then hold objects of that context; a GLSurfaceView gets a
+// new context after pause/resume or when another view takes over.
+bool g_glObjectsMayBeStale = false;
+
+// Drops Cubism's process-wide GL objects that belong to a previous context so
+// they are recreated in the current one. Must run on the new context's thread.
+void resetContextBoundSingletons() {
+    if (!g_frameworkInitialized || !g_glObjectsMayBeStale) return;
+    Rendering::CubismShader_OpenGLES2::GetInstance()->ReleaseInvalidShaderProgram();
+    Rendering::CubismShader_OpenGLES2::DeleteInstance();
+    Rendering::CubismOffscreenManager_OpenGLES2::ReleaseInstance();
+    g_glObjectsMayBeStale = false;
+}
 
 double nowMs() {
     timespec ts{};
@@ -328,7 +361,13 @@ std::string extractPhysicsOutputIds(const std::string& json) {
     return stream.str();
 }
 
-bool readAsset(AAssetManager* manager, const std::string& path, std::vector<unsigned char>& out, std::string& error) {
+bool readAsset(
+    AAssetManager* manager,
+    const std::string& path,
+    std::vector<unsigned char>& out,
+    std::string& error,
+    long maxBytes = kMaxModelFileBytes
+) {
     if (!manager) {
         error = "AssetManager unavailable";
         return false;
@@ -344,6 +383,11 @@ bool readAsset(AAssetManager* manager, const std::string& path, std::vector<unsi
         error = "Asset empty: " + path;
         return false;
     }
+    if (length > maxBytes) {
+        AAsset_close(asset);
+        error = "Asset too large: " + path;
+        return false;
+    }
     out.resize(static_cast<size_t>(length));
     const int read = AAsset_read(asset, out.data(), static_cast<size_t>(length));
     AAsset_close(asset);
@@ -352,6 +396,184 @@ bool readAsset(AAssetManager* manager, const std::string& path, std::vector<unsi
         return false;
     }
     return true;
+}
+
+bool readFileSystemFile(
+    const std::string& path,
+    std::vector<unsigned char>& out,
+    std::string& error,
+    long maxBytes = kMaxModelFileBytes
+) {
+    std::ifstream stream(path, std::ios::binary | std::ios::ate);
+    if (!stream.is_open()) {
+        error = "File not found: " + path;
+        return false;
+    }
+    const std::streamsize length = stream.tellg();
+    if (length <= 0) {
+        error = "File empty: " + path;
+        return false;
+    }
+    if (length > maxBytes) {
+        error = "File too large: " + path;
+        return false;
+    }
+    stream.seekg(0, std::ios::beg);
+    out.resize(static_cast<size_t>(length));
+    if (!stream.read(reinterpret_cast<char*>(out.data()), length)) {
+        error = "File read failed: " + path;
+        return false;
+    }
+    return true;
+}
+
+bool isPathWithinRoot(const std::string& root, const std::string& path) {
+    char resolvedRoot[PATH_MAX];
+    char resolvedPath[PATH_MAX];
+    if (!realpath(root.c_str(), resolvedRoot) || !realpath(path.c_str(), resolvedPath)) {
+        return false;
+    }
+    const std::string canonicalRoot(resolvedRoot);
+    const std::string canonicalPath(resolvedPath);
+    if (canonicalPath == canonicalRoot) return true;
+    const std::string prefix = canonicalRoot + "/";
+    return canonicalPath.compare(0, prefix.size(), prefix) == 0;
+}
+
+bool readModelFile(
+    Runtime& runtime,
+    const std::string& path,
+    std::vector<unsigned char>& out,
+    std::string& error,
+    long maxBytes = kMaxModelFileBytes
+) {
+    if (runtime.modelFromFileSystem) {
+        if (!isPathWithinRoot(runtime.modelAssetDir, path)) {
+            error = "Model file escapes character directory: " + path;
+            return false;
+        }
+        return readFileSystemFile(path, out, error, maxBytes);
+    }
+    return readAsset(runtime.assetManager, path, out, error, maxBytes);
+}
+
+// Reads a JSON file and checks that the Cubism parser accepts it. The SDK's
+// setting / physics classes dereference the parse result without checking it,
+// so a malformed file from a downloaded model would otherwise crash natively.
+bool readModelJson(Runtime& runtime, const std::string& path, std::vector<unsigned char>& out, std::string& error) {
+    if (!readModelFile(runtime, path, out, error, kMaxJsonFileBytes)) return false;
+    Utils::CubismJson* json = Utils::CubismJson::Create(
+        reinterpret_cast<const csmByte*>(out.data()),
+        static_cast<csmSizeInt>(out.size())
+    );
+    if (!json) {
+        error = "Invalid JSON: " + path;
+        return false;
+    }
+    Utils::CubismJson::Delete(json);
+    return true;
+}
+
+// Cubism allocates physics buffers from the Meta counts and indexes particles
+// with Output.VertexIndex unchecked. Verify both against the actual data.
+bool physicsJsonConsistent(const std::vector<unsigned char>& data, std::string& error) {
+    Utils::CubismJson* json = Utils::CubismJson::Create(
+        reinterpret_cast<const csmByte*>(data.data()),
+        static_cast<csmSizeInt>(data.size())
+    );
+    if (!json) {
+        error = "Invalid physics JSON";
+        return false;
+    }
+    Utils::Value& root = json->GetRoot();
+    Utils::Value& meta = root["Meta"];
+    Utils::Value& settings = root["PhysicsSettings"];
+    bool ok = settings.IsArray();
+    int inputs = 0;
+    int outputs = 0;
+    int vertices = 0;
+    const int settingCount = ok ? settings.GetSize() : 0;
+    for (int i = 0; ok && i < settingCount; i++) {
+        Utils::Value& setting = settings[i];
+        // The SDK calls GetVector() on these; a missing or non-array value is a null dereference.
+        if (!setting["Vertices"].IsArray() || !setting["Input"].IsArray() || !setting["Output"].IsArray()) {
+            ok = false;
+            break;
+        }
+        const int vertexCount = setting["Vertices"].GetSize();
+        if (vertexCount <= 0) ok = false;
+        const int outputCount = setting["Output"].GetSize();
+        for (int j = 0; ok && j < outputCount; j++) {
+            const int vertexIndex = setting["Output"][j]["VertexIndex"].ToInt(-1);
+            if (vertexIndex < 0 || vertexIndex >= vertexCount) ok = false;
+        }
+        inputs += setting["Input"].GetSize();
+        outputs += outputCount;
+        vertices += vertexCount;
+    }
+    if (ok) {
+        ok = meta["PhysicsSettingCount"].ToInt(-1) == settingCount &&
+            meta["TotalInputCount"].ToInt(-1) == inputs &&
+            meta["TotalOutputCount"].ToInt(-1) == outputs &&
+            meta["VertexCount"].ToInt(-1) == vertices;
+    }
+    Utils::CubismJson::Delete(json);
+    if (!ok) error = "Physics Meta counts do not match data";
+    return ok;
+}
+
+// A parameter spec is "Id" or "IdA|IdB|IdC". Returns the first id the model
+// has, or the first candidate when none exists (reported as NOT_FOUND later).
+std::string resolveParameterSpec(CubismModel* model, const std::string& spec) {
+    std::vector<std::string> candidates;
+    size_t start = 0;
+    while (start <= spec.size()) {
+        const size_t end = spec.find('|', start);
+        const std::string part = spec.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        if (!part.empty()) candidates.push_back(part);
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    if (candidates.empty()) return spec;
+    if (model) {
+        for (const auto& candidate : candidates) {
+            const CubismId* id = CubismFramework::GetIdManager()->GetId(candidate.c_str());
+            const csmInt32 index = model->GetParameterIndex(id);
+            if (index >= 0 && index < model->GetParameterCount()) return candidate;
+        }
+    }
+    return candidates.front();
+}
+
+bool isPowerOfTwo(int value) {
+    return value > 0 && (value & (value - 1)) == 0;
+}
+
+// Halves an RGBA image with a 2x2 box filter.
+void halveRgba(std::vector<unsigned char>& pixels, int& width, int& height) {
+    const int newWidth = std::max(1, width / 2);
+    const int newHeight = std::max(1, height / 2);
+    std::vector<unsigned char> out(static_cast<size_t>(newWidth) * newHeight * 4);
+    for (int y = 0; y < newHeight; y++) {
+        for (int x = 0; x < newWidth; x++) {
+            for (int c = 0; c < 4; c++) {
+                int sum = 0;
+                int count = 0;
+                for (int dy = 0; dy < 2; dy++) {
+                    for (int dx = 0; dx < 2; dx++) {
+                        const int sx = std::min(width - 1, x * 2 + dx);
+                        const int sy = std::min(height - 1, y * 2 + dy);
+                        sum += pixels[(static_cast<size_t>(sy) * width + sx) * 4 + c];
+                        count++;
+                    }
+                }
+                out[(static_cast<size_t>(y) * newWidth + x) * 4 + c] = static_cast<unsigned char>(sum / count);
+            }
+        }
+    }
+    pixels.swap(out);
+    width = newWidth;
+    height = newHeight;
 }
 
 csmByte* loadCubismAssetFile(const std::string filePath, csmSizeInt* outSize) {
@@ -432,7 +654,7 @@ void releaseTextures(Runtime& runtime) {
 bool loadTexture(Runtime& runtime, const std::string& path, GLuint& textureId, std::string& error) {
     runtime.status.lastTexturePath = path;
     std::vector<unsigned char> png;
-    if (!readAsset(runtime.assetManager, path, png, error)) {
+    if (!readModelFile(runtime, path, png, error)) {
         runtime.status.lastTextureError = error;
         return false;
     }
@@ -440,7 +662,23 @@ bool loadTexture(Runtime& runtime, const std::string& path, GLuint& textureId, s
     int width = 0;
     int height = 0;
     int channels = 0;
-    stbi_uc* pixels = stbi_load_from_memory(
+    // Check the size before decoding: a huge texture would exhaust memory.
+    if (!stbi_info_from_memory(png.data(), static_cast<int>(png.size()), &width, &height, &channels) ||
+        width <= 0 || height <= 0 || width > kMaxTextureEdge || height > kMaxTextureEdge) {
+        error = "Texture unreadable or larger than " + std::to_string(kMaxTextureEdge) + "px: " + path;
+        runtime.status.lastTextureError = error;
+        return false;
+    }
+    GLint maxTextureSize = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+    if (maxTextureSize <= 0) maxTextureSize = 2048;
+    if (width > maxTextureSize * 2 || height > maxTextureSize * 2) {
+        error = "Texture " + std::to_string(width) + "x" + std::to_string(height) +
+            " is too large for this GPU (max " + std::to_string(maxTextureSize) + "): " + path;
+        runtime.status.lastTextureError = error;
+        return false;
+    }
+    stbi_uc* decoded = stbi_load_from_memory(
         png.data(),
         static_cast<int>(png.size()),
         &width,
@@ -448,16 +686,30 @@ bool loadTexture(Runtime& runtime, const std::string& path, GLuint& textureId, s
         &channels,
         STBI_rgb_alpha
     );
-    if (!pixels || width <= 0 || height <= 0) {
-        if (pixels) stbi_image_free(pixels);
+    if (!decoded || width <= 0 || height <= 0) {
+        if (decoded) stbi_image_free(decoded);
         error = "PNG decode failed: " + path;
         runtime.status.lastTextureError = error;
         return false;
     }
+    png.clear();
+    png.shrink_to_fit();
+
+    // Downscale textures the GPU cannot hold (UVs are normalized, so the model still maps correctly).
+    std::unique_ptr<stbi_uc, void (*)(void*)> decodedOwner(decoded, stbi_image_free);
+    std::vector<unsigned char> scaled;
+    unsigned char* pixels = decoded;
+    if (width > maxTextureSize || height > maxTextureSize) {
+        scaled.assign(decoded, decoded + static_cast<size_t>(width) * height * 4);
+        decodedOwner.reset();
+        while (width > maxTextureSize || height > maxTextureSize) {
+            halveRgba(scaled, width, height);
+        }
+        pixels = scaled.data();
+    }
 
     glGenTextures(1, &textureId);
     if (textureId == 0) {
-        stbi_image_free(pixels);
         error = "glGenTextures returned 0: " + glErrorToString(glGetError());
         runtime.status.lastTextureError = error;
         return false;
@@ -474,26 +726,22 @@ bool loadTexture(Runtime& runtime, const std::string& path, GLuint& textureId, s
     if (uploadError != GL_NO_ERROR) {
         glDeleteTextures(1, &textureId);
         glBindTexture(GL_TEXTURE_2D, 0);
-        stbi_image_free(pixels);
         error = "glTexImage2D failed for " + path + ": " + glErrorToString(uploadError);
         runtime.status.lastTextureError = error;
         textureId = 0;
         return false;
     }
-    glGenerateMipmap(GL_TEXTURE_2D);
-    const GLenum mipmapError = glGetError();
-    if (mipmapError != GL_NO_ERROR) {
-        glDeleteTextures(1, &textureId);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        stbi_image_free(pixels);
-        error = "glGenerateMipmap failed for " + path + ": " + glErrorToString(mipmapError);
-        runtime.status.lastTextureError = error;
-        textureId = 0;
-        return false;
+    // OpenGL ES 2 cannot build mipmaps for non-power-of-two textures; keep LINEAR for those.
+    if (isPowerOfTwo(width) && isPowerOfTwo(height)) {
+        glGenerateMipmap(GL_TEXTURE_2D);
+        const GLenum mipmapError = glGetError();
+        if (mipmapError == GL_NO_ERROR) {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        } else {
+            logError("glGenerateMipmap failed for " + path + ": " + glErrorToString(mipmapError) + " (using LINEAR)");
+        }
     }
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
-    stbi_image_free(pixels);
     runtime.status.lastTextureError = "n/a";
     return true;
 }
@@ -544,7 +792,9 @@ bool startIdleMotionLocked(Runtime& runtime, bool forceNext) {
     std::string error;
     std::vector<unsigned char> motionJson;
     const std::string motionPath = joinAssetPath(runtime.modelAssetDir, fileName);
-    if (!readAsset(runtime.assetManager, motionPath, motionJson, error)) {
+    if (!readModelJson(runtime, motionPath, motionJson, error)) {
+        // Stop retrying every frame (e.g. the character folder was replaced).
+        runtime.status.idleMotionEnabled = false;
         runtime.status.idleMotionStatus = "FAILED";
         runtime.status.lastIdleMotionError = error;
         runtime.status.idleMotionFile = fileName;
@@ -562,6 +812,7 @@ bool startIdleMotionLocked(Runtime& runtime, bool forceNext) {
         motionIndex
     );
     if (!motion) {
+        runtime.status.idleMotionEnabled = false;
         runtime.status.idleMotionStatus = "FAILED";
         runtime.status.lastIdleMotionError = "Idle motion parse failed: " + motionPath;
         runtime.status.idleMotionFile = fileName;
@@ -620,13 +871,19 @@ void loadPhysicsLocked(Runtime& runtime) {
     std::string error;
     std::vector<unsigned char> physicsJson;
     const std::string physicsPath = joinAssetPath(runtime.modelAssetDir, physicsFile);
-    if (!readAsset(runtime.assetManager, physicsPath, physicsJson, error)) {
+    if (!readModelJson(runtime, physicsPath, physicsJson, error)) {
         runtime.status.physicsStatus = "PHYSICS_NOT_FOUND";
         runtime.status.lastPhysicsError = error;
         logError("Physics unavailable: " + error);
         return;
     }
 
+    if (!physicsJsonConsistent(physicsJson, error)) {
+        runtime.status.physicsStatus = "PHYSICS_FAILED";
+        runtime.status.lastPhysicsError = error + ": " + physicsPath;
+        logError(runtime.status.lastPhysicsError);
+        return;
+    }
     const std::string physicsText(reinterpret_cast<const char*>(physicsJson.data()), physicsJson.size());
     runtime.status.physicsInputCount = extractJsonInt(physicsText, "TotalInputCount", 0);
     runtime.status.physicsOutputCount = extractJsonInt(physicsText, "TotalOutputCount", 0);
@@ -671,7 +928,7 @@ bool loadModel(Runtime& runtime) {
     std::string error;
     std::vector<unsigned char> modelJson;
     const std::string modelJsonPath = joinAssetPath(runtime.modelAssetDir, runtime.modelJsonFile);
-    if (!readAsset(runtime.assetManager, modelJsonPath, modelJson, error)) {
+    if (!readModelJson(runtime, modelJsonPath, modelJson, error)) {
         runtime.status.lastError = error;
         return false;
     }
@@ -680,6 +937,11 @@ bool loadModel(Runtime& runtime) {
         reinterpret_cast<const csmByte*>(modelJson.data()),
         static_cast<csmSizeInt>(modelJson.size())
     ));
+    if (!runtime.modelSetting->GetJsonPointer()) {
+        runtime.modelSetting.reset();
+        runtime.status.lastError = "model3.json parse failed";
+        return false;
+    }
 
     const char* mocFile = runtime.modelSetting->GetModelFileName();
     if (!mocFile || std::strlen(mocFile) == 0) {
@@ -687,17 +949,19 @@ bool loadModel(Runtime& runtime) {
         return false;
     }
     std::vector<unsigned char> moc;
-    if (!readAsset(runtime.assetManager, joinAssetPath(runtime.modelAssetDir, mocFile), moc, error)) {
+    if (!readModelFile(runtime, joinAssetPath(runtime.modelAssetDir, mocFile), moc, error)) {
         runtime.status.lastError = error;
         return false;
     }
 
+    // shouldCheckMocConsistency: the Core validates the whole moc3 before using it.
     runtime.model->LoadModel(
         reinterpret_cast<const csmByte*>(moc.data()),
-        static_cast<csmSizeInt>(moc.size())
+        static_cast<csmSizeInt>(moc.size()),
+        true
     );
     if (!runtime.model->model()) {
-        runtime.status.lastError = "Cubism model load failed";
+        runtime.status.lastError = "Cubism model load failed (corrupt moc3 or newer than this runtime)";
         return false;
     }
 
@@ -705,8 +969,11 @@ bool loadModel(Runtime& runtime) {
     runtime.modelSetting->GetLayoutMap(layout);
     if (runtime.model->matrix()) {
         runtime.model->matrix()->SetupFromLayout(layout);
-        runtime.model->matrix()->SetHeight(2.0f);
-        runtime.model->matrix()->TranslateY(-0.1f);
+        const float height = runtime.layoutHeight > 0.05f && runtime.layoutHeight < 20.0f
+            ? runtime.layoutHeight
+            : kDefaultLayoutHeight;
+        runtime.model->matrix()->SetHeight(height);
+        runtime.model->matrix()->TranslateY(runtime.layoutOffsetY);
     }
     runtime.model->model()->SaveParameters();
 
@@ -725,7 +992,11 @@ bool loadModel(Runtime& runtime) {
     runtime.status.textureCount = textureCount;
     for (csmInt32 i = 0; i < textureCount; i++) {
         const char* textureFile = runtime.modelSetting->GetTextureFileName(i);
-        if (!textureFile || std::strlen(textureFile) == 0) continue;
+        if (!textureFile || std::strlen(textureFile) == 0) {
+            // Skipping would shift every later texture onto the wrong slot.
+            runtime.status.lastError = "model3.json texture #" + std::to_string(i) + " has no file name";
+            return false;
+        }
         GLuint textureId = 0;
         const std::string texturePath = joinAssetPath(runtime.modelAssetDir, textureFile);
         if (!loadTexture(runtime, texturePath, textureId, error)) {
@@ -758,7 +1029,7 @@ bool loadModel(Runtime& runtime) {
         runtime.status.poseFile = poseFile;
         std::vector<unsigned char> poseJson;
         const std::string posePath = joinAssetPath(runtime.modelAssetDir, poseFile);
-        if (readAsset(runtime.assetManager, posePath, poseJson, error)) {
+        if (readModelFile(runtime, posePath, poseJson, error)) {
             runtime.model->loadPose(
                 reinterpret_cast<const csmByte*>(poseJson.data()),
                 static_cast<csmSizeInt>(poseJson.size())
@@ -779,12 +1050,23 @@ bool loadModel(Runtime& runtime) {
         }
     }
 
-    runtime.mouthId = CubismFramework::GetIdManager()->GetId(runtime.mouthParameterId.c_str());
-    runtime.leftEyeId = CubismFramework::GetIdManager()->GetId(runtime.leftEyeParameterId.c_str());
-    runtime.rightEyeId = CubismFramework::GetIdManager()->GetId(runtime.rightEyeParameterId.c_str());
-    runtime.breathId = CubismFramework::GetIdManager()->GetId(runtime.breathParameterId.c_str());
-    runtime.headXId = CubismFramework::GetIdManager()->GetId(kHeadXParameterId);
-    runtime.headYId = CubismFramework::GetIdManager()->GetId(kHeadYParameterId);
+    CubismModel* loadedModel = runtime.model->model();
+    const std::string mouthParam = resolveParameterSpec(loadedModel, runtime.mouthParameterId);
+    const std::string leftEyeParam = resolveParameterSpec(loadedModel, runtime.leftEyeParameterId);
+    const std::string rightEyeParam = resolveParameterSpec(loadedModel, runtime.rightEyeParameterId);
+    const std::string breathParam = resolveParameterSpec(loadedModel, runtime.breathParameterId);
+    const std::string headXParam = resolveParameterSpec(loadedModel, runtime.headXParameterId);
+    const std::string headYParam = resolveParameterSpec(loadedModel, runtime.headYParameterId);
+    runtime.status.mouthParameterId = mouthParam;
+    runtime.status.leftEyeParameterId = leftEyeParam;
+    runtime.status.rightEyeParameterId = rightEyeParam;
+    runtime.status.breathParameterId = breathParam;
+    runtime.mouthId = CubismFramework::GetIdManager()->GetId(mouthParam.c_str());
+    runtime.leftEyeId = CubismFramework::GetIdManager()->GetId(leftEyeParam.c_str());
+    runtime.rightEyeId = CubismFramework::GetIdManager()->GetId(rightEyeParam.c_str());
+    runtime.breathId = CubismFramework::GetIdManager()->GetId(breathParam.c_str());
+    runtime.headXId = CubismFramework::GetIdManager()->GetId(headXParam.c_str());
+    runtime.headYId = CubismFramework::GetIdManager()->GetId(headYParam.c_str());
     runtime.earJiggleXId = CubismFramework::GetIdManager()->GetId(kEarJiggleXParameterId);
     runtime.earJiggleYId = CubismFramework::GetIdManager()->GetId(kEarJiggleYParameterId);
     const csmInt32 mouthIndex = runtime.model->model()->GetParameterIndex(runtime.mouthId);
@@ -813,10 +1095,11 @@ bool loadModel(Runtime& runtime) {
     }
     runtime.status.modelLoaded = true;
     if (!found) {
-        runtime.status.lastError = runtime.mouthParameterId + " not found";
+        runtime.status.lastError = runtime.status.mouthParameterId + " not found (lip sync unavailable)";
     } else if (!poseError) {
         runtime.status.lastError = "";
     }
+    g_glObjectsMayBeStale = true;
     logInfo("Live2D model loaded");
     return true;
 }
@@ -955,6 +1238,99 @@ std::string readJString(JNIEnv* env, jstring value, const char* fallback) {
 
 } // namespace
 
+namespace {
+
+jboolean initializeRuntime(
+    JNIEnv* env,
+    jobject assetManager,
+    jstring modelAssetDir,
+    jstring modelName,
+    jstring model3File,
+    jstring mouthParameterId,
+    jstring leftEyeParameterId,
+    jstring rightEyeParameterId,
+    jstring breathParameterId,
+    jstring headXParameterId,
+    jstring headYParameterId,
+    jfloat layoutHeight,
+    jfloat layoutOffsetY
+) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    const std::string encodedModelDir = readJString(env, modelAssetDir, kDefaultModelAssetDir);
+    const bool modelFromFileSystem = encodedModelDir.compare(0, std::strlen(kFileSystemModelPrefix), kFileSystemModelPrefix) == 0;
+    const std::string modelDir = modelFromFileSystem
+        ? encodedModelDir.substr(std::strlen(kFileSystemModelPrefix))
+        : encodedModelDir;
+    const std::string name = readJString(env, modelName, kDefaultModelName);
+    const std::string jsonFile = readJString(env, model3File, kDefaultModelJson);
+    const std::string mouthId = readJString(env, mouthParameterId, kMouthParameterId);
+    const std::string leftEyeId = readJString(env, leftEyeParameterId, kLeftEyeParameterId);
+    const std::string rightEyeId = readJString(env, rightEyeParameterId, kRightEyeParameterId);
+    const std::string breathId = readJString(env, breathParameterId, kBreathParameterId);
+    const std::string headXId = readJString(env, headXParameterId, kHeadXParameterId);
+    const std::string headYId = readJString(env, headYParameterId, kHeadYParameterId);
+
+    AAssetManager* manager = AAssetManager_fromJava(env, assetManager);
+    if (!manager) {
+        g_runtime.reset(new Runtime());
+        g_runtime->status.lastError = "AAssetManager_fromJava failed";
+        return JNI_FALSE;
+    }
+
+    g_runtime.reset(new Runtime());
+    g_runtime->assetManager = manager;
+    g_runtime->modelFromFileSystem = modelFromFileSystem;
+    g_assetManager = manager;
+    g_runtime->modelAssetDir = modelDir;
+    g_runtime->modelName = name;
+    g_runtime->modelJsonFile = jsonFile;
+    g_runtime->mouthParameterId = mouthId;
+    g_runtime->leftEyeParameterId = leftEyeId;
+    g_runtime->rightEyeParameterId = rightEyeId;
+    g_runtime->breathParameterId = breathId;
+    g_runtime->headXParameterId = headXId;
+    g_runtime->headYParameterId = headYId;
+    g_runtime->layoutHeight = static_cast<float>(layoutHeight);
+    g_runtime->layoutOffsetY = std::isfinite(layoutOffsetY) ? static_cast<float>(layoutOffsetY) : kDefaultLayoutOffsetY;
+    g_runtime->status.modelName = name;
+    g_runtime->status.mouthParameterId = mouthId;
+    return JNI_TRUE;
+}
+
+} // namespace
+
+// Lets Kotlin check that this library can load downloaded characters.
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeApiVersion(JNIEnv*, jclass) {
+    return 2;
+}
+
+// Current entry point: parameter ids may be "A|B|C" candidate lists.
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeInitializeV2(
+    JNIEnv* env,
+    jobject,
+    jobject assetManager,
+    jstring modelAssetDir,
+    jstring modelName,
+    jstring model3File,
+    jstring mouthParameterId,
+    jstring leftEyeParameterId,
+    jstring rightEyeParameterId,
+    jstring breathParameterId,
+    jstring headXParameterId,
+    jstring headYParameterId,
+    jfloat layoutHeight,
+    jfloat layoutOffsetY
+) {
+    return initializeRuntime(
+        env, assetManager, modelAssetDir, modelName, model3File,
+        mouthParameterId, leftEyeParameterId, rightEyeParameterId, breathParameterId,
+        headXParameterId, headYParameterId, layoutHeight, layoutOffsetY
+    );
+}
+
+// Original entry point, kept so older Kotlin callers keep working.
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeInitialize(
     JNIEnv* env,
@@ -968,35 +1344,11 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeInitialize(
     jstring rightEyeParameterId,
     jstring breathParameterId
 ) {
-    std::lock_guard<std::mutex> lock(g_mutex);
-    const std::string modelDir = readJString(env, modelAssetDir, kDefaultModelAssetDir);
-    const std::string name = readJString(env, modelName, kDefaultModelName);
-    const std::string jsonFile = readJString(env, model3File, kDefaultModelJson);
-    const std::string mouthId = readJString(env, mouthParameterId, kMouthParameterId);
-    const std::string leftEyeId = readJString(env, leftEyeParameterId, kLeftEyeParameterId);
-    const std::string rightEyeId = readJString(env, rightEyeParameterId, kRightEyeParameterId);
-    const std::string breathId = readJString(env, breathParameterId, kBreathParameterId);
-
-    AAssetManager* manager = AAssetManager_fromJava(env, assetManager);
-    if (!manager) {
-        g_runtime.reset(new Runtime());
-        g_runtime->status.lastError = "AAssetManager_fromJava failed";
-        return JNI_FALSE;
-    }
-
-    g_runtime.reset(new Runtime());
-    g_runtime->assetManager = manager;
-    g_assetManager = manager;
-    g_runtime->modelAssetDir = modelDir;
-    g_runtime->modelName = name;
-    g_runtime->modelJsonFile = jsonFile;
-    g_runtime->mouthParameterId = mouthId;
-    g_runtime->leftEyeParameterId = leftEyeId;
-    g_runtime->rightEyeParameterId = rightEyeId;
-    g_runtime->breathParameterId = breathId;
-    g_runtime->status.modelName = name;
-    g_runtime->status.mouthParameterId = mouthId;
-    return JNI_TRUE;
+    return initializeRuntime(
+        env, assetManager, modelAssetDir, modelName, model3File,
+        mouthParameterId, leftEyeParameterId, rightEyeParameterId, breathParameterId,
+        nullptr, nullptr, kDefaultLayoutHeight, kDefaultLayoutOffsetY
+    );
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -1008,6 +1360,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnSurfaceCreated(
         return JNI_FALSE;
     }
     discardContextBoundResources(*g_runtime);
+    resetContextBoundSingletons();
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     if (!ensureFramework(*g_runtime)) {
@@ -1037,7 +1390,19 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnSurfaceChanged(
     glViewport(0, 0, width, height);
 
     if (!g_runtime->model || !g_runtime->status.modelLoaded) {
-        return loadModel(*g_runtime) ? JNI_TRUE : JNI_FALSE;
+        // A C++ exception must not cross JNI: it would abort the whole app.
+        try {
+            if (loadModel(*g_runtime)) return JNI_TRUE;
+        } catch (const std::bad_alloc&) {
+            g_runtime->status.lastError = "Out of memory while loading the model";
+        } catch (...) {
+            g_runtime->status.lastError = "Unexpected error while loading the model";
+        }
+        g_runtime->status.modelLoaded = false;
+        releaseTextures(*g_runtime);
+        g_runtime->model.reset();
+        g_runtime->modelSetting.reset();
+        return JNI_FALSE;
     } else {
         g_runtime->model->DeleteRenderer();
         g_runtime->model->CreateRenderer(static_cast<csmUint32>(std::max(width, 1)), static_cast<csmUint32>(std::max(height, 1)));
@@ -1068,7 +1433,7 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeSetMouthOpen(
         g_runtime->status.mouthParameterFound = true;
     } else {
         g_runtime->status.mouthParameterFound = false;
-        g_runtime->status.lastError = g_runtime->mouthParameterId + " not found";
+        g_runtime->status.lastError = g_runtime->status.mouthParameterId + " not found";
     }
 }
 
@@ -1136,12 +1501,18 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeStartIdleMotion(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (!g_runtime) return JNI_FALSE;
-    return startIdleMotionLocked(*g_runtime, true) ? JNI_TRUE : JNI_FALSE;
+    try {
+        return startIdleMotionLocked(*g_runtime, true) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        g_runtime->status.idleMotionEnabled = false;
+        g_runtime->status.lastIdleMotionError = "Unexpected error while loading idle motion";
+        return JNI_FALSE;
+    }
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEnv*, jobject) {
-    std::lock_guard<std::mutex> lock(g_mutex);
+namespace {
+
+void drawFrameLocked() {
     if (!g_runtime || !g_runtime->model || !g_runtime->model->model()) {
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1251,6 +1622,22 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEn
     }
 }
 
+} // namespace
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeOnDrawFrame(JNIEnv*, jobject) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    // A C++ exception must not cross JNI: it would abort the whole app.
+    try {
+        drawFrameLocked();
+    } catch (...) {
+        if (g_runtime) {
+            g_runtime->status.lastError = "Unexpected error while drawing the model";
+            g_runtime->status.idleMotionEnabled = false;
+        }
+    }
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeRelease(JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(g_mutex);
@@ -1261,9 +1648,12 @@ Java_com_aituber_poc_character_live2d_Live2DNativeBridge_nativeRelease(JNIEnv*, 
         g_runtime.reset();
     }
     if (g_frameworkInitialized) {
+        // Called on the owning GL thread, so these deletes hit the right context.
+        Rendering::CubismOffscreenManager_OpenGLES2::ReleaseInstance();
         CubismFramework::Dispose();
         g_frameworkInitialized = false;
     }
+    g_glObjectsMayBeStale = false;
     if (g_frameworkStarted) {
         CubismFramework::CleanUp();
         g_frameworkStarted = false;

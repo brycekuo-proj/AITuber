@@ -12,6 +12,9 @@ import com.aituber.poc.R
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
+import com.aituber.poc.character.live2d.Live2DModelSource
+import com.aituber.poc.character.live2d.Live2DNativeBridge
+import com.aituber.poc.character.live2d.Live2DOverlayPresence
 import com.aituber.poc.character.live2d.Live2DOverlayView
 import org.json.JSONObject
 import kotlin.math.min
@@ -34,6 +37,7 @@ class BroadwayHomeView(
     private val onSettings: () -> Unit,
     private val onMyCharacters: () -> Unit,
     private val onCharacterShop: () -> Unit,
+    private val onClaudeChat: (Live2DCharacterProfile) -> Unit,
     private val onBack: () -> Unit,
     private val onHome: () -> Unit
 ) : FrameLayout(context) {
@@ -50,6 +54,18 @@ class BroadwayHomeView(
     private var previewRequestSerial = 0L
     private var insetTopPx = 0
     private var insetBottomPx = 0
+
+    /** Shown instead of the live preview while the floating character owns the Live2D runtime. */
+    private val overlayRunningNotice = android.widget.TextView(context).apply {
+        text = "角色正在其他 App 上方執行中\n關閉浮動角色後會回到這裡"
+        setTextColor(Color.rgb(236, 207, 177))
+        textSize = 15f
+        gravity = Gravity.CENTER
+        visibility = View.GONE
+    }
+    private val overlayPresenceListener: (Boolean) -> Unit = { active ->
+        post { onOverlayPresenceChanged(active) }
+    }
 
     private data class DesignRect(val left: Float, val top: Float, val width: Float, val height: Float)
 
@@ -79,7 +95,10 @@ class BroadwayHomeView(
             clipToPadding = true
         }
         addAt(stageHost, 198f, 292f, 468f, 787f)
+        addAt(overlayRunningNotice, 198f, 292f, 468f, 787f)
         stageHost.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> ensurePreviewAttached() }
+        Live2DOverlayPresence.addListener(overlayPresenceListener)
+        overlayRunningNotice.visibility = if (Live2DOverlayPresence.active) View.VISIBLE else View.GONE
 
         // Top bar: the generated diamond counter is one cohesive group.
         addAt(
@@ -142,6 +161,22 @@ class BroadwayHomeView(
         )
 
         addAt(
+            android.widget.TextView(context).apply {
+                text = "💬 和角色聊天（Claude）"
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(48, 32, 40))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = 999f
+                    setColor(Color.rgb(236, 207, 177))
+                }
+                contentDescription = "和角色聊天"
+                isClickable = true
+                setOnClickListener { onClaudeChat(previewProfile) }
+            },
+            252f, 1226f, 360f, 82f
+        )
+        addAt(
             artworkButton(
                 R.drawable.broadway_play_up,
                 R.drawable.broadway_play_down,
@@ -167,6 +202,13 @@ class BroadwayHomeView(
     fun resumePreview() {
         if (previewDisposed) return
         previewResumed = true
+        val current = previewView
+        if (current != null && current.initialized && !current.bridge.ownsRuntime && !Live2DOverlayPresence.active) {
+            // Another screen (the Claude chat) took the Live2D runtime while we were away:
+            // load the preview again instead of showing an inert view.
+            renderPreview(previewProfile)
+            return
+        }
         ensurePreviewAttached()
         previewView?.onResume()
     }
@@ -178,6 +220,7 @@ class BroadwayHomeView(
 
     fun releasePreview() {
         if (previewDisposed) return
+        Live2DOverlayPresence.removeListener(overlayPresenceListener)
         previewDisposed = true
         previewResumed = false
         previewRequestSerial += 1L
@@ -332,8 +375,33 @@ class BroadwayHomeView(
         attachPreview(previewProfile, previewRequestSerial)
     }
 
+    private fun onOverlayPresenceChanged(active: Boolean) {
+        if (previewDisposed) return
+        overlayRunningNotice.visibility = if (active) View.VISIBLE else View.GONE
+        if (!active) {
+            // A relaunch stops the overlay and starts it again ~150 ms later; wait a
+            // moment so the preview does not grab the runtime in between.
+            // Only while the home screen is showing: in the background another screen
+            // (the Claude chat) may own the runtime; resumePreview() reattaches later.
+            postDelayed({
+                if (!Live2DOverlayPresence.active && previewResumed) ensurePreviewAttached()
+            }, PREVIEW_REATTACH_DELAY_MS)
+            return
+        }
+        // The overlay took the Live2D runtime: drop the preview view (its bridge is already inert).
+        val old = previewView ?: return
+        previewView = null
+        previewReleaseInFlight = true
+        old.release {
+            stageHost.removeView(old)
+            previewReleaseInFlight = false
+            ensurePreviewAttached()
+        }
+    }
+
     private fun attachPreview(profile: Live2DCharacterProfile, requestSerial: Long) {
         if (previewDisposed || previewReleaseInFlight || previewView != null) return
+        if (Live2DOverlayPresence.active) return
         if (requestSerial != previewRequestSerial) return
         if (stageHost.width < MIN_PREVIEW_EDGE_PX || stageHost.height < MIN_PREVIEW_EDGE_PX) return
 
@@ -405,10 +473,18 @@ class BroadwayHomeView(
 
     private fun verifyProfileAssets(profile: Live2DCharacterProfile): Boolean {
         return runCatching {
-            verifyApkProfile(profile)
+            when (profile.modelSource) {
+                Live2DModelSource.APK_ASSET -> verifyApkProfile(profile)
+                Live2DModelSource.APP_PRIVATE -> verifyPrivateProfile(profile)
+            }
         }.onFailure {
             Log.e(TAG, "asset-preflight-failure id=${profile.id}", it)
         }.getOrDefault(false)
+    }
+
+    private fun verifyPrivateProfile(profile: Live2DCharacterProfile): Boolean {
+        val dir = java.io.File(Live2DNativeBridge.resolvePrivateCharacterDir(context.filesDir, profile.assetDir))
+        return java.io.File(dir, profile.model3File).isFile
     }
 
     private fun verifyApkProfile(profile: Live2DCharacterProfile): Boolean {
@@ -433,5 +509,6 @@ class BroadwayHomeView(
         private const val DESIGN_WIDTH = 864f
         private const val DESIGN_HEIGHT = 1536f
         private const val MIN_PREVIEW_EDGE_PX = 32
+        private const val PREVIEW_REATTACH_DELAY_MS = 400L
     }
 }

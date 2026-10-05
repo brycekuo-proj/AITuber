@@ -29,10 +29,16 @@ class UniversalStateResolver(
             lastVisualizerSpeakingMs = input.sourceTimestampMs
         }
 
+        // Audio Playback Capture hears only the AI apps' own media audio, so when it
+        // hears speech it wins, with or without a voice session ("read aloud", or a
+        // voice mode that plays as media). Voice modes that play as a
+        // call cannot be captured: only the output-mix Visualizer hears them, and
+        // only while a voice session exists (otherwise it would react to music).
         val authority = when {
-            !voiceSessionActive -> StateAuthority.NO_ACTIVE_SESSION
-            visualizerHealthy -> StateAuthority.VISUALIZER
-            else -> StateAuthority.PLAYBACK_FALLBACK
+            input.playbackState == UniversalAiState.SPEAKING -> StateAuthority.PLAYBACK_CAPTURE
+            voiceSessionActive && visualizerHealthy -> StateAuthority.VISUALIZER
+            voiceSessionActive -> StateAuthority.PLAYBACK_FALLBACK
+            else -> StateAuthority.NO_ACTIVE_SESSION
         }
         val holdRemaining = speakingHoldRemaining(input.nowMs)
         val resolved = when (authority) {
@@ -44,6 +50,7 @@ class UniversalStateResolver(
                 else -> currentState
             }
             StateAuthority.PLAYBACK_FALLBACK -> input.playbackState
+            StateAuthority.PLAYBACK_CAPTURE -> UniversalAiState.SPEAKING
         }
 
         if (input.sourceTimestampMs >= lastAuthoritativeTimestampMs || authority == StateAuthority.VISUALIZER) {
@@ -129,8 +136,12 @@ class UniversalStateResolver(
     )
 
     enum class StateAuthority {
+        /** Voice session active, AI apps' media audio quiet; the output-mix Visualizer decides. */
         VISUALIZER,
+        /** Voice session active but the Visualizer is unavailable; Playback Capture decides. */
         PLAYBACK_FALLBACK,
+        /** An AI app is playing speech as media (read aloud, or a media-based voice mode). */
+        PLAYBACK_CAPTURE,
         NO_ACTIVE_SESSION
     }
 

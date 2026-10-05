@@ -39,6 +39,7 @@ import com.aituber.poc.character.staticpng.StaticPngBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngChestBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
+import com.aituber.poc.character.live2d.Live2DOverlayPresence
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
@@ -561,6 +562,8 @@ class CharacterOverlayService : Service() {
                 live2dView = live2d
                 mouthView = null
                 staticPngView = null
+                // The overlay now owns the Live2D runtime; the home preview steps aside.
+                Live2DOverlayPresence.set(true)
                 return OverlaySelection(
                     view = live2d,
                     live2dActive = true,
@@ -599,12 +602,22 @@ class CharacterOverlayService : Service() {
 
     private fun fallbackToMinimalMouthOnMain(reason: String) {
         requireMainThread("fallbackToMinimalMouthOnMain")
+        // A failure callback can arrive after this service was destroyed.
+        if (windowManager == null || activeService !== this) return
         OverlayLifecycleTrace.record(reason)
         stopBlinkTick()
         val oldView = overlayView
-        live2dView?.release()
+        val wm = windowManager
+        val live2d = live2dView
         staticPngView?.release()
-        oldView?.let { runCatching { windowManager?.removeView(it) } }
+        if (live2d != null) {
+            live2d.release {
+                oldView?.let { runCatching { wm?.removeView(it) } }
+                Live2DOverlayPresence.set(false)
+            }
+        } else {
+            oldView?.let { runCatching { wm?.removeView(it) } }
+        }
 
         val minimal = MouthOverlayView(this)
         mouthView = minimal
@@ -670,10 +683,21 @@ class CharacterOverlayService : Service() {
         silenceGate.reset()
         MouthDriveDiagnostics.reset()
         MouthRenderDiagnostics.reset()
-        live2dView?.release()
         staticPngView?.release()
-        overlayCloseView?.let { view -> runCatching { windowManager?.removeView(view) } }
-        overlayView?.let { view -> runCatching { windowManager?.removeView(view) } }
+        val wm = windowManager
+        val rootView = overlayView
+        val live2d = live2dView
+        overlayCloseView?.let { view -> runCatching { wm?.removeView(view) } }
+        if (live2d != null) {
+            // Detaching the window stops its GL thread; release the native runtime first,
+            // and only then let the home preview take the runtime back.
+            live2d.release {
+                rootView?.let { view -> runCatching { wm?.removeView(view) } }
+                Live2DOverlayPresence.set(false)
+            }
+        } else {
+            rootView?.let { view -> runCatching { wm?.removeView(view) } }
+        }
         OverlayLifecycleTrace.record("overlay view removed")
         mouthView = null
         live2dView = null
@@ -699,19 +723,19 @@ class CharacterOverlayService : Service() {
 
     private fun applyMouthAmplitude(snapshot: UniversalStateSnapshot) {
         val nowMs = SystemClock.elapsedRealtime()
-        val visualizerAvailable = snapshot.visualizerProbe.enabled == "YES" &&
-            snapshot.visualizerProbe.waveformCallbackCount > 0L
+        // Detector-neutral loudness chosen by the state layer (Visualizer or Playback Capture).
+        val signal = snapshot.mouthSignal
         val gateFrame = silenceGate.evaluate(
             universalState = snapshot.state,
-            metrics = snapshot.visualizerProbe.currentMetrics,
-            visualizerAvailable = visualizerAvailable,
+            metrics = signal.metrics,
+            visualizerAvailable = signal.available,
             nowMs = nowMs
         )
         val frame = amplitudeMapper.evaluate(
             state = snapshot.state,
-            metrics = snapshot.visualizerProbe.currentMetrics,
+            metrics = signal.metrics,
             mouthActive = gateFrame.mouthActive,
-            visualizerAvailable = visualizerAvailable,
+            visualizerAvailable = signal.available,
             nowMs = nowMs
         )
         mouthDriveMode = frame.mode
@@ -719,7 +743,7 @@ class CharacterOverlayService : Service() {
         MouthRenderDiagnostics.recordMapper(frame.mode, frame.targetOpen, frame.smoothedOpen)
         MouthRenderDiagnostics.recordOverlaySnapshot(
             state = snapshot.state,
-            metrics = snapshot.visualizerProbe.currentMetrics,
+            metrics = signal.metrics,
             targetOpen = frame.targetOpen,
             smoothedOpen = frame.smoothedOpen
         )
@@ -744,19 +768,19 @@ class CharacterOverlayService : Service() {
 
     private fun renderStaticPngSnapshot(snapshot: UniversalStateSnapshot) {
         val nowMs = SystemClock.elapsedRealtime()
-        val visualizerAvailable = snapshot.visualizerProbe.enabled == "YES" &&
-            snapshot.visualizerProbe.waveformCallbackCount > 0L
+        // Detector-neutral loudness chosen by the state layer (Visualizer or Playback Capture).
+        val signal = snapshot.mouthSignal
         val gateFrame = silenceGate.evaluate(
             universalState = snapshot.state,
-            metrics = snapshot.visualizerProbe.currentMetrics,
-            visualizerAvailable = visualizerAvailable,
+            metrics = signal.metrics,
+            visualizerAvailable = signal.available,
             nowMs = nowMs
         )
         val frame = amplitudeMapper.evaluate(
             state = snapshot.state,
-            metrics = snapshot.visualizerProbe.currentMetrics,
+            metrics = signal.metrics,
             mouthActive = gateFrame.mouthActive,
-            visualizerAvailable = visualizerAvailable,
+            visualizerAvailable = signal.available,
             nowMs = nowMs
         )
         mouthDriveMode = frame.mode
@@ -764,7 +788,7 @@ class CharacterOverlayService : Service() {
         MouthRenderDiagnostics.recordMapper(frame.mode, frame.targetOpen, frame.smoothedOpen)
         MouthRenderDiagnostics.recordOverlaySnapshot(
             state = snapshot.state,
-            metrics = snapshot.visualizerProbe.currentMetrics,
+            metrics = signal.metrics,
             targetOpen = frame.targetOpen,
             smoothedOpen = frame.smoothedOpen
         )

@@ -44,15 +44,36 @@ data class Live2DCharacterCapabilities(
     val expressions: Boolean
 )
 
+/**
+ * Where the model sits in the overlay. [height] is the model-space height
+ * (larger = bigger character), [offsetY] moves it up (+) or down (-).
+ */
+data class Live2DModelLayout(
+    val height: Float = DEFAULT_HEIGHT,
+    val offsetY: Float = DEFAULT_OFFSET_Y
+) {
+    companion object {
+        const val DEFAULT_HEIGHT = 2.0f
+        const val DEFAULT_OFFSET_Y = -0.1f
+    }
+}
+
+enum class Live2DModelSource {
+    APK_ASSET,
+    APP_PRIVATE
+}
+
 data class Live2DCharacterProfile(
     val id: String,
     val displayName: String,
     val assetDir: String,
     val model3File: String,
+    val modelSource: Live2DModelSource = Live2DModelSource.APK_ASSET,
     val parameterMapping: Live2DParameterMapping,
     val mouthTuning: Live2DMouthTuning = Live2DMouthTuning(),
     val fallbackHeadIdle: Live2DFallbackHeadIdleConfig = Live2DFallbackHeadIdleConfig(),
-    val capabilities: Live2DCharacterCapabilities
+    val capabilities: Live2DCharacterCapabilities,
+    val layout: Live2DModelLayout = Live2DModelLayout()
 ) {
     fun toModelConfig(): Live2DModelConfig = Live2DModelConfig(
         modelName = displayName,
@@ -173,21 +194,37 @@ object Live2DCharacterProfiles {
         )
     )
 
-    val all: List<Live2DCharacterProfile> = listOf(Tororo, Hijiki, Haru, LoafDog)
+    /** Characters bundled in the APK. */
+    val builtIns: List<Live2DCharacterProfile> = listOf(Tororo, Hijiki, Haru, LoafDog)
+
+    @Volatile
+    private var installed: List<Live2DCharacterProfile> = emptyList()
+
+    /** Built-in characters followed by characters installed from the store. */
+    val all: List<Live2DCharacterProfile>
+        get() = builtIns + installed
+
+    /** Replaces the installed (downloaded) characters. Ids that clash with a built-in are ignored. */
+    fun setInstalled(profiles: List<Live2DCharacterProfile>) {
+        val builtInIds = builtIns.map { it.id }.toSet()
+        installed = profiles.filter { it.id !in builtInIds }.distinctBy { it.id }
+    }
 
     fun byId(id: String?): Live2DCharacterProfile =
         all.firstOrNull { it.id == id } ?: Haru
 
     fun next(id: String?): Live2DCharacterProfile {
-        val currentIndex = all.indexOfFirst { it.id == byId(id).id }
-        val nextIndex = if (currentIndex < 0) 0 else (currentIndex + 1) % all.size
-        return all[nextIndex]
+        val list = all
+        val currentIndex = list.indexOfFirst { it.id == byId(id).id }
+        val nextIndex = if (currentIndex < 0) 0 else (currentIndex + 1) % list.size
+        return list[nextIndex]
     }
 
     fun previous(id: String?): Live2DCharacterProfile {
-        val currentIndex = all.indexOfFirst { it.id == byId(id).id }
+        val list = all
+        val currentIndex = list.indexOfFirst { it.id == byId(id).id }
         val safeIndex = if (currentIndex < 0) 0 else currentIndex
-        val previousIndex = (safeIndex - 1 + all.size) % all.size
-        return all[previousIndex]
+        val previousIndex = (safeIndex - 1 + list.size) % list.size
+        return list[previousIndex]
     }
 }

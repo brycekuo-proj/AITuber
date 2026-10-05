@@ -29,6 +29,7 @@ import com.aituber.poc.character.CharacterMode
 import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DProfileStore
+import com.aituber.poc.character.live2d.install.InstalledCharacterRegistry
 import com.aituber.poc.character.staticpng.StaticPngBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngChestBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngHairShape
@@ -47,7 +48,7 @@ import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
 import com.aituber.poc.poc.CaptureStartupTrace
-import com.aituber.poc.poc.ChatGptTarget
+import com.aituber.poc.poc.AiTargetApps
 import com.aituber.poc.poc.DetectionMethod
 import com.aituber.poc.poc.VisualizerAudioProbe
 import com.aituber.poc.poc.VisualMotionProbeService
@@ -529,6 +530,15 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         broadwayHomeView?.resumePreview()
+        // A character was just installed or picked in the store: show it on the stage.
+        InstalledCharacterRegistry.lastInstalledId?.let { id ->
+            InstalledCharacterRegistry.lastInstalledId = null
+            val profile = Live2DCharacterProfiles.byId(id)
+            if (profile.id == id) {
+                broadwayPreviewProfile = profile
+                broadwayHomeView?.showPreview(profile)
+            }
+        }
         if (pendingBroadwayLaunch) {
             if (Settings.canDrawOverlays(this)) {
                 completeBroadwayLaunch()
@@ -666,6 +676,7 @@ class MainActivity : Activity() {
             onCharacterShop = {
                 startActivity(Intent(this, CharacterStoreActivity::class.java))
             },
+            onClaudeChat = { profile -> com.aituber.poc.claudechat.ClaudeChatActivity.start(this, profile) },
             onBack = {
                 finish()
             },
@@ -1387,12 +1398,6 @@ class MainActivity : Activity() {
         addButton(root, legacyProbeControlLabels[3]) { startVisualizerProbe(automatedTest = true) }
         addButton(root, legacyProbeControlLabels[4]) { startVisualizerProbe(automatedTest = false) }
         addButton(root, legacyProbeControlLabels[5]) { VisualizerAudioProbe.stop() }
-        addButton(root, legacyProbeControlLabels[6]) {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }
-        addButton(root, legacyProbeControlLabels[7]) { CaptureSessionState.markAccessibilityTestPhase("QUIET") }
-        addButton(root, legacyProbeControlLabels[8]) { CaptureSessionState.markAccessibilityTestPhase("USER") }
-        addButton(root, legacyProbeControlLabels[9]) { CaptureSessionState.markAccessibilityTestPhase("AI") }
     }
 
     private fun addCoreField(root: LinearLayout, label: String): TextView {
@@ -1734,11 +1739,8 @@ class MainActivity : Activity() {
             publishLocal("Android Playback Capture requires Android 10 / API 29 or later")
             return
         }
-        if (!ChatGptTarget.isInstalled(this)) {
-            CaptureStartupTrace.record("ChatGPT UID unavailable")
-            publishLocal(CaptureStatus.CHATGPT_NOT_INSTALLED)
-            return
-        }
+        // No AI-app gate: the speaker-output detector works for any app, and the
+        // capture service listens to every installed AI app it knows (AiTargetApps).
         val recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         CaptureStartupTrace.recordAudioPermissionCheck(recordAudioGranted)
         if (!recordAudioGranted) {
@@ -1759,7 +1761,7 @@ class MainActivity : Activity() {
     private fun requestPlaybackCapture() {
         CaptureSessionState.update(
             UniversalStateSnapshot(
-                targetApp = ChatGptTarget.label,
+                targetApp = AiTargetApps.label(AiTargetApps.installed(this)),
                 detectionMethod = DetectionMethod.PLAYBACK_CAPTURE.label,
                 state = UniversalAiState.UNKNOWN,
                 audioLevel = null,
@@ -1851,7 +1853,7 @@ class MainActivity : Activity() {
     private fun publishLocal(status: String) {
         CaptureSessionState.update(
             UniversalStateSnapshot(
-                targetApp = ChatGptTarget.label,
+                targetApp = AiTargetApps.label(AiTargetApps.installed(this)),
                 detectionMethod = DetectionMethod.PLAYBACK_CAPTURE.label,
                 state = UniversalAiState.UNKNOWN,
                 audioLevel = null,
@@ -1891,7 +1893,9 @@ class MainActivity : Activity() {
     private fun renderSnapshotOnUi(snapshot: UniversalStateSnapshot) {
             refreshControlLabels()
             universalStateValue.text = snapshot.state.name
-            voiceSessionValue.text = activeLabel(snapshot.playbackProbe.voiceSessionActive)
+            voiceSessionValue.text = activeLabel(snapshot.playbackProbe.voiceSessionActive).let { label ->
+                if (snapshot.playbackProbe.voiceSessionActive == "YES") "$label (${snapshot.playbackProbe.voiceSessionReason})" else label
+            }
             playbackActiveValue.text = activeLabel(snapshot.playbackProbe.playbackSessionActive)
             recordingActiveValue.text = activeLabel(snapshot.playbackProbe.recordingSessionActive)
             audioSourceValue.text = compactAudioSource(snapshot.playbackProbe.observedAudioSource)
@@ -2412,17 +2416,8 @@ class MainActivity : Activity() {
             "activityAvg=${"%.3f".format(summary.activityAverage)}"
     }
 
-    private fun isAccessibilityServiceEnabled(): Boolean {
-        val expected = "$packageName/.accessibility.ChatGptAccessibilityProbeService"
-        val enabledServices = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        return enabledServices.split(':').any { serviceName ->
-            serviceName.equals(expected, ignoreCase = true) ||
-                serviceName.equals("$packageName/com.aituber.poc.accessibility.ChatGptAccessibilityProbeService", ignoreCase = true)
-        }
-    }
+    /** The accessibility probe was removed (Play policy): it only produced diagnostics. */
+    private fun isAccessibilityServiceEnabled(): Boolean = false
 
     private fun activeLabel(value: String): String {
         return if (value == "YES") "ACTIVE" else "INACTIVE"

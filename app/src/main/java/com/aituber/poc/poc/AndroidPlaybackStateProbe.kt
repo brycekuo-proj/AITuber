@@ -53,6 +53,12 @@ class AndroidPlaybackStateProbe(
     private var combinedCandidateState = "UNKNOWN"
     private var combinedCandidateConfidence = "NONE"
     private var lastCombinedStateChangeElapsedMs: Long? = null
+    private var lastPlayers: List<VoiceSessionDetector.Player> = emptyList()
+    private var externalMicOpen = false
+    private var lastExternalMicSeenMs: Long? = null
+    private var voiceSession = VoiceSessionDetector.Result.INACTIVE
+    private val handler = Handler(Looper.getMainLooper())
+    private val recheckVoiceSession = Runnable { reevaluateVoiceSession(publishIfChanged = true) }
 
     fun start() {
         if (callback != null) return
@@ -81,8 +87,8 @@ class AndroidPlaybackStateProbe(
         recordingCallback = audioRecordingCallback
 
         try {
-            audioManager.registerAudioPlaybackCallback(playbackCallback, Handler(Looper.getMainLooper()))
-            audioManager.registerAudioRecordingCallback(audioRecordingCallback, Handler(Looper.getMainLooper()))
+            audioManager.registerAudioPlaybackCallback(playbackCallback, handler)
+            audioManager.registerAudioRecordingCallback(audioRecordingCallback, handler)
             publishRecording(audioManager.activeRecordingConfigurations)
             publish(audioManager.activePlaybackConfigurations, "Registered; no callback seen yet")
         } catch (runtime: RuntimeException) {
@@ -100,6 +106,7 @@ class AndroidPlaybackStateProbe(
     }
 
     fun stop() {
+        handler.removeCallbacks(recheckVoiceSession)
         callback?.let { playbackCallback ->
             runCatching { audioManager.unregisterAudioPlaybackCallback(playbackCallback) }
         }
@@ -129,11 +136,9 @@ class AndroidPlaybackStateProbe(
         val publicAudioModeAndDeviceSignal = publicAudioModeAndDeviceSignal(configs)
         val callbackDeltaMs = previousCallbackElapsedMs?.let { previous -> now - previous }
         previousCallbackElapsedMs = now
-        val hasVoiceCommunicationSpeech = attributes.any { attribute ->
-            attribute.usage == AudioAttributes.USAGE_VOICE_COMMUNICATION &&
-                attribute.contentType == AudioAttributes.CONTENT_TYPE_SPEECH
-        }
-        val voiceSessionActive = activeCount > 0 && hasVoiceCommunicationSpeech
+        lastPlayers = attributes.map { VoiceSessionDetector.Player(it.usage, it.contentType) }
+        reevaluateVoiceSession(publishIfChanged = false)
+        val voiceSessionActive = voiceSession.active
         lastPlaybackSessionActive = if (voiceSessionActive) "YES" else "NO"
         val actualCandidate = if (voiceSessionActive) "UNKNOWN" else "NO"
         val candidateConfidence = if (voiceSessionActive) "NONE" else "HIGH"
@@ -189,7 +194,6 @@ class AndroidPlaybackStateProbe(
                 observedUsage = usage,
                 observedContentType = contentType,
                 observedPlayerState = "UNAVAILABLE",
-                voiceSessionActive = if (voiceSessionActive) "YES" else "NO",
                 probeSignalA = "Configuration identity changed=$configurationIdentityChanged value=$configurationIdentity",
                 probeSignalB = publicAudioModeAndDeviceSignal,
                 probeSignalC = "Callback delta=${callbackDeltaMs?.let { "$it ms" } ?: "n/a"} events=$callbackEventCount",
@@ -215,10 +219,37 @@ class AndroidPlaybackStateProbe(
         recordingSessionIdentity = configs.map { config ->
             "session=${config.clientAudioSessionId}/source=${audioSourceLabel(config.clientAudioSource)}/hash=${config.hashCode()}"
         }.sorted().joinToStringOrDefault()
+        val micOpen = configs.any { config -> VoiceSessionDetector.isExternalMic(config.clientAudioSource) }
+        // Remember the moment the microphone was last seen open (push-to-talk closes it before the answer).
+        if (micOpen || externalMicOpen) lastExternalMicSeenMs = now
+        externalMicOpen = micOpen
+        reevaluateVoiceSession(publishIfChanged = false)
 
         updateCombinedCandidate(now)
         recordCombinedEvent(now)
         onSnapshot(currentSnapshot())
+    }
+
+    /**
+     * Recomputes the voice session from the latest players, audio mode and mic state,
+     * and arms a timer for when the push-to-talk mic hold runs out.
+     */
+    private fun reevaluateVoiceSession(publishIfChanged: Boolean) {
+        val now = SystemClock.elapsedRealtime()
+        val next = VoiceSessionDetector.evaluate(
+            players = lastPlayers,
+            audioMode = runCatching { audioManager.mode }.getOrDefault(AudioManager.MODE_NORMAL),
+            micOpen = externalMicOpen,
+            lastMicSeenMs = lastExternalMicSeenMs,
+            nowMs = now
+        )
+        val changed = next != voiceSession
+        voiceSession = next
+        handler.removeCallbacks(recheckVoiceSession)
+        VoiceSessionDetector.nextRecheckAtMs(externalMicOpen, lastExternalMicSeenMs, now)?.let { at ->
+            if (callback != null) handler.postDelayed(recheckVoiceSession, at - now + 50L)
+        }
+        if (changed && publishIfChanged) onSnapshot(currentSnapshot())
     }
 
     private fun recordPlaybackEvent(event: PlaybackProbeEvent) {
@@ -280,6 +311,8 @@ class AndroidPlaybackStateProbe(
         lastCandidateChangeElapsedMs = lastCandidateChangeElapsedMs,
         lastFineGrainedEvents = lastFineGrainedEvents.toList(),
         playbackSessionActive = if (lastActivePlaybackCount > 0) "YES" else "NO",
+        voiceSessionActive = if (voiceSession.active) "YES" else "NO",
+        voiceSessionReason = voiceSession.reason.label,
         recordingSessionActive = if (activeRecordingCount > 0) "YES" else "NO",
         activeRecordingCount = activeRecordingCount,
         recordingCallbackEventCount = recordingCallbackEventCount,

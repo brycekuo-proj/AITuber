@@ -1,6 +1,7 @@
 package com.aituber.poc.ui
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -18,19 +19,63 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.aituber.poc.character.live2d.Live2DCharacterProfiles
+import com.aituber.poc.character.live2d.Live2DNativeBridge
+import com.aituber.poc.character.live2d.Live2DProfileStore
+import com.aituber.poc.character.live2d.install.CharacterPackageInstaller
+import com.aituber.poc.character.live2d.install.InstalledCharacterRegistry
 
 class CharacterStoreActivity : Activity() {
 
     private var selectedSource: String? = null
+    private lateinit var installer: CharacterPackageInstaller
+    private var installDialog: AlertDialog? = null
+    private var installMessage: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(43, 8, 18)
         window.navigationBarColor = Color.rgb(33, 8, 14)
+        installer = CharacterPackageInstaller(this)
+        InstalledCharacterRegistry.ensureLoaded(this)
         setContentView(buildStore())
     }
 
+    private var shownInstalledIds: Set<String> = emptySet()
+    /** Blocks a double tap from opening two download pages / starting two installs. */
+    private var downloadInFlight = false
+
+    override fun onResume() {
+        super.onResume()
+        downloadInFlight = installDialog != null
+        // Back from the in-app download page: refresh "使用" / "下載" only if something changed.
+        val installedNow = installedIds()
+        if (installedNow != shownInstalledIds) setContentView(buildStore())
+    }
+
+    private fun installedIds(): Set<String> =
+        CharacterStoreCatalog.entries.map { storeCharacterId(it) }
+            .filter { InstalledCharacterRegistry.isInstalled(this, it) }.toSet()
+
+    override fun onDestroy() {
+        installDialog?.dismiss()
+        installDialog = null
+        super.onDestroy()
+    }
+
+    /** False when the bundled native library is too old to render downloaded characters. */
+    private fun ensureInstallSupported(): Boolean {
+        if (Live2DNativeBridge.supportsDownloadedCharacters) return true
+        AlertDialog.Builder(this)
+            .setTitle("暫時無法安裝")
+            .setMessage("這個版本的 Live2D 元件太舊，無法載入下載的角色。需要重新編譯 App 的 Live2D 元件後才能使用。")
+            .setPositiveButton("確定", null)
+            .show()
+        return false
+    }
+
     private fun buildStore(): View {
+        shownInstalledIds = installedIds()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(8), dp(14), dp(20))
@@ -83,7 +128,7 @@ class CharacterStoreActivity : Activity() {
 
         content.addView(
             TextView(this).apply {
-                text = "角色檔案由原作者網站提供"
+                text = "按「下載」即可加入角色，檔案由原作者網站提供"
                 textSize = 13f
                 setTextColor(0xFFECCFB1.toInt())
                 gravity = Gravity.CENTER
@@ -407,23 +452,41 @@ class CharacterStoreActivity : Activity() {
                 )
             )
 
+            val installed = entry.builtInProfileId != null ||
+                InstalledCharacterRegistry.isInstalled(this@CharacterStoreActivity, storeCharacterId(entry))
+            val blocked = entry.unavailableReason
             addView(
                 TextView(this@CharacterStoreActivity).apply {
-                    text = "下載"
+                    text = when {
+                        blocked != null -> blocked
+                        installed -> "使用"
+                        else -> "下載"
+                    }
                     textSize = 18f
                     setTypeface(typeface, Typeface.BOLD)
                     gravity = Gravity.CENTER
-                    setTextColor(Color.rgb(86, 43, 0))
+                    setTextColor(if (blocked != null) Color.rgb(190, 170, 150) else Color.rgb(86, 43, 0))
                     background = roundedPanel(
-                        fill = Color.rgb(244, 193, 85),
-                        stroke = Color.rgb(255, 226, 142),
+                        fill = if (blocked != null) Color.rgb(90, 60, 55) else Color.rgb(244, 193, 85),
+                        stroke = if (blocked != null) Color.rgb(130, 100, 80) else Color.rgb(255, 226, 142),
                         strokeWidth = dp(2),
                         radius = dp(12).toFloat()
                     )
                     isClickable = true
                     isFocusable = true
-                    contentDescription = "下載 " + entry.displayName
-                    setOnClickListener { openDownload(entry) }
+                    contentDescription = text.toString() + " " + entry.displayName
+                    setOnClickListener {
+                        when {
+                            blocked != null -> Toast.makeText(
+                                this@CharacterStoreActivity,
+                                "正在等待版權方的書面同意，確認後就能下載",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            entry.builtInProfileId != null -> useInstalled(entry.builtInProfileId)
+                            installed -> useInstalled(storeCharacterId(entry))
+                            else -> download(entry)
+                        }
+                    }
                     installBroadwayPressFeedback()
                 },
                 LinearLayout.LayoutParams(
@@ -447,13 +510,93 @@ class CharacterStoreActivity : Activity() {
         }
     }
 
-    private fun openDownload(entry: CharacterStoreEntry) {
-        runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(entry.downloadUrl)))
-        }.onFailure {
-            Toast.makeText(this, "無法開啟下載頁面", Toast.LENGTH_SHORT).show()
+    /**
+     * One tap from the store to the character page: public files are fetched
+     * directly; creator-site downloads (BOOTH etc.) run in the in-app download page.
+     */
+    private fun download(entry: CharacterStoreEntry) {
+        if (downloadInFlight) return
+        if (!ensureInstallSupported()) return
+        downloadInFlight = true
+        when {
+            entry.downloadFiles.isNotEmpty() -> {
+                showProgress("正在下載「${entry.displayName}」…")
+                installer.installFromFiles(
+                    urls = entry.downloadFiles,
+                    store = entry.toStoreInfo(),
+                    onProgress = ::onDownloadProgress,
+                    onDone = ::onInstallFinished
+                )
+            }
+            entry.directDownload -> {
+                showProgress("正在下載「${entry.displayName}」…")
+                installer.installFromUrl(
+                    url = entry.downloadUrl,
+                    store = entry.toStoreInfo(),
+                    onProgress = ::onDownloadProgress,
+                    onDone = ::onInstallFinished
+                )
+            }
+            else -> startActivity(StoreDownloadActivity.intent(this, entry.id))
         }
     }
+
+    private fun onDownloadProgress(done: Long, total: Long) {
+        installMessage?.text = if (total > 0) {
+            "正在下載… ${done * 100 / total}%"
+        } else {
+            "正在下載… ${"%.1f".format(done / (1024.0 * 1024.0))} MB"
+        }
+    }
+
+    private fun onInstallFinished(outcome: CharacterPackageInstaller.Outcome) {
+        downloadInFlight = false
+        installDialog?.dismiss()
+        installDialog = null
+        installMessage = null
+        if (isFinishing || isDestroyed) return
+        when (outcome) {
+            // The installer already selected the character; go straight to it.
+            is CharacterPackageInstaller.Outcome.Installed ->
+                StoreDownloadActivity.openCharacterPage(this, outcome.manifest.displayName)
+            is CharacterPackageInstaller.Outcome.Failed ->
+                AlertDialog.Builder(this)
+                    .setTitle("無法安裝")
+                    .setMessage(outcome.error.userMessage)
+                    .setPositiveButton("確定", null)
+                    .show()
+        }
+    }
+
+    private fun useInstalled(id: String) {
+        val profile = Live2DCharacterProfiles.byId(id)
+        Live2DProfileStore.save(this, profile)
+        InstalledCharacterRegistry.lastInstalledId = id
+        StoreDownloadActivity.openCharacterPage(this, profile.displayName, justInstalled = false)
+    }
+
+    private fun showProgress(message: String) {
+        installDialog?.dismiss()
+        val text = TextView(this).apply {
+            this.text = message
+            textSize = 16f
+            setPadding(dp(24), dp(20), dp(24), dp(20))
+        }
+        installMessage = text
+        installDialog = AlertDialog.Builder(this)
+            .setView(text)
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun storeCharacterId(entry: CharacterStoreEntry): String =
+        "store_" + CharacterPackageInstaller.slug(entry.id)
+
+    private fun CharacterStoreEntry.toStoreInfo() = CharacterPackageInstaller.StoreInfo(
+        storeId = id,
+        displayName = displayName,
+        sourceUrl = sourceUrl
+    )
 
     private fun roundedPanel(
         fill: Int,
@@ -474,5 +617,6 @@ class CharacterStoreActivity : Activity() {
 
     companion object {
         private val GOLD = Color.rgb(233, 184, 83)
+
     }
 }

@@ -69,7 +69,9 @@ data class PlaybackProbeSnapshot(
     val combinedCandidateConfidence: String,
     val lastCombinedStateChangeElapsedMs: Long?,
     val lastCombinedEvents: List<CombinedPlaybackRecordingEvent>,
-    val attribution: String
+    val attribution: String,
+    /** Why voiceSessionActive is YES (VoiceSessionDetector.Reason label), "none" otherwise. */
+    val voiceSessionReason: String = "none"
 ) {
     companion object {
         fun empty() = PlaybackProbeSnapshot(

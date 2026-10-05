@@ -47,7 +47,7 @@ class VisualMotionProbeService : Service() {
             ACTION_START_30S_TEST -> startProbe(intent, automatedTest = true)
             ACTION_STOP -> stopProbe()
         }
-        return START_STICKY
+        return START_NOT_STICKY  // MediaProjection consent cannot survive a restart
     }
 
     override fun onDestroy() {

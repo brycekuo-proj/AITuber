@@ -108,23 +108,28 @@ class Live2DOverlayView(
     }
 
     fun release(onReleased: (() -> Unit)? = null) {
-        if (!initialized) {
-            onPause()
-            mainHandler.post { onReleased?.invoke() }
-            return
-        }
-
-        // Release the process-global Cubism runtime while this GLSurfaceView still
-        // owns a live GL thread/context. Pausing first can strand this queueEvent,
-        // leaving Broadway preview switching permanently waiting on a callback.
-        queueEvent {
-            bridge.release()
-            publishDiagnostics()
-            mainHandler.post {
+        val done = java.util.concurrent.atomic.AtomicBoolean(false)
+        val finish = {
+            if (done.compareAndSet(false, true)) {
                 runCatching { onPause() }
                 onReleased?.invoke()
             }
         }
+        if (!initialized) {
+            mainHandler.post(finish)
+            return
+        }
+
+        // Release the process-global Cubism runtime on this view's GL thread so
+        // the GL deletes hit its own context.
+        queueEvent {
+            bridge.release()
+            publishDiagnostics()
+            mainHandler.post(finish)
+        }
+        // If the GL thread is already gone (view detached) the event never runs;
+        // do not leave the caller waiting forever.
+        mainHandler.postDelayed(finish, RELEASE_TIMEOUT_MS)
     }
 
     fun publishDiagnostics() {
@@ -222,12 +227,17 @@ class Live2DOverlayView(
         return "WAITING_FOR_SURFACE"
     }
 
+    private companion object {
+        const val RELEASE_TIMEOUT_MS = 1_500L
+    }
+
     private inner class Renderer : GLSurfaceView.Renderer {
         private var lastFrameMs = 0L
 
         override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-            if (initialized) {
-                if (!bridge.onSurfaceCreated()) {
+            // A view that lost the runtime to another view is not a failure.
+            if (initialized && bridge.ownsRuntime) {
+                if (!bridge.onSurfaceCreated() && bridge.ownsRuntime) {
                     val error = bridge.snapshot().lastError.ifBlank { "LIVE2D_SURFACE_MODEL_LOAD_FAILED" }
                     post { onRuntimeFailure(error) }
                     publishDiagnostics()
@@ -241,8 +251,8 @@ class Live2DOverlayView(
         }
 
         override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-            if (initialized) {
-                if (!bridge.onSurfaceChanged(width, height)) {
+            if (initialized && bridge.ownsRuntime) {
+                if (!bridge.onSurfaceChanged(width, height) && bridge.ownsRuntime) {
                     val error = bridge.snapshot().lastError.ifBlank { "LIVE2D_SURFACE_RESIZE_OR_MODEL_LOAD_FAILED" }
                     post { onRuntimeFailure(error) }
                     publishDiagnostics()
@@ -259,7 +269,11 @@ class Live2DOverlayView(
                 Thread.sleep(sleepMs)
             }
             lastFrameMs = SystemClock.elapsedRealtime()
-            bridge.drawFrame()
+            if (!bridge.drawFrame()) {
+                // Another view owns the Live2D runtime now: show nothing, not a stale buffer.
+                android.opengl.GLES20.glClearColor(0f, 0f, 0f, 0f)
+                android.opengl.GLES20.glClear(android.opengl.GLES20.GL_COLOR_BUFFER_BIT)
+            }
         }
     }
 }
