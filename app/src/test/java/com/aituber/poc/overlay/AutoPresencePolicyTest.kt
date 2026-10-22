@@ -95,4 +95,31 @@ class AutoPresencePolicyTest {
         policy.at(idleMs * 10, speaking = true)
         assertEquals(Action.COLLAPSE, policy.at(idleMs * 11).action)
     }
+
+    @Test
+    fun tuckedAwayByTheUserItStaysAwayForTheRestOfTheConversation() {
+        val policy = AutoPresencePolicy(idleMs)
+        policy.at(0L, speaking = true, session = true)
+        policy.onUserCollapsed()
+
+        assertEquals(Action.NONE, policy.at(100L, speaking = true, session = true, collapsed = true).action)
+        assertEquals(Action.NONE, policy.at(8_000L, speaking = true, collapsed = true).action)
+
+        val quiet = policy.at(9_000L, collapsed = true)
+        assertEquals(Action.NONE, quiet.action)
+        assertEquals(8_000L + idleMs, quiet.recheckAtMs)
+
+        // After a quiet stretch the next conversation brings it back as usual.
+        assertEquals(Action.NONE, policy.at(8_000L + idleMs, collapsed = true).action)
+        assertEquals(Action.EXPAND, policy.at(9_000L + idleMs, speaking = true, collapsed = true).action)
+    }
+
+    @Test
+    fun theAituberChatBringsItBackEvenAfterTheUserTuckedItAway() {
+        val policy = AutoPresencePolicy(idleMs)
+        policy.at(0L, speaking = true)
+        policy.onUserCollapsed()
+
+        assertEquals(Action.EXPAND, policy.at(100L, chat = true, collapsed = true).action)
+    }
 }

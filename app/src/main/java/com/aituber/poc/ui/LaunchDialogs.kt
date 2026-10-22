@@ -84,7 +84,7 @@ internal object LaunchDialogs {
     }
 
     /** Settings behind the gear button. Saved when the user taps 完成. */
-    fun settings(activity: Activity, onOpenSystemSettings: () -> Unit) {
+    fun settings(activity: Activity, onOpenSystemSettings: () -> Unit, onSaved: () -> Unit): AlertDialog {
         val density = activity.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
 
@@ -144,22 +144,30 @@ internal object LaunchDialogs {
             text = "精準偵測（進階）"
             isChecked = AituberSettings.preciseCapture(activity)
         }
+        val passThrough = CheckBox(activity).apply {
+            text = "點擊穿透角色"
+            isChecked = AituberSettings.passThroughCharacter(activity)
+        }
 
         root.addView(autoOpen)
         root.addView(appPicker)
+        root.addView(passThrough)
+        root.addView(note("角色不會擋住後面 App 的按鈕，但 Android 規定這時 Live2D 角色要半透明。關掉後角色是實心的，可以直接拖曳、雙指縮放。"))
         root.addView(autoHide)
         root.addView(note("對話停下來 15 秒後縮成小泡泡，AI 一開口會自己跳出來。"))
         root.addView(precise)
         root.addView(note("每次啟動都要按一次「開始錄製」，但能偵測 AI 朗讀文字。下次啟動生效。"))
 
-        AlertDialog.Builder(activity)
+        return AlertDialog.Builder(activity)
             .setTitle("AITuber 設定")
             .setView(ScrollView(activity).apply { addView(root) })
             .setPositiveButton("完成") { _, _ ->
                 AituberSettings.setAutoOpenAiApp(activity, autoOpen.isChecked)
                 chosenApp?.let { AituberSettings.setAiAppPackage(activity, it.packageName) }
+                AituberSettings.setPassThroughCharacter(activity, passThrough.isChecked)
                 AituberSettings.setAutoHideCharacter(activity, autoHide.isChecked)
                 AituberSettings.setPreciseCapture(activity, precise.isChecked)
+                onSaved()
             }
             .setNegativeButton("取消", null)
             .setNeutralButton("系統設定") { _, _ -> onOpenSystemSettings() }
@@ -174,7 +182,7 @@ internal object LaunchDialogs {
         onOpenAiApp: () -> Unit,
         onSwitch: () -> Unit,
         onStop: () -> Unit
-    ) {
+    ): AlertDialog {
         val labels = mutableListOf<String>()
         val actions = mutableListOf<() -> Unit>()
         if (aiAppLabel != null) {
@@ -187,7 +195,7 @@ internal object LaunchDialogs {
         }
         labels += "停止 AITuber"
         actions += onStop
-        AlertDialog.Builder(activity)
+        return AlertDialog.Builder(activity)
             .setTitle("AITuber 正在執行")
             .setItems(labels.toTypedArray()) { _, which -> actions[which]() }
             .setNegativeButton("取消", null)

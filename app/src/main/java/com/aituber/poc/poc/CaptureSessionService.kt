@@ -42,6 +42,8 @@ class CaptureSessionService : Service() {
     private var listeningOnly = false
     private var targetLabel = AiTargetApps.GENERIC_LABEL
     private var stopping = false
+    /** Nothing running (also before the first start), so stopping again publishes nothing. */
+    private var stopped = true
 
     override fun onCreate() {
         super.onCreate()
@@ -118,6 +120,7 @@ class CaptureSessionService : Service() {
             return
         }
         listeningOnly = true
+        stopped = false
         startupSequence(foregroundTypeMicrophone()).run()
         if (!foregroundStarted) {
             stopCapture(CaptureStatus.SERVICE_START_FAILED)
@@ -131,6 +134,7 @@ class CaptureSessionService : Service() {
     private fun startCapture(intent: Intent) {
         CaptureStartupTrace.startCaptureEntered()
         listeningOnly = false
+        stopped = false
         startupSequence(foregroundTypeMediaProjection()).run()
         if (!foregroundStarted) {
             stopCapture(CaptureStatus.SERVICE_START_FAILED)
@@ -147,8 +151,7 @@ class CaptureSessionService : Service() {
 
         if (resultCode == 0 || resultData == null) {
             CaptureStartupTrace.record("invalid result data")
-            publish(CaptureStatus.MEDIA_PROJECTION_DENIED)
-            stopSelf()
+            stopCapture(CaptureStatus.MEDIA_PROJECTION_DENIED)
             return
         }
 
@@ -184,6 +187,11 @@ class CaptureSessionService : Service() {
 
     private fun stopCapture(status: String) {
         if (stopping) return
+        if (stopped) {
+            // Already stopped (e.g. onDestroy after a failed start): keep the status that says why.
+            stopSelf()
+            return
+        }
         stopping = true
         adapter?.stop()
         adapter = null
@@ -205,6 +213,7 @@ class CaptureSessionService : Service() {
             }
             foregroundStarted = false
         }
+        stopped = true
         stopping = false
         stopSelf()
     }

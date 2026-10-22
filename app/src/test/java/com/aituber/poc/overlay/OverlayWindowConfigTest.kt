@@ -68,13 +68,22 @@ class OverlayWindowConfigTest {
     @Test
     fun passThroughAlphaNeverExceedsTheAndroidTouchOcclusionLimit() {
         OverlayWindowConfig.setOverlayAlphaPercent(100)
-        assertEquals(0.80f, OverlayWindowConfig.passThroughAlpha(), 0.0001f)
 
-        OverlayWindowConfig.setOverlayAlphaPercent(50)
-        assertEquals(0.50f, OverlayWindowConfig.passThroughAlpha(), 0.0001f)
+        // A plain-view character (minimal mouth, static PNG) is one layer.
+        val plain = OverlayWindowConfig.passThroughAlpha(hasSurfaceLayer = false)
+        assertEquals(0.80f, plain, 0.0001f)
+        assertTrue(OverlayWindowConfig.combinedOpacity(plain, layers = 1) <= OverlayWindowConfig.MAX_PASS_THROUGH_ALPHA + 0.0001f)
+
+        // The Live2D GLSurfaceView adds a second layer at the same alpha; Android combines them.
+        val surface = OverlayWindowConfig.passThroughAlpha(hasSurfaceLayer = true)
+        assertTrue(OverlayWindowConfig.combinedOpacity(surface, layers = 2) <= OverlayWindowConfig.MAX_PASS_THROUGH_ALPHA)
+        // The one-layer cap would still block touches with two layers (0.96).
+        assertTrue(OverlayWindowConfig.combinedOpacity(0.8f, layers = 2) > OverlayWindowConfig.MAX_PASS_THROUGH_ALPHA)
+
+        OverlayWindowConfig.setOverlayAlphaPercent(40)
+        assertEquals(0.40f, OverlayWindowConfig.passThroughAlpha(hasSurfaceLayer = true), 0.0001f)
 
         OverlayWindowConfig.setOverlayAlphaPercent(OverlayWindowConfig.DEFAULT_OVERLAY_ALPHA_PERCENT)
-        assertTrue(OverlayWindowConfig.passThroughAlpha() <= OverlayWindowConfig.MAX_PASS_THROUGH_ALPHA)
     }
 
     @Test

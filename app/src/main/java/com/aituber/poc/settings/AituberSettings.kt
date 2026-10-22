@@ -16,7 +16,7 @@ object AituberSettings {
     private const val KEY_AUTO_HIDE = "auto_hide_character"
     private const val KEY_PRECISE_CAPTURE = "precise_playback_capture"
     private const val KEY_NOTIFICATIONS_ASKED = "notifications_permission_asked"
-    private const val KEY_MICROPHONE_ASKED = "microphone_permission_asked"
+    private const val KEY_PASS_THROUGH = "pass_through_character"
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -63,9 +63,13 @@ object AituberSettings {
         prefs(context).edit().putBoolean(KEY_NOTIFICATIONS_ASKED, value).apply()
     }
 
-    fun microphoneAsked(context: Context): Boolean = prefs(context).getBoolean(KEY_MICROPHONE_ASKED, false)
+    /**
+     * Touches go through the character to the AI app underneath. Android then needs the
+     * Live2D character half transparent; off, it is solid and can be dragged and pinched directly.
+     */
+    fun passThroughCharacter(context: Context): Boolean = prefs(context).getBoolean(KEY_PASS_THROUGH, true)
 
-    fun setMicrophoneAsked(context: Context, value: Boolean) {
-        prefs(context).edit().putBoolean(KEY_MICROPHONE_ASKED, value).apply()
+    fun setPassThroughCharacter(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PASS_THROUGH, value).apply()
     }
 }

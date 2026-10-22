@@ -517,9 +517,21 @@ class MainActivity : Activity() {
     private var openAiAppWhenDetectionStarts = false
     private var activityResumed = false
     private var launchGuide: android.app.AlertDialog? = null
+    /** Settings or "already running" dialog, dismissed with the activity. */
+    private var secondaryDialog: android.app.AlertDialog? = null
+    private var microphoneRequestedAtMs = 0L
+    /** The last microphone request was refused without a dialog: only App settings can grant it now. */
+    private var microphoneBlockedDetected = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        savedInstanceState?.let { state ->
+            // A rotation during the permission guide must not drop the launch.
+            launchInProgress = state.getBoolean(STATE_LAUNCH_IN_PROGRESS)
+            awaitingSettingsReturn = state.getBoolean(STATE_AWAITING_SETTINGS)
+            openAiAppWhenDetectionStarts = state.getBoolean(STATE_OPEN_AI_APP)
+            microphoneBlockedDetected = state.getBoolean(STATE_MICROPHONE_BLOCKED)
+        }
         loadStaticPngTuning()
         val selectedProfile = Live2DProfileStore.load(this)
         broadwayPreviewProfile = selectedProfile
@@ -531,6 +543,14 @@ class MainActivity : Activity() {
             CaptureSessionState.updatePlaybackProbe(snapshot)
         }
         setContentView(buildUi())
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_LAUNCH_IN_PROGRESS, launchInProgress)
+        outState.putBoolean(STATE_AWAITING_SETTINGS, awaitingSettingsReturn)
+        outState.putBoolean(STATE_OPEN_AI_APP, openAiAppWhenDetectionStarts)
+        outState.putBoolean(STATE_MICROPHONE_BLOCKED, microphoneBlockedDetected)
     }
 
     override fun onStart() {
@@ -555,6 +575,9 @@ class MainActivity : Activity() {
         if (awaitingSettingsReturn) {
             awaitingSettingsReturn = false
             continueLaunch()
+        } else if (launchInProgress && launchGuide == null) {
+            // Recreated (e.g. rotated) in the middle of the guide: show it again.
+            continueLaunch()
         }
     }
 
@@ -572,6 +595,8 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         launchGuide?.dismiss()
         launchGuide = null
+        secondaryDialog?.dismiss()
+        secondaryDialog = null
         broadwayHomeView?.releasePreview()
         broadwayHomeView = null
         uiRefreshScheduler.destroy()
@@ -621,7 +646,16 @@ class MainActivity : Activity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
-            launchMicrophoneRequestCode, launchNotificationsRequestCode -> continueLaunch()
+            launchMicrophoneRequestCode -> {
+                val granted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                // Answered before anyone could tap: Android refused by itself ("don't ask again").
+                // A dialog dismissed with back is not that, so it is simply offered again.
+                val answeredInstantly = SystemClock.uptimeMillis() - microphoneRequestedAtMs < INSTANT_DENIAL_MS
+                microphoneBlockedDetected = !granted && answeredInstantly &&
+                    !shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)
+                continueLaunch()
+            }
+            launchNotificationsRequestCode -> continueLaunch()
             permissionRequestCode -> {
                 if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                     CaptureStartupTrace.recordAudioPermissionCheck(granted = true)
@@ -677,7 +711,12 @@ class MainActivity : Activity() {
                 android.widget.Toast.makeText(this, "鑽石功能準備中", android.widget.Toast.LENGTH_SHORT).show()
             },
             onSettings = {
-                LaunchDialogs.settings(this, onOpenSystemSettings = ::openAppDetailsSettings)
+                secondaryDialog?.dismiss()
+                secondaryDialog = LaunchDialogs.settings(
+                    this,
+                    onOpenSystemSettings = ::openAppDetailsSettings,
+                    onSaved = { CharacterOverlayService.onSettingsChanged() }
+                )
             },
             onMyCharacters = {
                 android.widget.Toast.makeText(
@@ -1576,9 +1615,8 @@ class MainActivity : Activity() {
 
     /** Denied with "don't ask again": only the app settings screen can grant it now. */
     private fun microphoneBlocked(): Boolean =
-        AituberSettings.microphoneAsked(this) &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED &&
-            !shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)
+        microphoneBlockedDetected &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
 
     private fun performLaunchStep(step: LaunchStep) {
         launchGuide = null
@@ -1597,7 +1635,7 @@ class MainActivity : Activity() {
                 awaitingSettingsReturn = true
                 openAppDetailsSettings()
             } else {
-                AituberSettings.setMicrophoneAsked(this, true)
+                microphoneRequestedAtMs = SystemClock.uptimeMillis()
                 requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), launchMicrophoneRequestCode)
             }
             LaunchStep.NOTIFICATIONS -> {
@@ -1631,7 +1669,8 @@ class MainActivity : Activity() {
     private fun showRunningDialog(profile: Live2DCharacterProfile) {
         val aiApp = AituberSettings.aiApp(this)
         val switchTo = profile.takeIf { it.id != CharacterOverlayService.requestedLive2DProfileId }
-        LaunchDialogs.running(
+        secondaryDialog?.dismiss()
+        secondaryDialog = LaunchDialogs.running(
             activity = this,
             aiAppLabel = aiApp?.label,
             switchToName = switchTo?.displayName,
@@ -1662,7 +1701,17 @@ class MainActivity : Activity() {
         }
         // A short pause shows the character appearing before the app switch.
         uiHandler.postDelayed({
-            if (activityResumed) openAiApp(aiApp)
+            if (!activityResumed) return@postDelayed
+            if (!CaptureSessionService.isRunning) {
+                // The detection service stopped right after starting (e.g. it was refused).
+                android.widget.Toast.makeText(
+                    this,
+                    "偵測沒有啟動，請再按一次「啟動 AITuber」",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                return@postDelayed
+            }
+            openAiApp(aiApp)
         }, AI_APP_OPEN_DELAY_MS)
     }
 
@@ -2666,6 +2715,14 @@ class MainActivity : Activity() {
 
         /** Long enough to see the character appear before switching to the AI app. */
         private const val AI_APP_OPEN_DELAY_MS = 700L
+
+        /** A permission answer faster than this came from the system, not from a person. */
+        private const val INSTANT_DENIAL_MS = 400L
+
+        private const val STATE_LAUNCH_IN_PROGRESS = "launch_in_progress"
+        private const val STATE_AWAITING_SETTINGS = "awaiting_settings_return"
+        private const val STATE_OPEN_AI_APP = "open_ai_app_when_detection_starts"
+        private const val STATE_MICROPHONE_BLOCKED = "microphone_blocked"
 
         internal val primaryControlLabels = listOf(
             DebugControlLabels.capture(captureActive = false),

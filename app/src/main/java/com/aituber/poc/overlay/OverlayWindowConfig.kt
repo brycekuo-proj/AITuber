@@ -2,6 +2,7 @@ package com.aituber.poc.overlay
 
 import android.os.Build
 import android.view.WindowManager
+import kotlin.math.pow
 
 object OverlayWindowConfig {
     const val OVERLAY_ALPHA_MIN_PERCENT = 10
@@ -24,8 +25,19 @@ object OverlayWindowConfig {
      */
     const val MAX_PASS_THROUGH_ALPHA = 0.8f
 
+    /**
+     * A SurfaceView (the Live2D GLSurfaceView) is a second layer at the window's alpha, and
+     * Android combines the layers of one app: 1 - (1 - a)^2. That stays at or under 0.8 for
+     * a <= 1 - sqrt(0.2), about 0.55; 0.5 leaves a margin.
+     */
+    const val MAX_PASS_THROUGH_ALPHA_WITH_SURFACE = 0.5f
+
     /** Window alpha while touches pass through the character to the app underneath. */
-    fun passThroughAlpha(): Float = minOf(overlayAlpha(), MAX_PASS_THROUGH_ALPHA)
+    fun passThroughAlpha(hasSurfaceLayer: Boolean = false): Float =
+        minOf(overlayAlpha(), if (hasSurfaceLayer) MAX_PASS_THROUGH_ALPHA_WITH_SURFACE else MAX_PASS_THROUGH_ALPHA)
+
+    /** The opacity Android counts for [layers] overlapping layers of one app, each at [alpha]. */
+    fun combinedOpacity(alpha: Float, layers: Int): Float = 1f - (1f - alpha).pow(layers)
 
     /** The character while it is being moved or resized: it takes touches. */
     fun live2dFlags(): Int =

@@ -145,6 +145,8 @@ class CharacterOverlayService : Service() {
         val layoutParams = overlayLayoutParams(overlaySelection.live2dActive)
         characterParams = layoutParams
         characterMovable = overlaySelection.live2dActive
+        // Pass-through or solid, per the user's setting (only changes the params before addView).
+        applyCharacterWindowState()
         staticPngView?.setDisplayScale(live2dCurrentScale)
         if (overlaySelection.live2dActive) {
             // Only reaches the character while it takes touches (move/resize mode).
@@ -236,7 +238,7 @@ class CharacterOverlayService : Service() {
             windowFlags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            alpha = OverlayWindowConfig.passThroughAlpha()
+            alpha = OverlayWindowConfig.passThroughAlpha(hasSurfaceLayer = live2dView != null)
             gravity = if (placement != null) {
                 Gravity.TOP or Gravity.START
             } else {
@@ -307,13 +309,17 @@ class CharacterOverlayService : Service() {
             handleDragStart = null
         }
 
-        override fun canAdjust(): Boolean = characterMovable
+        override fun canAdjust(): Boolean =
+            characterMovable && AituberSettings.passThroughCharacter(this@CharacterOverlayService)
 
         override fun onAdjustRequested() = setAdjusting(true)
 
         override fun onAdjustDone() = setAdjusting(false)
 
-        override fun onCollapseRequested() = setCollapsed(true, "menu")
+        override fun onCollapseRequested() {
+            presencePolicy.onUserCollapsed()
+            setCollapsed(true, "menu")
+        }
 
         override fun onExpandRequested() {
             setCollapsed(false, "bubble")
@@ -325,23 +331,28 @@ class CharacterOverlayService : Service() {
         override fun onStopRequested() = stopEverything()
     }
 
-    /** Window alpha for the current mode; Android 12+ only lets touches through at 0.8 or less. */
+    /** The character window takes touches while moving/resizing, or always when pass-through is off. */
+    private fun characterTakesTouches(): Boolean =
+        !collapsed && characterMovable && (adjusting || !AituberSettings.passThroughCharacter(this))
+
+    /** Window alpha for the current mode, low enough for Android 12+ to let touches through. */
     private fun currentWindowAlpha(): Float = when {
         collapsed -> 0f
-        adjusting -> OverlayWindowConfig.overlayAlpha()
-        else -> OverlayWindowConfig.passThroughAlpha()
+        characterTakesTouches() -> OverlayWindowConfig.overlayAlpha()
+        else -> OverlayWindowConfig.passThroughAlpha(hasSurfaceLayer = live2dView != null)
     }
 
     private fun applyCharacterWindowState() {
         val view = overlayView ?: return
         val params = characterParams ?: return
-        params.flags = if (adjusting && !collapsed) {
+        params.flags = if (characterTakesTouches()) {
             OverlayWindowConfig.live2dFlags()
         } else {
             OverlayWindowConfig.passThroughFlags()
         }
         params.alpha = currentWindowAlpha()
-        if (view.isAttachedToWindow) {
+        // addView sets the parent at once; isAttachedToWindow turns true only after the next frame.
+        if (view.parent != null) {
             runCatching { windowManager?.updateViewLayout(view, params) }
         }
     }
@@ -350,7 +361,7 @@ class CharacterOverlayService : Service() {
     private fun setAdjusting(enabled: Boolean) {
         requireMainThread("setAdjusting")
         if (enabled == adjusting) return
-        if (enabled && (!characterMovable || collapsed)) return
+        if (enabled && (!characterMovable || collapsed || !AituberSettings.passThroughCharacter(this))) return
         adjusting = enabled
         handler.removeCallbacks(adjustTimeout)
         applyCharacterWindowState()
@@ -394,7 +405,18 @@ class CharacterOverlayService : Service() {
             setCollapsed(false, "notification")
             presencePolicy.onShown(SystemClock.elapsedRealtime(), conversationActive = false)
         } else {
+            presencePolicy.onUserCollapsed()
             setCollapsed(true, "notification")
+        }
+    }
+
+    /** Settings changed while running: pass-through on/off takes effect at once. */
+    private fun applySettings() {
+        if (overlayView == null) return
+        if (adjusting && !AituberSettings.passThroughCharacter(this)) {
+            setAdjusting(false)
+        } else {
+            applyCharacterWindowState()
         }
     }
 
@@ -789,7 +811,7 @@ class CharacterOverlayService : Service() {
             handler.removeCallbacks(adjustTimeout)
             controls?.setAdjusting(false)
         }
-        if (collapsed) fallbackParams.alpha = 0f
+        applyCharacterWindowState()
         windowManager?.addView(minimal, fallbackParams)
         updateControlsPosition(fallbackParams)
         renderSnapshotOnMain(CaptureSessionState.current())
@@ -1001,6 +1023,12 @@ class CharacterOverlayService : Service() {
         fun toggleCollapsed() {
             val service = activeService ?: return
             service.handler.post { service.userToggleCollapsed() }
+        }
+
+        /** The settings dialog was saved: apply pass-through to the running character. */
+        fun onSettingsChanged() {
+            val service = activeService ?: return
+            service.handler.post { service.applySettings() }
         }
 
         fun testMouthFullyOpenForDebug() {

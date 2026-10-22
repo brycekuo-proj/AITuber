@@ -184,7 +184,8 @@ internal class FloatingControls(
         val handle = handleView ?: return
         val params = handleParams ?: return
         computeHandlePosition(params)
-        if (handle.isAttachedToWindow) {
+        // addView sets the parent at once; isAttachedToWindow turns true only after the next frame.
+        if (handle.parent != null) {
             runCatching { windowManager.updateViewLayout(handle, params) }
         }
     }

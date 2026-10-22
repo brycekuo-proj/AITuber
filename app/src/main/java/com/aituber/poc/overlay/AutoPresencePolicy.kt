@@ -10,6 +10,9 @@ package com.aituber.poc.overlay
  *    session (call-style audio, an open microphone) or the AITuber chat being open.
  *  - Shown by the user while nothing was going on, it stays until a conversation
  *    has come and gone, so it does not vanish right after being opened.
+ *  - Tucked away by the user, it stays away for the rest of the current conversation
+ *    (until things have been quiet for [idleCollapseMs]); only the AITuber chat
+ *    opening brings it back sooner.
  *  - Never tucked away while the user is handling it (menu open, moving, resizing).
  *
  * Pure logic, main thread only; see AutoPresencePolicyTest.
@@ -25,6 +28,7 @@ class AutoPresencePolicy(
     private var lastActiveMs: Long? = null
     private var conversationSeenSinceShown = false
     private var chatWasActive = false
+    private var tuckedAwayByUser = false
 
     fun evaluate(
         nowMs: Long,
@@ -44,8 +48,11 @@ class AutoPresencePolicy(
         }
 
         if (collapsed) {
-            val expand = chatStarted || (speaking && autoHideEnabled)
-            return Decision(if (expand) Action.EXPAND else Action.NONE)
+            if (tuckedAwayByUser && !active && quietLongEnough(nowMs)) tuckedAwayByUser = false
+            val expand = chatStarted || (speaking && autoHideEnabled && !tuckedAwayByUser)
+            if (expand) return Decision(Action.EXPAND)
+            val recheckAtMs = if (tuckedAwayByUser && !active) lastActiveMs?.plus(idleCollapseMs) else null
+            return Decision(Action.NONE, recheckAtMs)
         }
         if (!autoHideEnabled || holdVisible || active || !conversationSeenSinceShown) {
             return Decision(Action.NONE)
@@ -59,14 +66,25 @@ class AutoPresencePolicy(
         }
     }
 
+    /** The user tucked the character away: keep it away for the conversation going on now. */
+    fun onUserCollapsed() {
+        tuckedAwayByUser = true
+    }
+
     /**
      * The character was just shown. [conversationActive]: shown because something is going
      * on (it will tuck away after that conversation); false when the user brought it back
      * by hand while nothing was happening.
      */
     fun onShown(nowMs: Long, conversationActive: Boolean) {
+        tuckedAwayByUser = false
         conversationSeenSinceShown = conversationActive
         if (conversationActive) lastActiveMs = nowMs
+    }
+
+    private fun quietLongEnough(nowMs: Long): Boolean {
+        val last = lastActiveMs ?: return true
+        return nowMs - last >= idleCollapseMs
     }
 
     companion object {
