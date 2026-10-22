@@ -57,7 +57,7 @@ class BroadwayHomeView(
 
     /** Shown instead of the live preview while the floating character owns the Live2D runtime. */
     private val overlayRunningNotice = android.widget.TextView(context).apply {
-        text = "角色正在其他 App 上方執行中\n關閉浮動角色後會回到這裡"
+        text = "角色正在其他 App 上方執行中\n按「啟動 AITuber」可以換角色或停止"
         setTextColor(Color.rgb(236, 207, 177))
         textSize = 15f
         gravity = Gravity.CENTER

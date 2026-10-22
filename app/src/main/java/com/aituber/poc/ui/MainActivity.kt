@@ -44,6 +44,7 @@ import com.aituber.poc.overlay.MouthDriveDiagnostics
 import com.aituber.poc.overlay.MouthRenderDiagnostics
 import com.aituber.poc.overlay.OverlayLifecycleTrace
 import com.aituber.poc.overlay.OverlayWindowConfig
+import com.aituber.poc.poc.AiTargetApp
 import com.aituber.poc.poc.AndroidPlaybackStateProbe
 import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
@@ -52,6 +53,7 @@ import com.aituber.poc.poc.AiTargetApps
 import com.aituber.poc.poc.DetectionMethod
 import com.aituber.poc.poc.VisualizerAudioProbe
 import com.aituber.poc.poc.VisualMotionProbeService
+import com.aituber.poc.settings.AituberSettings
 import com.aituber.poc.state.CombinedPlaybackRecordingEvent
 import com.aituber.poc.state.FineGrainedVoiceEvent
 import com.aituber.poc.state.PlaybackProbeEvent
@@ -68,6 +70,8 @@ class MainActivity : Activity() {
     private val visualTestProjectionRequestCode = 1004
     private val permissionRequestCode = 1002
     private val visualizerPermissionRequestCode = 1005
+    private val launchMicrophoneRequestCode = 1006
+    private val launchNotificationsRequestCode = 1007
 
     private lateinit var universalStateValue: TextView
     private lateinit var voiceSessionValue: TextView
@@ -504,7 +508,15 @@ class MainActivity : Activity() {
     private var playbackProbe: AndroidPlaybackStateProbe? = null
     private var broadwayHomeView: BroadwayHomeView? = null
     private lateinit var broadwayPreviewProfile: Live2DCharacterProfile
-    private var pendingBroadwayLaunch = false
+
+    /** A tap on 啟動 is being carried through the permission guide. */
+    private var launchInProgress = false
+    /** The guide sent the user to a system settings screen; continue when they come back. */
+    private var awaitingSettingsReturn = false
+    /** Open the chosen AI app once detection is running (set by the launch flow only). */
+    private var openAiAppWhenDetectionStarts = false
+    private var activityResumed = false
+    private var launchGuide: android.app.AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -539,21 +551,15 @@ class MainActivity : Activity() {
                 broadwayHomeView?.showPreview(profile)
             }
         }
-        if (pendingBroadwayLaunch) {
-            if (Settings.canDrawOverlays(this)) {
-                completeBroadwayLaunch()
-            } else {
-                pendingBroadwayLaunch = false
-                android.widget.Toast.makeText(
-                    this,
-                    "需要允許顯示在其他應用程式上層，才能啟動 AITuber",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            }
+        activityResumed = true
+        if (awaitingSettingsReturn) {
+            awaitingSettingsReturn = false
+            continueLaunch()
         }
     }
 
     override fun onPause() {
+        activityResumed = false
         broadwayHomeView?.pausePreview()
         super.onPause()
     }
@@ -564,6 +570,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        launchGuide?.dismiss()
+        launchGuide = null
         broadwayHomeView?.releasePreview()
         broadwayHomeView = null
         uiRefreshScheduler.destroy()
@@ -580,9 +588,17 @@ class MainActivity : Activity() {
                 if (resultCode == RESULT_OK && data != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     CaptureStartupTrace.projectionResultOk()
                     startCaptureService(resultCode, data)
+                    onDetectionStarted()
                 } else {
                     CaptureStartupTrace.record("MediaProjection denied")
                     publishLocal(CaptureStatus.MEDIA_PROJECTION_DENIED)
+                    // Without the recording consent the speaker-output detector still works.
+                    android.widget.Toast.makeText(
+                        this,
+                        "沒有同意錄製，改用一般偵測",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    startListeningService()
                 }
             }
             visualProjectionRequestCode -> {
@@ -605,10 +621,11 @@ class MainActivity : Activity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
+            launchMicrophoneRequestCode, launchNotificationsRequestCode -> continueLaunch()
             permissionRequestCode -> {
                 if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                     CaptureStartupTrace.recordAudioPermissionCheck(granted = true)
-                    requestPlaybackCapture()
+                    startDetectionWithPermission()
                 } else {
                     CaptureStartupTrace.recordAudioPermissionCheck(granted = false)
                     publishLocal(CaptureStatus.RECORD_AUDIO_DENIED)
@@ -660,11 +677,7 @@ class MainActivity : Activity() {
                 android.widget.Toast.makeText(this, "鑽石功能準備中", android.widget.Toast.LENGTH_SHORT).show()
             },
             onSettings = {
-                startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = android.net.Uri.parse("package:$packageName")
-                    }
-                )
+                LaunchDialogs.settings(this, onOpenSystemSettings = ::openAppDetailsSettings)
             },
             onMyCharacters = {
                 android.widget.Toast.makeText(
@@ -1498,7 +1511,16 @@ class MainActivity : Activity() {
         refreshControlLabels()
     }
 
+    /** The big 啟動 button. While AITuber already runs it offers to go back, switch character or stop. */
     private fun launchBroadwayAituber(profile: Live2DCharacterProfile) {
+        if (CharacterOverlayService.isRunning && CaptureSessionService.isRunning) {
+            showRunningDialog(profile)
+            return
+        }
+        beginLaunch(profile)
+    }
+
+    private fun beginLaunch(profile: Live2DCharacterProfile) {
         broadwayPreviewProfile = profile
         Live2DProfileStore.save(this, profile)
         CharacterOverlayService.requestedLive2DProfileId = profile.id
@@ -1509,23 +1531,88 @@ class MainActivity : Activity() {
             overlayRunning = CharacterOverlayService.isRunning
         )
         OverlayLifecycleTrace.record("broadway launch requested ${profile.id}")
+        launchInProgress = true
+        continueLaunch()
+    }
 
-        if (!Settings.canDrawOverlays(this)) {
-            pendingBroadwayLaunch = true
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    android.net.Uri.parse("package:$packageName")
-                )
-            )
+    private fun launchChecklist(): LaunchChecklist {
+        val notificationsApplicable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        return LaunchChecklist(
+            overlayGranted = Settings.canDrawOverlays(this),
+            microphoneGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+            notificationsApplicable = notificationsApplicable,
+            notificationsGranted = !notificationsApplicable ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
+            notificationsAsked = AituberSettings.notificationsAsked(this)
+        )
+    }
+
+    /** Next step of a launch: the guide while something is missing, then the character. */
+    private fun continueLaunch() {
+        if (!launchInProgress) return
+        launchGuide?.dismiss()
+        launchGuide = null
+        val checklist = launchChecklist()
+        if (checklist.nextStep == LaunchStep.READY) {
+            launchInProgress = false
+            completeBroadwayLaunch()
             return
         }
+        launchGuide = LaunchDialogs.guide(
+            activity = this,
+            checklist = checklist,
+            microphoneBlocked = microphoneBlocked(),
+            onProceed = ::performLaunchStep,
+            onSkipNotifications = {
+                AituberSettings.setNotificationsAsked(this, true)
+                continueLaunch()
+            },
+            onCancel = {
+                launchInProgress = false
+                launchGuide = null
+            }
+        )
+    }
 
-        completeBroadwayLaunch()
+    /** Denied with "don't ask again": only the app settings screen can grant it now. */
+    private fun microphoneBlocked(): Boolean =
+        AituberSettings.microphoneAsked(this) &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED &&
+            !shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)
+
+    private fun performLaunchStep(step: LaunchStep) {
+        launchGuide = null
+        when (step) {
+            LaunchStep.OVERLAY -> {
+                awaitingSettingsReturn = true
+                OverlayLifecycleTrace.record("overlay permission requested")
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                )
+            }
+            LaunchStep.MICROPHONE -> if (microphoneBlocked()) {
+                awaitingSettingsReturn = true
+                openAppDetailsSettings()
+            } else {
+                AituberSettings.setMicrophoneAsked(this, true)
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), launchMicrophoneRequestCode)
+            }
+            LaunchStep.NOTIFICATIONS -> {
+                AituberSettings.setNotificationsAsked(this, true)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), launchNotificationsRequestCode)
+                } else {
+                    continueLaunch()
+                }
+            }
+            LaunchStep.READY -> continueLaunch()
+        }
     }
 
     private fun completeBroadwayLaunch() {
-        pendingBroadwayLaunch = false
         if (CharacterOverlayService.isRunning) {
             stopService(Intent(this, CharacterOverlayService::class.java))
             uiHandler.postDelayed({ enableMouthOverlay() }, 150L)
@@ -1533,10 +1620,72 @@ class MainActivity : Activity() {
             enableMouthOverlay()
         }
 
-        if (!CaptureSessionService.isRunning) {
-            startDetection()
+        if (CaptureSessionService.isRunning) {
+            openAiAppAfterLaunch()
+        } else {
+            startDetection(fromLaunch = true)
         }
         refreshControlLabels()
+    }
+
+    private fun showRunningDialog(profile: Live2DCharacterProfile) {
+        val aiApp = AituberSettings.aiApp(this)
+        val switchTo = profile.takeIf { it.id != CharacterOverlayService.requestedLive2DProfileId }
+        LaunchDialogs.running(
+            activity = this,
+            aiAppLabel = aiApp?.label,
+            switchToName = switchTo?.displayName,
+            onOpenAiApp = { aiApp?.let(::openAiApp) },
+            onSwitch = { switchTo?.let(::beginLaunch) },
+            onStop = ::stopAituber
+        )
+    }
+
+    private fun stopAituber() {
+        disableMouthOverlay()
+        if (CaptureSessionService.isRunning) stopCaptureService()
+        refreshControlLabels()
+        android.widget.Toast.makeText(this, "AITuber 已停止", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    /** After a launch, go straight to the AI app so the user lands where the talking happens. */
+    private fun openAiAppAfterLaunch() {
+        val aiApp = AituberSettings.aiApp(this)
+        if (!AituberSettings.autoOpenAiApp(this) || aiApp == null) {
+            val message = if (aiApp == null) {
+                "角色已啟動，打開你要對話的 AI App，角色就會浮在上面"
+            } else {
+                "角色已啟動，打開 ${aiApp.label} 就會看到它"
+            }
+            android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        // A short pause shows the character appearing before the app switch.
+        uiHandler.postDelayed({
+            if (activityResumed) openAiApp(aiApp)
+        }, AI_APP_OPEN_DELAY_MS)
+    }
+
+    private fun openAiApp(app: AiTargetApp) {
+        val intent = packageManager.getLaunchIntentForPackage(app.packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val opened = intent != null && runCatching { startActivity(intent) }.isSuccess
+        if (!opened) {
+            android.widget.Toast.makeText(
+                this,
+                "打不開 ${app.label}，請自己切換過去",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun openAppDetailsSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = android.net.Uri.parse("package:$packageName")
+            }
+        )
     }
 
     private fun toggleCharacterMode() {
@@ -1732,13 +1881,14 @@ class MainActivity : Activity() {
         return "THINKING FRAME HOLD: ${StaticPngThinkingRuntimeTuning.frameHoldMs} ms"
     }
 
-    private fun startDetection() {
+    /**
+     * Starts the detectors. By default only the speaker-output detector runs (no consent
+     * dialog); precise mode adds Playback Capture behind the screen-recording consent.
+     * [fromLaunch]: open the AI app once detection runs.
+     */
+    private fun startDetection(fromLaunch: Boolean = false) {
         CaptureStartupTrace.startButtonClicked()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            CaptureStartupTrace.record("Android version unsupported for MediaProjection")
-            publishLocal("Android Playback Capture requires Android 10 / API 29 or later")
-            return
-        }
+        openAiAppWhenDetectionStarts = fromLaunch
         // No AI-app gate: the speaker-output detector works for any app, and the
         // capture service listens to every installed AI app it knows (AiTargetApps).
         val recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -1747,7 +1897,40 @@ class MainActivity : Activity() {
             requestCapturePermissions()
             return
         }
-        requestPlaybackCapture()
+        startDetectionWithPermission()
+    }
+
+    private fun startDetectionWithPermission() {
+        if (AituberSettings.preciseCapture(this) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            requestPlaybackCapture()
+        } else {
+            startListeningService()
+        }
+    }
+
+    private fun startListeningService() {
+        CaptureStartupTrace.captureServiceStartRequested()
+        val intent = Intent(this, CaptureSessionService::class.java).apply {
+            action = CaptureSessionService.ACTION_START_LISTENING
+        }
+        val started = runCatching { startForegroundService(intent) }
+        started.exceptionOrNull()?.let { exception ->
+            CaptureStartupTrace.record("listening service start exception: ${exception::class.java.simpleName}")
+            openAiAppWhenDetectionStarts = false
+            android.widget.Toast.makeText(
+                this,
+                "偵測沒有啟動，請再按一次「啟動 AITuber」",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        onDetectionStarted()
+    }
+
+    private fun onDetectionStarted() {
+        if (!openAiAppWhenDetectionStarts) return
+        openAiAppWhenDetectionStarts = false
+        openAiAppAfterLaunch()
     }
 
     private fun requestCapturePermissions() {
@@ -2480,6 +2663,9 @@ class MainActivity : Activity() {
         private const val STATIC_PNG_BREATH_AMPLITUDE_KEY = "breath_amplitude_percent"
         private const val STATIC_PNG_CHEST_BREATH_AMPLITUDE_KEY = "chest_breath_amplitude_percent"
         private const val STATIC_PNG_BREATH_PERIOD_KEY = "breath_period_ms"
+
+        /** Long enough to see the character appear before switching to the AI app. */
+        private const val AI_APP_OPEN_DELAY_MS = 700L
 
         internal val primaryControlLabels = listOf(
             DebugControlLabels.capture(captureActive = false),

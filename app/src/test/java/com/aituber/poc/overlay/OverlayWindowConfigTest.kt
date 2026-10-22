@@ -57,6 +57,27 @@ class OverlayWindowConfigTest {
     }
 
     @Test
+    fun passThroughFlagsLetTouchesReachTheAppUnderneath() {
+        val flags = OverlayWindowConfig.passThroughFlags()
+
+        assertTrue(OverlayWindowConfig.hasNotTouchable(flags))
+        assertTrue(OverlayWindowConfig.hasNotFocusable(flags))
+        assertTrue(flags and WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS != 0)
+    }
+
+    @Test
+    fun passThroughAlphaNeverExceedsTheAndroidTouchOcclusionLimit() {
+        OverlayWindowConfig.setOverlayAlphaPercent(100)
+        assertEquals(0.80f, OverlayWindowConfig.passThroughAlpha(), 0.0001f)
+
+        OverlayWindowConfig.setOverlayAlphaPercent(50)
+        assertEquals(0.50f, OverlayWindowConfig.passThroughAlpha(), 0.0001f)
+
+        OverlayWindowConfig.setOverlayAlphaPercent(OverlayWindowConfig.DEFAULT_OVERLAY_ALPHA_PERCENT)
+        assertTrue(OverlayWindowConfig.passThroughAlpha() <= OverlayWindowConfig.MAX_PASS_THROUGH_ALPHA)
+    }
+
+    @Test
     fun flagLayoutNoLimitsIsPreserved() {
         assertTrue(OverlayWindowConfig.live2dFlags() and WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS != 0)
     }

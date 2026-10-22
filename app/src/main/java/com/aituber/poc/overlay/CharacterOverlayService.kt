@@ -2,9 +2,9 @@ package com.aituber.poc.overlay
 
 import android.app.Service
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
+import android.graphics.Rect
+import android.opengl.GLSurfaceView
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -16,7 +16,7 @@ import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
-import android.widget.TextView
+import android.widget.Toast
 import com.aituber.poc.character.CharacterAdapterFactory
 import com.aituber.poc.character.CharacterDiagnostics
 import com.aituber.poc.character.CharacterEngine
@@ -40,7 +40,9 @@ import com.aituber.poc.character.staticpng.StaticPngRuntimeTuning
 import com.aituber.poc.character.staticpng.StaticPngChestBreathMotion
 import com.aituber.poc.character.staticpng.StaticPngOverlayView
 import com.aituber.poc.character.live2d.Live2DOverlayPresence
+import com.aituber.poc.poc.CaptureSessionService
 import com.aituber.poc.poc.CaptureSessionState
+import com.aituber.poc.settings.AituberSettings
 import com.aituber.poc.state.UniversalAiState
 import com.aituber.poc.state.UniversalStateSnapshot
 
@@ -54,8 +56,20 @@ class CharacterOverlayService : Service() {
     private var live2dView: Live2DOverlayView? = null
     private var staticPngView: StaticPngOverlayView? = null
     private var overlayView: View? = null
-    private var overlayCloseView: View? = null
-    private var overlayCloseParams: WindowManager.LayoutParams? = null
+    /** Layout of [overlayView], the character window. */
+    private var characterParams: WindowManager.LayoutParams? = null
+    /** Handle, menu and bubble: the only parts that take touches while the character lets them through. */
+    private var controls: FloatingControls? = null
+    /** Whether the character window can be moved and resized (not the minimal-mouth fallback). */
+    private var characterMovable = false
+    /** Move/resize mode: the character window takes touches until the user taps done. */
+    private var adjusting = false
+    /** Tucked into the bubble: the character window is invisible and not rendering. */
+    private var collapsed = false
+    private var handleDragStart: Live2DOverlayPosition? = null
+    private val presencePolicy = AutoPresencePolicy()
+    private val presenceRecheck = Runnable { evaluatePresence(CaptureSessionState.current()) }
+    private val adjustTimeout = Runnable { setAdjusting(false) }
     private var characterEngine: CharacterEngine? = null
     private var windowManager: WindowManager? = null
     private var currentState = UniversalAiState.UNKNOWN
@@ -129,12 +143,15 @@ class CharacterOverlayService : Service() {
         windowManager = getSystemService(WindowManager::class.java)
         overlayView = overlaySelection.view
         val layoutParams = overlayLayoutParams(overlaySelection.live2dActive)
+        characterParams = layoutParams
+        characterMovable = overlaySelection.live2dActive
         staticPngView?.setDisplayScale(live2dCurrentScale)
         if (overlaySelection.live2dActive) {
+            // Only reaches the character while it takes touches (move/resize mode).
             installLive2DDrag(overlaySelection.view, layoutParams)
         }
         windowManager?.addView(overlaySelection.view, layoutParams)
-        attachOverlayCloseButton(layoutParams)
+        attachFloatingControls(layoutParams)
         OverlayLifecycleTrace.record("overlay view attached")
         CaptureSessionState.subscribe(stateListener)
         OverlayLifecycleTrace.record("overlay subscribed to state")
@@ -180,8 +197,9 @@ class CharacterOverlayService : Service() {
             live2dCurrentScale = placement.displayScale
         }
         val windowType = OverlayWindowConfig.windowType()
+        // Touches pass through to the AI app; the handle next to the character takes taps.
         val windowFlags = if (placement != null) {
-            OverlayWindowConfig.live2dFlags()
+            OverlayWindowConfig.passThroughFlags()
         } else {
             OverlayWindowConfig.minimalMouthFlags()
         }
@@ -218,7 +236,7 @@ class CharacterOverlayService : Service() {
             windowFlags,
             PixelFormat.TRANSLUCENT
         ).apply {
-            alpha = OverlayWindowConfig.overlayAlpha()
+            alpha = OverlayWindowConfig.passThroughAlpha()
             gravity = if (placement != null) {
                 Gravity.TOP or Gravity.START
             } else {
@@ -234,78 +252,202 @@ class CharacterOverlayService : Service() {
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
     }
 
-    private fun attachOverlayCloseButton(characterParams: WindowManager.LayoutParams) {
+    private fun attachFloatingControls(characterParams: WindowManager.LayoutParams) {
         val wm = windowManager ?: return
-        if (overlayCloseView != null) return
-        val density = resources.displayMetrics.density
-        val sizePx = (44f * density).toInt().coerceAtLeast(1)
-        val visibleCirclePx = (36f * density).toInt().coerceAtLeast(1)
-        val paddingPx = ((sizePx - visibleCirclePx) / 2).coerceAtLeast(0)
-        val close = TextView(this).apply {
-            text = "×"
-            gravity = Gravity.CENTER
-            textSize = 26f
-            setTextColor(Color.WHITE)
-            setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(118, 0, 0, 0))
-                setStroke((1f * density).toInt().coerceAtLeast(1), Color.argb(150, 255, 255, 255))
-            }
-            contentDescription = "關閉角色並返回 AITuber"
-            isClickable = true
-            isFocusable = true
-            elevation = 8f * density
-            setOnClickListener { closeOverlayAndReturnToApp() }
+        if (controls != null) return
+        controls = FloatingControls(this, wm, controlsListener).also {
+            it.attach(characterBounds(characterParams))
         }
-        val closeParams = WindowManager.LayoutParams(
-            sizePx,
-            sizePx,
-            OverlayWindowConfig.windowType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-        }
-        overlayCloseView = close
-        overlayCloseParams = closeParams
-        updateOverlayCloseButtonPosition(characterParams)
-        wm.addView(close, closeParams)
-        OverlayLifecycleTrace.record("overlay close button attached")
+        OverlayLifecycleTrace.record("overlay controls attached")
     }
 
-    private fun updateOverlayCloseButtonPosition(characterParams: WindowManager.LayoutParams) {
-        val close = overlayCloseView ?: return
-        val closeParams = overlayCloseParams ?: return
-        val wm = windowManager ?: return
+    /** The character window in screen coordinates (its x is measured from the right with END gravity). */
+    private fun characterBounds(params: WindowManager.LayoutParams): Rect {
         val metrics = resources.displayMetrics
-        val marginPx = (6f * metrics.density).toInt()
-        val charLeft = if ((characterParams.gravity and Gravity.END) == Gravity.END) {
-            metrics.widthPixels - characterParams.x - characterParams.width
+        val left = if ((params.gravity and Gravity.END) == Gravity.END) {
+            metrics.widthPixels - params.x - params.width
         } else {
-            characterParams.x
+            params.x
         }
-        closeParams.x = (charLeft + characterParams.width - closeParams.width - marginPx)
-            .coerceIn(0, (metrics.widthPixels - closeParams.width).coerceAtLeast(0))
-        closeParams.y = (characterParams.y + marginPx)
-            .coerceIn(systemTopInsetPx(), (metrics.heightPixels - closeParams.height).coerceAtLeast(systemTopInsetPx()))
-        if (close.isAttachedToWindow) {
-            runCatching { wm.updateViewLayout(close, closeParams) }
+        return Rect(left, params.y, left + params.width, params.y + params.height)
+    }
+
+    private fun updateControlsPosition(params: WindowManager.LayoutParams) {
+        controls?.updateAnchor(characterBounds(params))
+    }
+
+    private val controlsListener = object : FloatingControls.Listener {
+        override fun onHandleDragStart() {
+            val params = characterParams ?: return
+            if (!characterMovable) return
+            handleDragStart = Live2DOverlayPosition(params.x, params.y)
+        }
+
+        override fun onHandleDrag(totalDx: Int, totalDy: Int) {
+            val start = handleDragStart ?: return
+            val view = overlayView ?: return
+            val params = characterParams ?: return
+            val next = clampedLive2DPosition(
+                position = Live2DOverlayPosition(start.x + totalDx, start.y + totalDy),
+                overlayWidth = params.width,
+                overlayHeight = params.height
+            )
+            params.x = next.x
+            params.y = next.y
+            runCatching { windowManager?.updateViewLayout(view, params) }
+            updateControlsPosition(params)
+        }
+
+        override fun onHandleDragEnd() {
+            val params = characterParams
+            if (handleDragStart != null && params != null) {
+                Live2DOverlayPositionStore(this@CharacterOverlayService)
+                    .save(Live2DOverlayPosition(params.x, params.y), live2dCurrentScale)
+            }
+            handleDragStart = null
+        }
+
+        override fun canAdjust(): Boolean = characterMovable
+
+        override fun onAdjustRequested() = setAdjusting(true)
+
+        override fun onAdjustDone() = setAdjusting(false)
+
+        override fun onCollapseRequested() = setCollapsed(true, "menu")
+
+        override fun onExpandRequested() {
+            setCollapsed(false, "bubble")
+            presencePolicy.onShown(SystemClock.elapsedRealtime(), conversationActive = false)
+        }
+
+        override fun onOpenAppRequested() = openAituberApp()
+
+        override fun onStopRequested() = stopEverything()
+    }
+
+    /** Window alpha for the current mode; Android 12+ only lets touches through at 0.8 or less. */
+    private fun currentWindowAlpha(): Float = when {
+        collapsed -> 0f
+        adjusting -> OverlayWindowConfig.overlayAlpha()
+        else -> OverlayWindowConfig.passThroughAlpha()
+    }
+
+    private fun applyCharacterWindowState() {
+        val view = overlayView ?: return
+        val params = characterParams ?: return
+        params.flags = if (adjusting && !collapsed) {
+            OverlayWindowConfig.live2dFlags()
+        } else {
+            OverlayWindowConfig.passThroughFlags()
+        }
+        params.alpha = currentWindowAlpha()
+        if (view.isAttachedToWindow) {
+            runCatching { windowManager?.updateViewLayout(view, params) }
         }
     }
 
-    private fun closeOverlayAndReturnToApp() {
-        requireMainThread("closeOverlayAndReturnToApp")
-        OverlayLifecycleTrace.record("overlay close button tapped")
+    /** Move/resize mode: the character takes touches (drag, pinch) until done or a timeout. */
+    private fun setAdjusting(enabled: Boolean) {
+        requireMainThread("setAdjusting")
+        if (enabled == adjusting) return
+        if (enabled && (!characterMovable || collapsed)) return
+        adjusting = enabled
+        handler.removeCallbacks(adjustTimeout)
+        applyCharacterWindowState()
+        controls?.setAdjusting(enabled)
+        if (enabled) {
+            restartAdjustTimeout()
+            Toast.makeText(this, "拖曳角色移動、雙指縮放，好了按「✓ 完成」", Toast.LENGTH_LONG).show()
+        }
+        OverlayLifecycleTrace.record(if (enabled) "adjust mode on" else "adjust mode off")
+    }
+
+    private fun restartAdjustTimeout() {
+        handler.removeCallbacks(adjustTimeout)
+        if (adjusting) handler.postDelayed(adjustTimeout, ADJUST_TIMEOUT_MS)
+    }
+
+    /**
+     * Tucked away: the character window stays attached (no model reload when it comes back)
+     * but is fully transparent, lets touches through and stops drawing; the bubble shows instead.
+     */
+    private fun setCollapsed(value: Boolean, reason: String) {
+        requireMainThread("setCollapsed")
+        if (value == collapsed) return
+        val params = characterParams ?: return
+        if (value && adjusting) setAdjusting(false)
+        collapsed = value
+        applyCharacterWindowState()
+        live2dView?.renderMode = if (value) GLSurfaceView.RENDERMODE_WHEN_DIRTY else GLSurfaceView.RENDERMODE_CONTINUOUSLY
+        if (value) {
+            stopBlinkTick()
+        } else if (live2dView != null) {
+            startBlinkTick()
+        }
+        controls?.setCollapsed(value, characterBounds(params))
+        OverlayLifecycleTrace.record("character ${if (value) "tucked away" else "shown"} ($reason)")
+    }
+
+    private fun userToggleCollapsed() {
+        if (overlayView == null) return
+        if (collapsed) {
+            setCollapsed(false, "notification")
+            presencePolicy.onShown(SystemClock.elapsedRealtime(), conversationActive = false)
+        } else {
+            setCollapsed(true, "notification")
+        }
+    }
+
+    /** Auto tuck-away / pop-up, see [AutoPresencePolicy]. */
+    private fun evaluatePresence(snapshot: UniversalStateSnapshot) {
+        if (overlayView == null || characterParams == null) return
+        val now = SystemClock.elapsedRealtime()
+        val chatActive = CaptureSessionState.directChatActive()
+        val decision = presencePolicy.evaluate(
+            nowMs = now,
+            speaking = snapshot.state == UniversalAiState.SPEAKING,
+            conversationActive = snapshot.playbackProbe.voiceSessionActive == "YES",
+            chatActive = chatActive,
+            collapsed = collapsed,
+            autoHideEnabled = AituberSettings.autoHideCharacter(this),
+            holdVisible = adjusting || handleDragStart != null || controls?.busy == true
+        )
+        when (decision.action) {
+            AutoPresencePolicy.Action.EXPAND -> {
+                setCollapsed(false, if (chatActive) "AITuber chat" else "AI speaking")
+                presencePolicy.onShown(now, conversationActive = true)
+            }
+            AutoPresencePolicy.Action.COLLAPSE -> setCollapsed(true, "conversation idle")
+            AutoPresencePolicy.Action.NONE -> Unit
+        }
+        handler.removeCallbacks(presenceRecheck)
+        decision.recheckAtMs?.let { atMs ->
+            handler.postDelayed(presenceRecheck, (atMs - now).coerceAtLeast(0L) + PRESENCE_RECHECK_SLACK_MS)
+        }
+    }
+
+    private fun openAituberApp() {
+        OverlayLifecycleTrace.record("open AITuber from the character menu")
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        } ?: return
+        runCatching { startActivity(launchIntent) }
+    }
+
+    /** Menu "停止": end detection and the floating character together. */
+    private fun stopEverything() {
+        requireMainThread("stopEverything")
+        OverlayLifecycleTrace.record("stop requested from the character menu")
+        if (CaptureSessionService.isRunning) {
+            runCatching {
+                startService(
+                    Intent(this, CaptureSessionService::class.java).setAction(CaptureSessionService.ACTION_STOP)
+                )
+            }
         }
         cleanupOverlayOnMain()
         stopSelf()
-        if (launchIntent != null) {
-            startActivity(launchIntent)
-        }
+        Toast.makeText(this, "AITuber 已停止", Toast.LENGTH_SHORT).show()
     }
 
     private fun installLive2DDrag(view: View, params: WindowManager.LayoutParams) {
@@ -357,7 +499,7 @@ class CharacterOverlayService : Service() {
                     params.x = nextPosition.x
                     params.y = nextPosition.y
                     windowManager?.updateViewLayout(view, params)
-                    updateOverlayCloseButtonPosition(params)
+                    updateControlsPosition(params)
                     recordLive2DCurrentTransform(
                         params = params,
                         dragging = false,
@@ -367,6 +509,7 @@ class CharacterOverlayService : Service() {
                 }
 
                 override fun onScaleEnd(detector: ScaleGestureDetector) {
+                    restartAdjustTimeout()
                     positionStore.save(Live2DOverlayPosition(params.x, params.y), live2dCurrentScale)
                     staticPngView?.setDisplayScale(live2dCurrentScale)
                     recordLive2DCurrentTransform(
@@ -421,7 +564,7 @@ class CharacterOverlayService : Service() {
                         params.x = next.x
                         params.y = next.y
                         windowManager?.updateViewLayout(view, params)
-                        updateOverlayCloseButtonPosition(params)
+                        updateControlsPosition(params)
                         CharacterDiagnostics.recordLive2DDragState(
                             dragging = true,
                             x = params.x,
@@ -439,7 +582,8 @@ class CharacterOverlayService : Service() {
                     )
                     params.x = finalPosition.x
                     params.y = finalPosition.y
-                    updateOverlayCloseButtonPosition(params)
+                    updateControlsPosition(params)
+                    restartAdjustTimeout()
                     if (dragState?.dragging == true) {
                         positionStore.save(finalPosition, live2dCurrentScale)
                     }
@@ -637,8 +781,17 @@ class CharacterOverlayService : Service() {
         )
         characterEngine = CharacterEngine(selection.adapter)
         val fallbackParams = overlayLayoutParams(live2dActive = false)
+        characterParams = fallbackParams
+        // The minimal mouth cannot be moved or resized.
+        characterMovable = false
+        if (adjusting) {
+            adjusting = false
+            handler.removeCallbacks(adjustTimeout)
+            controls?.setAdjusting(false)
+        }
+        if (collapsed) fallbackParams.alpha = 0f
         windowManager?.addView(minimal, fallbackParams)
-        updateOverlayCloseButtonPosition(fallbackParams)
+        updateControlsPosition(fallbackParams)
         renderSnapshotOnMain(CaptureSessionState.current())
     }
 
@@ -668,6 +821,7 @@ class CharacterOverlayService : Service() {
     private fun renderSnapshotOnMain(snapshot: UniversalStateSnapshot) {
         requireMainThread("renderSnapshotOnMain")
         if (characterEngine == null) return
+        evaluatePresence(snapshot)
         if (serviceCharacterMode == CharacterMode.STATIC_PNG) {
             renderStaticPngSnapshot(snapshot)
             return
@@ -687,7 +841,10 @@ class CharacterOverlayService : Service() {
         val wm = windowManager
         val rootView = overlayView
         val live2d = live2dView
-        overlayCloseView?.let { view -> runCatching { wm?.removeView(view) } }
+        handler.removeCallbacks(presenceRecheck)
+        handler.removeCallbacks(adjustTimeout)
+        controls?.release()
+        controls = null
         if (live2d != null) {
             // Detaching the window stops its GL thread; release the native runtime first,
             // and only then let the home preview take the runtime back.
@@ -703,8 +860,11 @@ class CharacterOverlayService : Service() {
         live2dView = null
         staticPngView = null
         overlayView = null
-        overlayCloseView = null
-        overlayCloseParams = null
+        characterParams = null
+        characterMovable = false
+        adjusting = false
+        collapsed = false
+        handleDragStart = null
         characterEngine = null
         windowManager = null
         if (activeService === this) {
@@ -836,6 +996,12 @@ class CharacterOverlayService : Service() {
 
         fun requestedLive2DProfile(): Live2DCharacterProfile =
             Live2DCharacterProfiles.byId(requestedLive2DProfileId)
+
+        /** Notification button: tuck the character into its bubble, or bring it back. */
+        fun toggleCollapsed() {
+            val service = activeService ?: return
+            service.handler.post { service.userToggleCollapsed() }
+        }
 
         fun testMouthFullyOpenForDebug() {
             activeService?.runMouthFullyOpenTest()
@@ -1136,13 +1302,18 @@ class CharacterOverlayService : Service() {
             OverlayWindowConfig.setOverlayAlphaPercent(alphaPercent)
             val view = overlayView ?: return@post
             val params = view.layoutParams as? WindowManager.LayoutParams ?: return@post
-            params.alpha = OverlayWindowConfig.overlayAlpha()
+            params.alpha = currentWindowAlpha()
             windowManager?.updateViewLayout(view, params)
         }
     }
 }
 
 private const val BLINK_TICK_MS = 33L
+
+/** Move/resize mode ends by itself after this long without a touch, so the AI app is never left blocked. */
+private const val ADJUST_TIMEOUT_MS = 20_000L
+
+private const val PRESENCE_RECHECK_SLACK_MS = 50L
 
 private data class OverlaySelection(
     val view: View,

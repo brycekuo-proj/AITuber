@@ -1,13 +1,13 @@
 package com.aituber.poc.character.live2d.install
 
-import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.charset.Charset
 import java.nio.file.Files
 import java.util.zip.ZipEntry
+import java.util.zip.CRC32
+import java.util.zip.Deflater
 import java.util.zip.ZipOutputStream
-import javax.imageio.ImageIO
 
 /** Builds synthetic creator packages for converter tests. */
 internal object TestPackages {
@@ -42,12 +42,60 @@ internal object TestPackages {
         return out.toByteArray()
     }
 
+    /**
+     * A transparent RGBA PNG. Encoded by hand: java.awt / javax.imageio are not on the
+     * Android unit-test classpath, so the test sources would not compile with them.
+     */
     fun png(width: Int = 64, height: Int = 64): ByteArray {
-        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+        val raw = ByteArrayOutputStream()
+        val row = ByteArray(1 + width * 4) // filter type 0, then transparent pixels
+        repeat(height) { raw.write(row) }
+        val deflater = Deflater()
+        deflater.setInput(raw.toByteArray())
+        deflater.finish()
+        val idat = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (!deflater.finished()) {
+            val count = deflater.deflate(buffer)
+            idat.write(buffer, 0, count)
+        }
+        deflater.end()
+
+        val ihdr = ByteArrayOutputStream().apply {
+            write(int32(width))
+            write(int32(height))
+            write(8) // bit depth
+            write(6) // colour type: RGBA
+            write(0) // compression
+            write(0) // filter
+            write(0) // no interlace
+        }.toByteArray()
+
         val out = ByteArrayOutputStream()
-        ImageIO.write(image, "png", out)
+        out.write(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))
+        pngChunk(out, "IHDR", ihdr)
+        pngChunk(out, "IDAT", idat.toByteArray())
+        pngChunk(out, "IEND", ByteArray(0))
         return out.toByteArray()
     }
+
+    private fun pngChunk(out: ByteArrayOutputStream, type: String, data: ByteArray) {
+        val typeBytes = type.toByteArray(Charsets.US_ASCII)
+        out.write(int32(data.size))
+        out.write(typeBytes)
+        out.write(data)
+        val crc = CRC32()
+        crc.update(typeBytes)
+        crc.update(data)
+        out.write(int32(crc.value.toInt()))
+    }
+
+    private fun int32(value: Int): ByteArray = byteArrayOf(
+        (value ushr 24).toByte(),
+        (value ushr 16).toByte(),
+        (value ushr 8).toByte(),
+        value.toByte()
+    )
 
     fun json(text: String): ByteArray = text.trimIndent().toByteArray(Charsets.UTF_8)
 

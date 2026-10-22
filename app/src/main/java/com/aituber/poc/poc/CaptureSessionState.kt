@@ -51,6 +51,9 @@ object CaptureSessionState {
 
     fun current(): UniversalStateSnapshot = currentSnapshot
 
+    /** True while AITuber's own Claude chat screen drives the character. */
+    fun directChatActive(): Boolean = directChatState != null
+
     fun currentAccessibilityTestPhase(): String = accessibilityTestPhase
 
     private inline fun mutate(block: (UniversalStateSnapshot) -> UniversalStateSnapshot) {

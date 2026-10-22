@@ -4,6 +4,9 @@ object CaptureStatus {
     const val NOT_STARTED = "Not started"
     const val WAITING_FOR_PERMISSION = "Waiting for MediaProjection permission"
     const val SERVICE_STARTING = "Starting persistent capture session"
+    /** Default mode: only the speaker-output Visualizer, no MediaProjection consent. */
+    const val LISTENING = "Listening to speaker output (no recording consent needed)"
+    const val SERVICE_START_FAILED = "Detection service could not start"
     const val CAPTURING = "Capturing playback audio"
     const val BLOCKED_BY_SOURCE_APP = "Playback Capture unavailable or blocked by source app policy"
     /** Playback Capture reads only zeros: the app is silent or opted out of capture (Android cannot tell which). */
