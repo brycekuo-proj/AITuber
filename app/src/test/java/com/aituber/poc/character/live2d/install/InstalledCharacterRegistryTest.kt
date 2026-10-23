@@ -56,6 +56,37 @@ class InstalledCharacterRegistryTest {
     }
 
     @Test
+    fun removeDeletesOnlyThatCharacter() {
+        val root = File(TestPackages.tempDir("files"), "characters")
+        install(root, "store_goth")
+        install(root, "store_other")
+        assertTrue(InstalledCharacterRegistry.sizeBytes(root, "store_goth") > 0L)
+
+        assertTrue(InstalledCharacterRegistry.remove(root, "store_goth"))
+        assertFalse(File(root, "store_goth").exists())
+        assertEquals(listOf("store_other"), InstalledCharacterRegistry.scan(root).map { it.id })
+        assertEquals(listOf("store_other"), root.list()!!.filter { !it.startsWith(".") })
+        assertEquals(0L, InstalledCharacterRegistry.sizeBytes(root, "store_goth"))
+        // Already gone counts as removed.
+        assertTrue(InstalledCharacterRegistry.remove(root, "store_goth"))
+    }
+
+    @Test
+    fun removeRefusesBuiltInsAndUnsafeIds() {
+        val files = TestPackages.tempDir("files")
+        val root = File(files, "characters").apply { mkdirs() }
+        val outside = File(files, "keep.txt").apply { writeText("x") }
+        val builtInFolder = File(root, "tororo").apply { mkdirs() }
+
+        listOf("tororo", "haru", "../keep.txt", "..", "a/b", "", ".hidden").forEach { id ->
+            assertTrue("should refuse \"$id\"", runCatching { InstalledCharacterRegistry.remove(root, id) }.isFailure)
+        }
+        assertTrue(outside.exists())
+        assertTrue(builtInFolder.exists())
+        assertEquals(0L, InstalledCharacterRegistry.sizeBytes(root, "../keep.txt"))
+    }
+
+    @Test
     fun brokenOrMismatchedFoldersAreSkipped() {
         val root = File(TestPackages.tempDir("files"), "characters")
         install(root, "store_goth")

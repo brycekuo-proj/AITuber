@@ -19,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.aituber.poc.character.live2d.Live2DCharacterProfile
 import com.aituber.poc.character.live2d.Live2DCharacterProfiles
 import com.aituber.poc.character.live2d.Live2DNativeBridge
 import com.aituber.poc.character.live2d.Live2DProfileStore
@@ -455,7 +456,14 @@ class CharacterStoreActivity : Activity() {
             val installed = entry.builtInProfileId != null ||
                 InstalledCharacterRegistry.isInstalled(this@CharacterStoreActivity, storeCharacterId(entry))
             val blocked = entry.unavailableReason
-            addView(
+            // Downloaded from here (not built in): it can be deleted again.
+            val downloadedProfile = if (entry.builtInProfileId == null && installed) {
+                Live2DCharacterProfiles.all.firstOrNull { it.id == storeCharacterId(entry) }
+                    ?.takeIf(DownloadedCharacters::isDownloaded)
+            } else {
+                null
+            }
+            val actionButton =
                 TextView(this@CharacterStoreActivity).apply {
                     text = when {
                         blocked != null -> blocked
@@ -488,14 +496,55 @@ class CharacterStoreActivity : Activity() {
                         }
                     }
                     installBroadwayPressFeedback()
-                },
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(46)
-                ).apply {
-                    topMargin = dp(8)
                 }
+            val actionParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(46)
+            ).apply {
+                topMargin = dp(8)
+            }
+            if (downloadedProfile == null) {
+                addView(actionButton, actionParams)
+            } else {
+                addView(
+                    LinearLayout(this@CharacterStoreActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        addView(actionButton, LinearLayout.LayoutParams(0, dp(46), 1f))
+                        addView(
+                            deleteButton(downloadedProfile),
+                            LinearLayout.LayoutParams(dp(58), dp(46)).apply { marginStart = dp(6) }
+                        )
+                    },
+                    actionParams
+                )
+            }
+        }
+    }
+
+    private fun deleteButton(profile: Live2DCharacterProfile): View {
+        return TextView(this).apply {
+            text = "刪除"
+            textSize = 15f
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = roundedPanel(
+                fill = Color.rgb(150, 36, 40),
+                stroke = Color.rgb(222, 120, 110),
+                strokeWidth = dp(2),
+                radius = dp(12).toFloat()
             )
+            isClickable = true
+            isFocusable = true
+            contentDescription = "刪除 " + profile.displayName
+            setOnClickListener {
+                if (downloadInFlight) return@setOnClickListener
+                DownloadedCharacters.confirmDelete(this@CharacterStoreActivity, profile) {
+                    val store = this@CharacterStoreActivity
+                    if (!store.isFinishing && !store.isDestroyed) store.setContentView(store.buildStore())
+                }
+            }
+            installBroadwayPressFeedback()
         }
     }
 

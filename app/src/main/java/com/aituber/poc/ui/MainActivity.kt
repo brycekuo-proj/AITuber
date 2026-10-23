@@ -571,6 +571,10 @@ class MainActivity : Activity() {
                 broadwayHomeView?.showPreview(profile)
             }
         }
+        // The character on the stage was deleted (e.g. in the store): show the saved one.
+        if (Live2DCharacterProfiles.all.none { it.id == broadwayPreviewProfile.id }) {
+            showStoredPreview()
+        }
         activityResumed = true
         if (awaitingSettingsReturn) {
             awaitingSettingsReturn = false
@@ -719,11 +723,8 @@ class MainActivity : Activity() {
                 )
             },
             onMyCharacters = {
-                android.widget.Toast.makeText(
-                    this,
-                    "目前角色：${broadwayPreviewProfile.displayName}",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
+                secondaryDialog?.dismiss()
+                secondaryDialog = showMyCharacters()
             },
             onCharacterShop = {
                 startActivity(Intent(this, CharacterStoreActivity::class.java))
@@ -1727,6 +1728,30 @@ class MainActivity : Activity() {
                 android.widget.Toast.LENGTH_LONG
             ).show()
         }
+    }
+
+    /** "我的角色": pick a character for the stage, or delete a downloaded one. */
+    private fun showMyCharacters(): android.app.AlertDialog = MyCharactersDialog.show(
+        activity = this,
+        currentId = broadwayPreviewProfile.id,
+        onPick = { profile ->
+            broadwayPreviewProfile = profile
+            broadwayHomeView?.showPreview(profile)
+        },
+        releaseUsers = { profile ->
+            if (broadwayPreviewProfile.id == profile.id) showStoredPreview()
+        },
+        onDeleted = {
+            if (!isFinishing && !isDestroyed) secondaryDialog = showMyCharacters()
+        },
+        onOpenStore = { startActivity(Intent(this, CharacterStoreActivity::class.java)) }
+    )
+
+    /** Puts the saved character on the stage (the shown one was deleted). */
+    private fun showStoredPreview() {
+        val stored = Live2DProfileStore.load(this)
+        broadwayPreviewProfile = stored
+        broadwayHomeView?.showPreview(stored)
     }
 
     private fun openAppDetailsSettings() {

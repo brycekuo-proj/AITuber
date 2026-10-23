@@ -99,12 +99,34 @@ object InstalledCharacterRegistry {
         trash?.deleteRecursively()
     }
 
+    /** Deletes a downloaded character and drops it from the carousel. Any thread. */
     fun uninstall(context: Context, id: String): Boolean {
-        require(CharacterManifest.isValidId(id))
-        val dir = File(root(context), id)
-        val removed = !dir.exists() || dir.deleteRecursively()
+        val removed = remove(root(context), id)
+        if (lastInstalledId == id) lastInstalledId = null
         reload(context)
         return removed
+    }
+
+    /**
+     * Deletes the folder of an installed character. Built-in ids are refused: those live in
+     * the APK. The folder is renamed first, so a half-deleted folder never looks like a
+     * character; leftovers are cleaned up with the next install. True when it is gone.
+     */
+    fun remove(root: File, id: String): Boolean {
+        require(CharacterManifest.isValidId(id)) { "Invalid character id: $id" }
+        require(Live2DCharacterProfiles.builtIns.none { it.id == id }) { "Built-in character $id cannot be removed" }
+        val dir = File(root, id)
+        if (!dir.exists()) return true
+        val trash = File(root, "$TRASH_PREFIX$id-${System.nanoTime()}")
+        val doomed = if (dir.renameTo(trash)) trash else dir
+        doomed.deleteRecursively()
+        return !dir.exists()
+    }
+
+    /** Bytes the character takes on the phone (0 when it is not installed). */
+    fun sizeBytes(root: File, id: String): Long {
+        if (!CharacterManifest.isValidId(id)) return 0L
+        return File(root, id).walkBottomUp().filter { it.isFile }.sumOf { it.length() }
     }
 
     private fun cleanupLeftovers(root: File) {
